@@ -1,0 +1,102 @@
+/** Kompresi gambar di browser (canvas) — tanpa dependency ekstra. */
+
+export type CompressImageOptions = {
+  /** Sisi terpanjang maksimal (px). Default 1600 — cukup untuk nota. */
+  maxEdge?: number;
+  /** Kualitas JPEG 0–1. Default 0.72. */
+  quality?: number;
+  /** Target ukuran maksimal (bytes). Akan turunkan quality jika perlu. Default 450 KB. */
+  maxBytes?: number;
+};
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Gagal memuat gambar untuk kompresi."));
+    };
+    img.src = url;
+  });
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number,
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) reject(new Error("Gagal membuat blob gambar."));
+        else resolve(blob);
+      },
+      type,
+      quality,
+    );
+  });
+}
+
+function baseName(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i > 0 ? name.slice(0, i) : name;
+}
+
+/**
+ * Resize + JPEG compress. PDF / non-image dikembalikan apa adanya.
+ * Hasil selalu `image/jpeg` agar ringan dan konsisten.
+ */
+export async function compressImageFile(
+  file: File,
+  options: CompressImageOptions = {},
+): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+
+  const maxEdge = options.maxEdge ?? 1600;
+  const maxBytes = options.maxBytes ?? 450 * 1024;
+  let quality = options.quality ?? 0.72;
+
+  const img = await loadImage(file);
+  const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let blob = await canvasToBlob(canvas, "image/jpeg", quality);
+
+  // Turunkan quality bertahap jika masih terlalu besar
+  while (blob.size > maxBytes && quality > 0.45) {
+    quality = Math.round((quality - 0.08) * 100) / 100;
+    blob = await canvasToBlob(canvas, "image/jpeg", quality);
+  }
+
+  // Jika setelah resize+compress masih lebih besar dari asli dan asli sudah JPEG kecil, pakai asli
+  if (blob.size >= file.size && file.type === "image/jpeg" && file.size <= maxBytes) {
+    return file;
+  }
+
+  return new File([blob], `${baseName(file.name)}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

@@ -1,0 +1,15 @@
+# Blueprint opsional — atau set manual di dashboard Render (lihat RENDER.md)
+services:
+  - type: web
+    name: kas-proyek
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false

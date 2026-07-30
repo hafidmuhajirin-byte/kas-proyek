@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MANDOR
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+}
+
+enum BillingMode {
+  ON_REQUEST
+  TERMIN_PLAN
+  PAY_AT_END
+}
+
+enum CashSourceType {
+  BANK
+  CASH
+  CLIENT_TRANSFER
+  OTHER
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model User {
+  id           String        @id @default(cuid())
+  username     String        @unique
+  name         String
+  passwordHash String
+  role         Role          @default(MANDOR)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+  cashTransfers CashTransfer[]
+  projectAssignments ProjectAssignment[]
+  mandorDisbursements MandorDisbursement[] @relation("MandorDisbursements")
+}
+
+model Project {
+  id             String         @id @default(cuid())
+  name           String
+  location       String
+  status         ProjectStatus  @default(ACTIVE)
+  billingMode    BillingMode    @default(ON_REQUEST)
+  openingBalance Int            @default(0)
+  contractValue  Int            @default(0)
+  notes          String?        @db.Text
+  checkPlanning    Boolean      @default(false)
+  checkSupervision Boolean      @default(false)
+  checkManagement  Boolean      @default(false)
+  checkTax         Boolean      @default(false)
+  checkReporting   Boolean      @default(false)
+  checkContractor  Boolean      @default(false)
+  checkNoRetention Boolean      @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  transactions   Transaction[]
+  fundingStages  FundingStage[]
+  workItems      WorkItem[]
+  contractor     Contractor?
+  funds          ProjectFund[]
+  assignments    ProjectAssignment[]
+  mandorDisbursements MandorDisbursement[]
+}
+
+model ProjectAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+/// Dana Owner → Mandor (bukan termin klien)
+model MandorDisbursement {
+  id          String   @id @default(cuid())
+  date        DateTime
+  label       String
+  sequence    Int      @default(1)
+  amount      Int
+  description String   @default("") @db.Text
+  proofUrl    String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mandorId     String
+  mandor       User       @relation("MandorDisbursements", fields: [mandorId], references: [id], onDelete: Restrict)
+  cashSourceId String
+  cashSource   CashSource @relation(fields: [cashSourceId], references: [id], onDelete: Restrict)
+  transactionId String?   @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([mandorId])
+  @@index([date])
+}
+
+enum ProjectFundKind {
+  PLANNING
+  SUPERVISION
+  MANAGEMENT
+  TAX
+  REPORTING
+  SAVE
+}
+
+model ProjectFund {
+  id            String          @id @default(cuid())
+  kind          ProjectFundKind
+  plannedAmount Int             @default(0)
+  notes         String?         @db.Text
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, kind])
+  @@index([projectId])
+}
+
+model Contractor {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String?
+  notes        String?  @db.Text
+  agreedAmount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  projectId String  @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  advances ContractorAdvance[]
+  expenses ContractorExpense[]
+}
+
+enum ContractorExpenseKind {
+  MATERIAL
+  WAGES
+  OTHER
+}
+
+model ContractorAdvance {
+  id                String   @id @default(cuid())
+  date              DateTime
+  amount            Int
+  fromProjectAmount Int      @default(0)
+  fromGlobalAmount  Int      @default(0)
+  description       String   @db.Text
+  proofUrl          String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  cashSourceId String
+  cashSource   CashSource @relation(fields: [cashSourceId], references: [id], onDelete: Restrict)
+
+  @@index([contractorId])
+  @@index([date])
+}
+
+model ContractorExpense {
+  id          String                @id @default(cuid())
+  date        DateTime
+  amount      Int
+  kind        ContractorExpenseKind @default(OTHER)
+  description String                @db.Text
+  proofUrl    String?               @db.Text
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  @@index([contractorId])
+  @@index([date])
+}
+
+model WorkItem {
+  id          String   @id @default(cuid())
+  date        DateTime
+  description String   @db.Text
+  quantity    Float?
+  unit        String?
+  amount      Int
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([date])
+}
+
+model FundingStage {
+  id            String        @id @default(cuid())
+  name          String
+  sequence      Int           @default(1)
+  percent       Int           @default(0)
+  plannedAmount Int           @default(0)
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  projectId    String
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([projectId])
+}
+
+model CashSource {
+  id            String         @id @default(cuid())
+  name          String
+  type          CashSourceType @default(OTHER)
+  accountNumber String?
+  notes         String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  transactions Transaction[]
+  contractorAdvances ContractorAdvance[]
+  transfersFrom CashTransfer[] @relation("TransferFrom")
+  transfersTo   CashTransfer[] @relation("TransferTo")
+  mandorDisbursements MandorDisbursement[]
+}
+
+model CashTransfer {
+  id          String   @id @default(cuid())
+  date        DateTime
+  amount      Int
+  description String   @db.Text
+  proofUrl    String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fromCashSourceId String
+  fromCashSource   CashSource @relation("TransferFrom", fields: [fromCashSourceId], references: [id], onDelete: Restrict)
+  toCashSourceId   String
+  toCashSource     CashSource @relation("TransferTo", fields: [toCashSourceId], references: [id], onDelete: Restrict)
+  createdById      String
+  createdBy        User       @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([date])
+  @@index([fromCashSourceId])
+  @@index([toCashSourceId])
+}
+
+model Category {
+  id           String         @id @default(cuid())
+  name         String
+  type         CategoryType
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  transactions Transaction[]
+
+  @@unique([name, type])
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  date        DateTime
+  type        TransactionType
+  amount      Int
+  description String          @db.Text
+  proofUrl    String?         @db.Text
+  isOwnerPersonal Boolean     @default(false)
+  isFromGlobalCash Boolean    @default(false)
+  isFeeTransfer   Boolean     @default(false)
+  isMandorDisbursement Boolean @default(false)
+  isMandorExpense      Boolean @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  projectId      String?
+  project        Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  cashSourceId   String
+  cashSource     CashSource    @relation(fields: [cashSourceId], references: [id], onDelete: Restrict)
+  categoryId     String
+  category       Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdById    String
+  createdBy      User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  fundingStageId String?
+  fundingStage   FundingStage? @relation(fields: [fundingStageId], references: [id], onDelete: SetNull)
+  mandorDisbursement MandorDisbursement?
+
+  @@index([date])
+  @@index([projectId])
+  @@index([cashSourceId])
+  @@index([type])
+  @@index([fundingStageId])
+  @@index([isOwnerPersonal])
+  @@index([isFromGlobalCash])
+  @@index([isFeeTransfer])
+  @@index([isMandorDisbursement])
+  @@index([isMandorExpense])
+}

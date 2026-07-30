@@ -1,0 +1,207 @@
+"use client";
+
+import { useState } from "react";
+import { formatRupiah } from "@/lib/money";
+import {
+  calcProjectProfit,
+  PROFIT_MARGIN_BENCHMARK,
+  PROJECT_FEE_PERCENT,
+  PROFIT_METHOD_NOTE,
+  type ProjectProfitInput,
+} from "@/lib/project-profit";
+import { Card } from "@/components/ui";
+
+export function ProjectProfitPanel({
+  input,
+  feeTransferred = 0,
+  ownerPersonalDraws = 0,
+}: {
+  input: Omit<ProjectProfitInput, "contingencyPercent">;
+  feeTransferred?: number;
+  ownerPersonalDraws?: number;
+}) {
+  const [contingencyPercent, setContingencyPercent] = useState(0);
+  const profit = calcProjectProfit({ ...input, contingencyPercent });
+
+  const marginTone =
+    profit.marginBand === "within"
+      ? "text-[var(--accent)]"
+      : profit.marginBand === "above"
+        ? "text-[var(--emerald-ink)]"
+        : profit.marginBand === "below"
+          ? "text-[var(--rose-ink)]"
+          : "text-[var(--ink-faint)]";
+
+  const marginHint =
+    profit.marginBand === "within"
+      ? `Sekitar fee ${PROJECT_FEE_PERCENT}% (${PROFIT_MARGIN_BENCHMARK.low}–${PROFIT_MARGIN_BENCHMARK.high}%)`
+      : profit.marginBand === "above"
+        ? `Di atas fee ${PROJECT_FEE_PERCENT}%`
+        : profit.marginBand === "below"
+          ? `Di bawah fee ${PROJECT_FEE_PERCENT}%`
+          : "Belum ada pendapatan acuan";
+
+  return (
+    <Card className="mt-5 sm:mt-6">
+      <details>
+        <summary className="cursor-pointer list-none">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-medium text-[var(--ink)]">
+                Estimasi keuntungan
+              </h3>
+              <p className="mt-0.5 text-sm text-[var(--ink-muted)]">
+                Fee {formatRupiah(profit.feeTargetProfit)} · Realisasi{" "}
+                {formatRupiah(profit.realizedProfit)}
+              </p>
+            </div>
+            <span className="text-sm text-[var(--accent)]">Buka rincian</span>
+          </div>
+        </summary>
+
+        <div className="mt-4 border-t border-[var(--line-soft)] pt-4">
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-[var(--line-soft)] bg-[#fffcf7] p-3.5">
+              <p className="text-[11px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase">
+                Target fee {PROJECT_FEE_PERCENT}%
+              </p>
+              <p className="mt-1.5 font-serif text-xl tabular-nums text-[var(--ink)] sm:text-2xl">
+                {formatRupiah(profit.feeTargetProfit)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-[var(--line-soft)] bg-[#fffcf7] p-3.5">
+              <p className="text-[11px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase">
+                Realisasi saat ini
+              </p>
+              <p
+                className={`mt-1.5 font-serif text-xl tabular-nums sm:text-2xl ${
+                  profit.realizedProfit >= 0
+                    ? "text-[var(--ink)]"
+                    : "text-[var(--rose-ink)]"
+                }`}
+              >
+                {formatRupiah(profit.realizedProfit)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-[var(--accent)]/25 bg-[var(--paper-tint)]/80 p-3.5">
+              <p className="text-[11px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase">
+                Proyeksi maksimal
+              </p>
+              <p
+                className={`mt-1.5 font-serif text-xl tabular-nums sm:text-2xl ${
+                  profit.maxProjectedProfit >= 0
+                    ? "text-[var(--ink)]"
+                    : "text-[var(--rose-ink)]"
+                }`}
+              >
+                {formatRupiah(profit.maxProjectedProfit)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-[var(--line-soft)] bg-[#fffcf7] p-3.5">
+              <p className="text-[11px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase">
+                Margin proyeksi
+              </p>
+              <p
+                className={`mt-1.5 font-serif text-xl tabular-nums sm:text-2xl ${marginTone}`}
+              >
+                {profit.projectedMarginPercent != null
+                  ? `${profit.projectedMarginPercent}%`
+                  : "—"}
+              </p>
+              <p className={`mt-1 text-xs ${marginTone}`}>{marginHint}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-teal-900/8 bg-teal-50/40 px-4 py-3 text-sm text-teal-950/80">
+            Sisa potensi:{" "}
+            <strong className="tabular-nums">
+              {formatRupiah(profit.remainingPotential)}
+            </strong>
+            {profit.feeTargetProfit > 0 ? (
+              <>
+                {" "}
+                · Gap ke fee:{" "}
+                <strong className="tabular-nums">
+                  {formatRupiah(profit.feeTargetProfit - profit.realizedProfit)}
+                </strong>
+              </>
+            ) : null}
+            {feeTransferred > 0 ? (
+              <>
+                {" "}
+                · Fee ke bank:{" "}
+                <strong className="tabular-nums">
+                  {formatRupiah(feeTransferred)}
+                </strong>
+              </>
+            ) : null}
+            {ownerPersonalDraws > 0 ? (
+              <>
+                {" "}
+                · Ambil pribadi:{" "}
+                <strong className="tabular-nums">
+                  {formatRupiah(ownerPersonalDraws)}
+                </strong>
+              </>
+            ) : null}
+          </div>
+
+          <div className="mt-5 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <label htmlFor="contingency" className="font-medium text-teal-950">
+                Kontinjensi risiko
+              </label>
+              <span className="tabular-nums text-teal-900/70">
+                {contingencyPercent}% · {formatRupiah(profit.contingencyAmount)}
+              </span>
+            </div>
+            <input
+              id="contingency"
+              type="range"
+              min={0}
+              max={15}
+              step={1}
+              value={contingencyPercent}
+              onChange={(e) => setContingencyPercent(Number(e.target.value))}
+              className="w-full accent-teal-800"
+            />
+          </div>
+
+          <dl className="mt-5 grid gap-2 border-t border-teal-900/10 pt-4 text-sm text-teal-900/75 sm:grid-cols-2">
+            <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
+              <dt>Pendapatan acuan</dt>
+              <dd className="tabular-nums font-medium text-teal-950">
+                {formatRupiah(profit.revenueBase)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
+              <dt>Pendapatan diterima</dt>
+              <dd className="tabular-nums font-medium text-teal-950">
+                {formatRupiah(profit.clientIncome)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
+              <dt>Biaya terpakai</dt>
+              <dd className="tabular-nums font-medium text-rose-800">
+                {formatRupiah(profit.costUsed)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
+              <dt>Sisa rencana dana ops.</dt>
+              <dd className="tabular-nums font-medium text-rose-800">
+                {formatRupiah(profit.remainingPlannedFunds)}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="mt-4 text-[11px] leading-relaxed text-teal-900/45">
+            {PROFIT_METHOD_NOTE}
+          </p>
+        </div>
+      </details>
+    </Card>
+  );
+}

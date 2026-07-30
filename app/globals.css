@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f4f0e8;
+  --paper-tint: #e8ede8;
+  --ink: #1a2f2a;
+  --ink-muted: rgba(26, 47, 42, 0.62);
+  --ink-faint: rgba(26, 47, 42, 0.45);
+  --accent: #1f4a43;
+  --accent-soft: #2d5f56;
+  --line: #c9d1c8;
+  --line-soft: rgba(201, 209, 200, 0.7);
+  --surface: rgba(255, 252, 247, 0.92);
+  --rose-ink: #8f2f3a;
+  --emerald-ink: #1f6b4a;
+  --background: var(--paper);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-paper: var(--paper);
+  --color-paper-tint: var(--paper-tint);
+  --color-ink: var(--ink);
+  --color-accent: var(--accent);
+  --color-line: var(--line);
+  --font-sans: var(--font-figtree);
+  --font-serif: var(--font-fraunces);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-figtree), "Segoe UI", sans-serif;
+}
+
+.font-serif {
+  font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
+}
+
+/* Kertas lembut — bukan flat AI purple */
+.app-paper {
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(232, 237, 232, 0.9), transparent 55%),
+    radial-gradient(900px 420px at 100% 0%, rgba(244, 240, 232, 0.95), transparent 50%),
+    linear-gradient(180deg, #f6f2ea 0%, #eef1ea 45%, #f3efe6 100%);
+}
+
+.app-paper::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  z-index: 0;
+}
+
+.safe-pb {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.safe-bottom-nav {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  padding-left: max(0.25rem, env(safe-area-inset-left));
+  padding-right: max(0.25rem, env(safe-area-inset-right));
+}
+
+.safe-top-bar {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* Ruang konten di atas bottom nav + FAB di HP */
+.mobile-main-pad {
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) {
+  .mobile-main-pad {
+    padding-bottom: 2rem;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm 10mm;
+  }
+
+  html,
+  body {
+    background: white !important;
+    color: #111 !important;
+  }
+
+  .app-paper::before {
+    display: none !important;
+  }
+
+  .ledger-doc {
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  .ledger-project {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .ledger-section {
+    break-inside: avoid;
+  }
+
+  .ledger-table {
+    font-size: 11px;
+  }
+
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+}
