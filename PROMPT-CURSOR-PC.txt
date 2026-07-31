@@ -1,0 +1,19 @@
+Baca dulu file HANDOFF-KAS-PROYEK.md di repo (atau salinan Drive).
+
+Ringkasan konteks:
+- App: Kas Proyek — Next.js 16 + Prisma MySQL, role OWNER / ADMIN / MANDOR
+- Repo: https://github.com/hafidmuhajirin-byte/kas-proyek
+- VPS: 38.103.170.55 Ubuntu 24.04, app di /var/www/kas-proyek, PM2 nama kas-proyek, MySQL DB kas_proyek
+- Domain: https://hafitproyek.online — DNS A harus ke 38.103.170.55 (Zone Editor Niaga; NS ns1/ns2.niagahoster.com)
+- Seed login: owner/owner123, admin/admin123, mandor/mandor123 (ganti setelah live)
+- Root VPS password pernah terekspos — sudah dirotasi; jangan menyebarkan ulang tanpa perlu
+- CV/kasir tetap di Niagahoster shared — JANGAN jalankan Node Kas di shared hosting
+
+Prioritas kerja (status 31 Jul 2026):
+1. DNS hafitproyek.online → 38.103.170.55 — SUDAH OK
+2. nginx IP/domain 404 setelah SSL — SUDAH DIPERBAIKI (default_server)
+3. PM2 kas-proyek jalan; deploy aman: pm2 stop → build → pm2 start — ONLINE
+4. AUTH_COOKIE_SECURE=true untuk HTTPS — SUDAH true
+5. Setelah akses OK, lanjut fitur/bug dari handoff atau permintaan user
+
+Jangan mengulang setup dari nol kecuali benar-benar perlu.

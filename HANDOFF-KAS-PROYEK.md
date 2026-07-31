@@ -139,10 +139,29 @@ Jika masih 404 di HP: flush DNS / data seluler / hard refresh.
 
 ---
 
-## 10. Prioritas lanjut
+## 10. Checklist prompt — diverifikasi 31 Jul 2026 (cloud agent)
 
-1. Verifikasi login HTTPS di HP
-2. Ganti password seed aplikasi
-3. Lanjut fitur sesuai permintaan user
+| # | Item | Status |
+|---|------|--------|
+| 1 | DNS `hafitproyek.online` → `38.103.170.55` | **OK** (Google 8.8.8.8 + Cloudflare 1.1.1.1); NS = `ns1/ns2.niagahoster.com` |
+| 2 | nginx IP + domain (default_server, proxy :3000) | **OK** — `/login` 200 di HTTPS domain, www, dan HTTP IP |
+| 3 | PM2 `kas-proyek` | **OK** — online |
+| 4 | `AUTH_COOKIE_SECURE=true` | **OK** di `.env` VPS |
+| 5 | SSL Let's Encrypt | **OK** — CN `hafitproyek.online`, valid s/d ~29 Okt 2026 |
+
+Jika HP masih 404: cache DNS lama. Pakai data seluler / tab samaran, atau buka dulu `http://38.103.170.55/login`.
+
+Kode fitur live (login wallpaper/Jost, mandor Maps, keuntungan, hapus proyek aman, cookie secure) sudah disinkron ke GitHub di branch PR.
+
+---
+
+## 11. Prioritas lanjut
+
+1. Verifikasi login HTTPS di HP (setelah flush DNS jika perlu)
+2. Ganti password seed aplikasi (`owner` / `admin` / `mandor`)
+3. Merge PR sync GitHub, lalu di VPS: `pm2 stop` → `git pull` → `build` → `pm2 start`
+4. Lanjut fitur sesuai permintaan user
+
+File prompt: `PROMPT-CURSOR-PC.txt` (salinan di repo).
 
 *Akhir handoff.*
