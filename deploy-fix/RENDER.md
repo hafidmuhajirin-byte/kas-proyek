@@ -1,6 +1,7 @@
-# Deploy Kas Proyek ke Render (gratis)
+# Deploy Kas Proyek ke Render (alternatif)
 
-CV tetap di Niagahoster. Kas Proyek pindah ke Render agar tidak bentrok resource.
+**Produksi saat ini memakai VPS** (https://hafitproyek.online) — lihat `DEPLOY.md` / `HANDOFF-KAS-PROYEK.md`.  
+Dokumen ini hanya jika Anda memilih Render sebagai alternatif. CV tetap di Niagahoster shared.
 
 ## Batasan free tier
 - App bisa **sleep** jika sepi → request pertama lambat (cold start)

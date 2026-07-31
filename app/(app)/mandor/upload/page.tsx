@@ -39,8 +39,10 @@ export default async function MandorUploadPage({
 
   return (
     <div className="space-y-4">
-      <h1 className="font-serif text-2xl text-[var(--ink)]">Upload bukti</h1>
-      <p className="text-sm text-[var(--ink-muted)]">
+      <h1 className="text-center text-2xl font-bold uppercase tracking-wide text-[var(--ink)]">
+        Upload bukti
+      </h1>
+      <p className="text-center text-sm text-[var(--ink-muted)]">
         Foto nota, isi nominal, lalu simpan. Wajib ada bukti.
       </p>
       <Card>

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function PageHeader({
   title,
   description,
@@ -31,12 +33,15 @@ export function PageHeader({
 export function Card({
   children,
   className = "",
+  id,
 }: {
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <div
+      id={id}
       className={`rounded-xl border border-[var(--line-soft)] bg-[var(--surface)] p-4 shadow-[0_1px_0_rgba(26,47,42,0.04)] sm:p-5 ${className}`}
     >
       {children}
@@ -49,11 +54,14 @@ export function StatCard({
   value,
   hint,
   tone = "neutral",
+  href,
 }: {
   label: string;
   value: string;
   hint?: string;
   tone?: "neutral" | "income" | "expense" | "balance";
+  /** Jika diisi, kartu menjadi tautan (mis. rincian keuntungan) */
+  href?: string;
 }) {
   const tones = {
     neutral: "text-[var(--ink)]",
@@ -62,8 +70,14 @@ export function StatCard({
     balance: "text-[var(--accent)]",
   };
 
-  return (
-    <div className="flex h-full min-w-0 flex-col rounded-xl border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-3 sm:px-5 sm:py-4">
+  const className =
+    "flex h-full min-w-0 flex-col rounded-xl border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-3 sm:px-5 sm:py-4" +
+    (href
+      ? " transition hover:border-[var(--accent)]/35 hover:bg-[var(--paper-tint)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/25"
+      : "");
+
+  const body = (
+    <>
       <p className="text-[10px] font-medium tracking-[0.08em] text-[var(--ink-faint)] uppercase sm:text-[11px]">
         {label}
       </p>
@@ -77,8 +91,18 @@ export function StatCard({
           {hint}
         </p>
       ) : null}
-    </div>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {body}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{body}</div>;
 }
 
 export function Field({

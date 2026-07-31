@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatRupiah } from "@/lib/money";
 import {
   calcProjectProfit,
@@ -21,7 +21,19 @@ export function ProjectProfitPanel({
   ownerPersonalDraws?: number;
 }) {
   const [contingencyPercent, setContingencyPercent] = useState(0);
+  const [open, setOpen] = useState(false);
   const profit = calcProjectProfit({ ...input, contingencyPercent });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#keuntungan") {
+      setOpen(true);
+      document.getElementById("keuntungan")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, []);
 
   const marginTone =
     profit.marginBand === "within"
@@ -42,8 +54,11 @@ export function ProjectProfitPanel({
           : "Belum ada pendapatan acuan";
 
   return (
-    <Card className="mt-5 sm:mt-6">
-      <details>
+    <Card id="keuntungan" className="mt-5 scroll-mt-24 sm:mt-6">
+      <details
+        open={open}
+        onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      >
         <summary className="cursor-pointer list-none">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -55,7 +70,9 @@ export function ProjectProfitPanel({
                 {formatRupiah(profit.realizedProfit)}
               </p>
             </div>
-            <span className="text-sm text-[var(--accent)]">Buka rincian</span>
+            <span className="text-sm text-[var(--accent)]">
+              {open ? "Tutup rincian" : "Buka rincian"}
+            </span>
           </div>
         </summary>
 

@@ -84,6 +84,15 @@ export function ProofCapture({
     syncHiddenInput(next);
   }
 
+  function looksLikeImage(file: File) {
+    if (file.type.startsWith("image/")) return true;
+    // Beberapa kamera HP mengirim MIME kosong — cek ekstensi
+    if (file.type === "" || file.type === "application/octet-stream") {
+      return /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(file.name);
+    }
+    return false;
+  }
+
   async function onPick(e: ChangeEvent<HTMLInputElement>) {
     const picked = e.target.files?.[0] ?? null;
     e.target.value = "";
@@ -98,7 +107,7 @@ export function ProofCapture({
       return;
     }
 
-    if (!picked.type.startsWith("image/")) {
+    if (!looksLikeImage(picked)) {
       assignFile(picked);
       return;
     }
@@ -181,15 +190,17 @@ export function ProofCapture({
         aria-hidden
       />
 
+      {/* capture + image/* → buka kamera belakang langsung (bukan galeri) */}
       <input
         ref={cameraRef}
         id={cameraId}
         type="file"
-        accept={IMAGE_ACCEPT}
+        accept="image/*"
         capture="environment"
         className="hidden"
         onChange={(e) => void onPick(e)}
       />
+      {/* Tanpa capture → galeri / file picker (gambar + PDF) */}
       <input
         ref={galleryRef}
         id={galleryId}

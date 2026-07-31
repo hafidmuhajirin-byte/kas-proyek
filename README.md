@@ -44,9 +44,9 @@ Ganti password default setelah login pertama. Ubah juga `AUTH_SECRET` di file `.
 
 ## Deploy produksi
 
-- **Render (disarankan):** [deploy-fix/RENDER.md](./deploy-fix/RENDER.md)
-- **cPanel MySQL:** [deploy-fix/HOSTING-MYSQL.md](./deploy-fix/HOSTING-MYSQL.md)
-- **VPS / Docker / overview:** [DEPLOY.md](./DEPLOY.md)
+- **VPS (produksi):** https://hafitproyek.online — lihat [DEPLOY.md](./DEPLOY.md) & [HANDOFF-KAS-PROYEK.md](./HANDOFF-KAS-PROYEK.md)
+- **Render (alternatif):** [deploy-fix/RENDER.md](./deploy-fix/RENDER.md)
+- **cPanel MySQL (tidak disarankan):** [deploy-fix/HOSTING-MYSQL.md](./deploy-fix/HOSTING-MYSQL.md)
 
 ## Teknologi
 
