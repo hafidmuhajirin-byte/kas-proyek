@@ -155,13 +155,41 @@ Kode fitur live (login wallpaper/Jost, mandor Maps, keuntungan, hapus proyek ama
 
 ---
 
-## 11. Prioritas lanjut
+## 11. Status selesai — 31 Jul 2026 (cloud agent)
 
-1. Verifikasi login HTTPS di HP (setelah flush DNS jika perlu)
-2. Ganti password seed aplikasi (`owner` / `admin` / `mandor`)
-3. Merge PR sync GitHub, lalu di VPS: `pm2 stop` → `git pull` → `build` → `pm2 start`
-4. Lanjut fitur sesuai permintaan user
+| Item | Status |
+|------|--------|
+| Deploy VPS dari branch GitHub (`pm2 stop` → sync → `build` → `pm2 start`) | **SELESAI** — HEAD `82cffa7`, PM2 online |
+| Password root VPS | **SELESAI dirotasi** (simpan dari chat agent) |
+| Password akun aplikasi | **SELESAI dirotasi** untuk `owner` + `adminok` (bukan seed `admin`/`mandor` — akun itu tidak ada di DB produksi) |
+| Mandor lapangan (`feri`, `hendra`, `istiadi`, `lutfi`, `sulianto`) | **Tidak diubah** (akun nyata) |
+| DNS / nginx / HTTPS / cookie secure | **OK** (lihat §10) |
 
-File prompt: `PROMPT-CURSOR-PC.txt` (salinan di repo).
+### Login produksi (setelah rotasi)
+
+- Owner: username `owner` — password **lihat chat agent** (bukan `owner123`)
+- Admin: username `adminok` — password **lihat chat agent**
+- Seed lama `owner123` / `admin123` / `mandor123` **tidak berlaku** untuk akun yang sudah dirotasi
+
+### Setelah merge PR ke `main`
+
+Di VPS (opsional, agar tracking git rapi):
+
+```bash
+cd /var/www/kas-proyek
+git fetch origin
+git checkout main
+git reset --hard origin/main
+```
+
+(App sudah menjalankan commit yang sama dengan branch PR.)
+
+---
+
+## 12. Prioritas lanjut (fitur baru)
+
+Handoff go-live **selesai**. Lanjut hanya fitur/bug baru sesuai permintaan user.
+
+File prompt: `PROMPT-CURSOR-PC.txt`.
 
 *Akhir handoff.*
