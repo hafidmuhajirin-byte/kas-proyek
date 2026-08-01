@@ -116,15 +116,28 @@ export function Field({
   htmlFor?: string;
   hint?: string;
 }) {
-  return (
-    <label className="block space-y-1.5" htmlFor={htmlFor}>
+  // Tanpa htmlFor pakai <div> — bungkus tombol/file picker dalam <label>
+  // sering bentrok di Android (klik "Ambil foto" tidak membuka kamera).
+  const className = "block space-y-1.5";
+  const body = (
+    <>
       <span className="text-sm font-medium text-[var(--ink)]/85">{label}</span>
       {children}
       {hint ? (
         <span className="block text-xs text-[var(--ink-faint)]">{hint}</span>
       ) : null}
-    </label>
+    </>
   );
+
+  if (htmlFor) {
+    return (
+      <label className={className} htmlFor={htmlFor}>
+        {body}
+      </label>
+    );
+  }
+
+  return <div className={className}>{body}</div>;
 }
 
 export const inputClass =
