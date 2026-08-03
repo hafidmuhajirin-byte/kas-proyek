@@ -19,6 +19,7 @@ import { formatRupiah } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { tidyCase } from "@/lib/text";
 import { DisbursementProofDetails } from "@/components/DisbursementProofDetails";
+import { ProofReviewLink } from "@/components/ProofReviewLink";
 import {
   btnSecondaryClass,
   Card,
@@ -468,14 +469,12 @@ export default async function KasBesarPage({
                           <>
                             {" "}
                             ·{" "}
-                            <a
+                            <ProofReviewLink
                               href={meta.proofUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-medium text-teal-700 underline"
+                              title={row.description}
                             >
                               Lihat bukti
-                            </a>
+                            </ProofReviewLink>
                           </>
                         ) : null}
                         {showBreakdown && meta ? (
@@ -510,14 +509,13 @@ export default async function KasBesarPage({
                       </td>
                       <td className="py-3 pr-4 sm:pr-5 print:hidden">
                         {meta?.proofUrl ? (
-                          <a
+                          <ProofReviewLink
                             href={meta.proofUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                            title={row.description}
                             className="mr-3 text-sm font-medium text-teal-700 underline"
                           >
                             Lihat bukti
-                          </a>
+                          </ProofReviewLink>
                         ) : null}
                         {admin && meta?.entry === "tx" ? (
                           <div className="flex flex-wrap items-center gap-3">

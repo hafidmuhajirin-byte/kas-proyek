@@ -18,6 +18,7 @@ import {
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
+import { ProofReviewLink } from "@/components/ProofReviewLink";
 import { RupiahInput } from "@/components/RupiahInput";
 import {
   btnSecondaryClass,
@@ -315,14 +316,12 @@ export function ContractorPanel({
                         <>
                           {" "}
                           ·{" "}
-                          <a
+                          <ProofReviewLink
                             href={row.proofUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-teal-700 underline"
+                            title={tidyCase(row.description)}
                           >
                             bukti
-                          </a>
+                          </ProofReviewLink>
                         </>
                       ) : null}
                     </p>

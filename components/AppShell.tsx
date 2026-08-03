@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { logoutAction } from "@/lib/actions/auth";
 import type { SessionUser } from "@/lib/auth";
 import { roleLabels } from "@/lib/labels";
+import { ProofReviewHost } from "@/components/ProofReviewLink";
 
 const AssistantKas = dynamic(
   () => import("@/components/AssistantKas").then((m) => m.AssistantKas),
@@ -309,6 +310,7 @@ export function AppShell({
       ) : null}
 
       {nav.showAssistant ? <AssistantKas /> : null}
+      <ProofReviewHost />
     </div>
   );
 }

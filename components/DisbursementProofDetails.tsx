@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
+import { ProofReviewLink } from "@/components/ProofReviewLink";
 
 export type LinkedProofBrief = {
   id: string;
@@ -50,14 +51,12 @@ export function DisbursementProofDetails({
               {p.proofUrl ? (
                 <>
                   {" · "}
-                  <a
+                  <ProofReviewLink
                     href={p.proofUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-teal-700 underline"
+                    title={tidyCase(p.description)}
                   >
                     Lihat
-                  </a>
+                  </ProofReviewLink>
                 </>
               ) : null}
             </li>

@@ -21,6 +21,7 @@ import {
   MandorExpenseBreakdownForm,
   type ExpenseLineRow,
 } from "@/components/MandorExpenseBreakdownForm";
+import { ProofReviewLink } from "@/components/ProofReviewLink";
 import {
   btnSecondaryClass,
   Card,
@@ -482,14 +483,12 @@ export default async function KasProyekPage({
                           <>
                             {" "}
                             ·{" "}
-                            <a
+                            <ProofReviewLink
                               href={meta.proofUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-medium text-teal-700 underline"
+                              title={row.description}
                             >
                               Lihat bukti
-                            </a>
+                            </ProofReviewLink>
                           </>
                         ) : null}
                         {meta?.isMandorExpense && meta.amount != null ? (

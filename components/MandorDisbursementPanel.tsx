@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { createMandorDisbursementAction } from "@/lib/actions/disbursements";
 import { RupiahInput } from "@/components/RupiahInput";
+import { ProofReviewLink } from "@/components/ProofReviewLink";
 import {
   Alert,
   btnPrimaryClass,
@@ -80,14 +81,13 @@ export function MandorDisbursementPanel({
               <div className="flex items-center gap-2">
                 <span className="tabular-nums">{formatRupiah(r.amount)}</span>
                 {r.proofUrl ? (
-                  <a
+                  <ProofReviewLink
                     href={r.proofUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                    title={`${r.label} · ${r.mandorName}`}
                     className="text-[var(--accent)] underline"
                   >
                     Bukti
-                  </a>
+                  </ProofReviewLink>
                 ) : null}
               </div>
             </li>

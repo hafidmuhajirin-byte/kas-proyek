@@ -6,6 +6,7 @@ import {
   type BreakdownStatus,
   type ExpenseLineRow,
 } from "@/components/MandorExpenseBreakdownForm";
+import { ProofReviewLink } from "@/components/ProofReviewLink";
 
 export type MandorExpenseRow = {
   id: string;
@@ -113,14 +114,13 @@ export function MandorExpensePanel({
                     {formatRupiah(r.amount)}
                   </span>
                   {r.proofUrl ? (
-                    <a
+                    <ProofReviewLink
                       href={r.proofUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                      title={tidyCase(r.description)}
                       className="text-[var(--accent)] underline"
                     >
                       Lihat bukti
-                    </a>
+                    </ProofReviewLink>
                   ) : (
                     <span className="text-[var(--ink-faint)]">Tanpa file</span>
                   )}
