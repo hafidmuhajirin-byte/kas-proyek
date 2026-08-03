@@ -21,13 +21,11 @@ export function DisbursementProofDetails({
   proofs: LinkedProofBrief[];
 }) {
   const used = proofs.reduce((s, p) => s + p.amount, 0);
-  const sisa = cairAmount - used;
 
   return (
     <details className="mt-1.5 text-sm">
       <summary className="cursor-pointer text-teal-700 underline-offset-2 hover:underline">
-        Breakdown bukti ({proofs.length}) · terpakai {formatRupiah(used)} ·
-        sisa {formatRupiah(sisa)}
+        Bukti ({proofs.length}) · {formatRupiah(used)} / {formatRupiah(cairAmount)}
       </summary>
       {proofs.length === 0 ? (
         <p className="mt-2 text-xs text-teal-900/55">

@@ -64,8 +64,7 @@ export function MandorExpensePanel({
       <div>
         <h3 className="font-medium text-[var(--ink)]">Bukti belanja Mandor</h3>
         <p className="text-xs text-[var(--ink-faint)]">
-          {rows.length} bukti · klik pecah untuk rincian (disembunyikan agar
-          ringkas)
+          {rows.length} bukti · buka pecah bila perlu
         </p>
       </div>
 

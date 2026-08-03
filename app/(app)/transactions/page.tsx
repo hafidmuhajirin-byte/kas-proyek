@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { format } from "date-fns";
 import { redirect } from "next/navigation";
 import { deleteContractorAdvanceAction } from "@/lib/actions/contractor";
 import { deleteTransactionAction } from "@/lib/actions/transactions";
@@ -7,7 +6,6 @@ import { isOwner, isAdmin, requireSession } from "@/lib/auth";
 import { getGlobalCashBreakdown } from "@/lib/balance";
 import {
   buildRunningBalance,
-  moneyCell,
   sumCashMovements,
   type LedgerLine,
 } from "@/lib/report-ledger";
@@ -18,18 +16,21 @@ import {
 import { formatRupiah } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { tidyCase } from "@/lib/text";
+import {
+  BookLedgerTable,
+  BookSummaryStrip,
+  type BookRow,
+} from "@/components/BookLedgerTable";
 import { DisbursementProofDetails } from "@/components/DisbursementProofDetails";
-import { ProofReviewLink } from "@/components/ProofReviewLink";
 import {
   btnSecondaryClass,
   Card,
-  EmptyState,
   PageHeader,
 } from "@/components/ui";
 
 /**
- * Kas Besar — pemasukan owner + outflow nyata (termasuk termin/pencairan Mandor).
- * Bukti Mandor TIDAK menjadi baris kredit; tampil sebagai breakdown di bawah pencairan.
+ * Kas Besar — buku kas pusat (Penerimaan / Pengeluaran / Saldo).
+ * Bukti Mandor tidak menambah pengeluaran; tampil di bawah pencairan.
  */
 export default async function KasBesarPage({
   searchParams,
@@ -49,7 +50,6 @@ export default async function KasBesarPage({
     params.type === "INCOME" || params.type === "EXPENSE";
   const includeAdvances = params.type !== "INCOME";
 
-  // Admin diarahkan ke Kas Proyek (wajib pilih proyek)
   if (readOnlyAdmin) {
     const q = new URLSearchParams();
     if (params.projectId) q.set("projectId", params.projectId);
@@ -101,7 +101,7 @@ export default async function KasBesarPage({
   const [transactions, advances, projects, kasBesar] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
       select: {
         id: true,
         date: true,
@@ -126,7 +126,7 @@ export default async function KasBesarPage({
     includeAdvances
       ? prisma.contractorAdvance.findMany({
           where: advanceWhere,
-          orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+          orderBy: [{ date: "asc" }, { createdAt: "asc" }],
           select: {
             id: true,
             date: true,
@@ -161,7 +161,6 @@ export default async function KasBesarPage({
   const disbursementIds = transactions
     .filter((tx) => tx.isMandorDisbursement && tx.mandorDisbursement?.id)
     .map((tx) => tx.mandorDisbursement!.id);
-  // Also find MandorDisbursement by transaction relation reverse — already have via mandorDisbursement
   const advanceIds = advances.map((a) => a.id);
 
   const [proofsByDisbursement, proofsByAdvance] = await Promise.all([
@@ -243,11 +242,10 @@ export default async function KasBesarPage({
   const bookChrono = buildRunningBalance(ledgerLines, opening, {
     honorSkipBalance: true,
   });
-  const book = [...bookChrono].reverse();
 
   const cashMoves = sumCashMovements(bookChrono);
-  const totalDebit = cashMoves.debit;
-  const totalCredit = cashMoves.credit;
+  const totalIn = cashMoves.debit + (opening > 0 ? opening : 0);
+  const totalOut = cashMoves.credit;
   const saldoAkhir =
     bookChrono.length > 0
       ? bookChrono[bookChrono.length - 1].balance
@@ -285,11 +283,100 @@ export default async function KasBesarPage({
     });
   }
 
+  const bookRows: BookRow[] = bookChrono.map((row) => {
+    const meta = rowMeta.get(row.id);
+    const dProofs = meta?.disbursementId
+      ? (proofsMapD.get(meta.disbursementId) ?? [])
+      : [];
+    const aProofs = meta?.advanceId
+      ? (proofsMapA.get(meta.advanceId) ?? [])
+      : [];
+    const linkedProofs =
+      meta?.entry === "advance"
+        ? aProofs
+        : meta?.disbursementId
+          ? dProofs
+          : [];
+    const showBreakdown =
+      Boolean(meta?.advanceId) || Boolean(meta?.disbursementId);
+
+    return {
+      id: row.id,
+      date: row.date,
+      projectLabel: row.projectName,
+      projectHref: row.projectId ? `/projects/${row.projectId}` : undefined,
+      keterangan: (
+        <>
+          <span className="text-teal-900/55">{row.kind}</span>
+          {" · "}
+          {row.description}
+          {meta?.createdBy ? (
+            <span className="text-teal-900/55"> · {meta.createdBy}</span>
+          ) : null}
+        </>
+      ),
+      meta: row.sourceName,
+      penerimaan: row.debit,
+      pengeluaran: row.credit,
+      saldo: row.balance,
+      skipBalance: row.skipBalance,
+      proofHref: meta?.proofUrl,
+      proofTitle: row.description,
+      extra:
+        showBreakdown && meta ? (
+          <DisbursementProofDetails
+            cairAmount={meta.amount}
+            proofs={linkedProofs.map((p) => ({
+              id: p.id,
+              date: p.date,
+              amount: p.amount,
+              description: p.description,
+              proofUrl: p.proofUrl,
+              mandorName: p.createdBy.name,
+            }))}
+          />
+        ) : null,
+      actions: admin ? (
+        meta?.entry === "tx" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/transactions/${meta.entityId}/edit`}
+              className="text-teal-700 underline"
+            >
+              Edit
+            </Link>
+            <form action={deleteTransactionAction}>
+              <input type="hidden" name="id" value={meta.entityId} />
+              <button type="submit" className="text-rose-700 underline">
+                Hapus
+              </button>
+            </form>
+          </div>
+        ) : meta?.entry === "advance" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/projects/${row.projectId}`}
+              className="text-teal-700 underline"
+            >
+              Proyek
+            </Link>
+            <form action={deleteContractorAdvanceAction}>
+              <input type="hidden" name="id" value={meta.entityId} />
+              <button type="submit" className="text-rose-700 underline">
+                Hapus
+              </button>
+            </form>
+          </div>
+        ) : null
+      ) : null,
+    };
+  });
+
   return (
     <div>
       <PageHeader
         title="Kas Besar"
-        description="Pemasukan ke owner dan pembayaran ke Mandor/Pemborong. Bukti belanja Mandor tidak menambah kredit di sini — lihat breakdown di bawah pencairan."
+        description="Buku kas pusat — penerimaan, pengeluaran, saldo. Bukti Mandor di bawah pencairan."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href="/transactions/project" className={btnSecondaryClass}>
@@ -304,43 +391,38 @@ export default async function KasBesarPage({
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryPill
-          label="Kas besar (saat ini)"
-          value={formatRupiah(kasBesar.total)}
-          hint={`Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`}
-          tone="bal"
-        />
-        <SummaryPill
-          label="Debit (masuk)"
-          value={formatRupiah(totalDebit + (opening > 0 ? opening : 0))}
-          hint={
-            opening > 0
-              ? `Termasuk saldo awal ${formatRupiah(opening)}`
-              : "Pemasukan dalam filter"
-          }
-          tone="in"
-        />
-        <SummaryPill
-          label="Kredit (keluar)"
-          value={formatRupiah(totalCredit)}
-          hint="Pengeluaran nyata + pembayaran Mandor/Pemborong"
-          tone="out"
-        />
-        <SummaryPill
-          label="Saldo buku (filter)"
-          value={formatRupiah(saldoAkhir)}
-          hint="Saldo setelah semua mutasi (terbaru di atas)"
-          tone="bal"
-        />
-      </div>
+      <BookSummaryStrip
+        items={[
+          {
+            label: "Kas saat ini",
+            value: formatRupiah(kasBesar.total),
+            hint: `Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`,
+            tone: "bal",
+          },
+          {
+            label: "Penerimaan",
+            value: formatRupiah(totalIn),
+            tone: "in",
+          },
+          {
+            label: "Pengeluaran",
+            value: formatRupiah(totalOut),
+            tone: "out",
+          },
+          {
+            label: "Saldo buku",
+            value: formatRupiah(saldoAkhir),
+            tone: "bal",
+          },
+        ]}
+      />
 
       <Card className="mb-4 print:hidden">
         <form className="grid gap-3 sm:grid-cols-4">
           <input
             name="q"
             defaultValue={params.q}
-            placeholder="Cari uraian / proyek / sumber / kategori"
+            placeholder="Cari keterangan / proyek…"
             className="min-h-11 rounded-xl border border-teal-900/15 bg-white px-3 py-2.5 text-base outline-none focus:border-teal-600 sm:col-span-2 sm:text-sm"
           />
           <select
@@ -361,9 +443,9 @@ export default async function KasBesarPage({
               defaultValue={params.type ?? ""}
               className="min-h-11 w-full rounded-xl border border-teal-900/15 bg-white px-3 py-2.5 text-base outline-none focus:border-teal-600 sm:text-sm"
             >
-              <option value="">Semua jenis</option>
-              <option value="INCOME">Debit (masuk)</option>
-              <option value="EXPENSE">Kredit (keluar)</option>
+              <option value="">Semua</option>
+              <option value="INCOME">Penerimaan</option>
+              <option value="EXPENSE">Pengeluaran</option>
             </select>
             <button
               type="submit"
@@ -375,283 +457,20 @@ export default async function KasBesarPage({
         </form>
       </Card>
 
-      <Card className="overflow-hidden p-0 sm:p-0">
-        <div className="border-b border-teal-900/10 bg-teal-950/[0.03] px-4 py-3 sm:px-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <p className="font-medium text-teal-950">
-              {params.projectId
-                ? projectsInScope[0]?.name ?? "Proyek"
-                : "Gabungan semua proyek"}
-            </p>
-            <p className="text-teal-900/55">
-              Terbaru di atas · Debit = masuk · Kredit = keluar · Saldo
-              berjalan
-            </p>
-          </div>
-        </div>
-
-        {book.length === 0 && opening <= 0 ? (
-          <div className="p-5">
-            <EmptyState message="Belum ada mutasi yang cocok." />
-          </div>
-        ) : (
-          <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
-            <table className="min-w-[720px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-teal-900/15 text-sm text-teal-900/55">
-                  <th className="px-4 py-3 pr-3 font-medium sm:px-5">
-                    Tanggal
-                  </th>
-                  <th className="py-3 pr-3 font-medium">Proyek</th>
-                  <th className="py-3 pr-3 font-medium">Uraian</th>
-                  <th className="py-3 pr-3 font-medium">Sumber</th>
-                  <th className="py-3 pr-2 text-right font-medium">Debit</th>
-                  <th className="py-3 pr-2 text-right font-medium">Kredit</th>
-                  <th className="py-3 pr-3 text-right font-medium">Saldo</th>
-                  <th className="py-3 pr-4 font-medium sm:pr-5 print:hidden">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {book.map((row) => {
-                  const meta = rowMeta.get(row.id);
-                  const dProofs = meta?.disbursementId
-                    ? (proofsMapD.get(meta.disbursementId) ?? [])
-                    : [];
-                  const aProofs = meta?.advanceId
-                    ? (proofsMapA.get(meta.advanceId) ?? [])
-                    : [];
-                  const linkedProofs =
-                    meta?.entry === "advance"
-                      ? aProofs
-                      : meta?.disbursementId
-                        ? dProofs
-                        : [];
-                  const showBreakdown =
-                    Boolean(meta?.advanceId) || Boolean(meta?.disbursementId);
-
-                  return (
-                    <tr
-                      key={row.id}
-                      className="border-b border-teal-900/6 odd:bg-white/40"
-                    >
-                      <td className="px-4 py-3 pr-3 whitespace-nowrap text-teal-950 sm:px-5">
-                        {format(row.date, "dd/MM/yyyy")}
-                      </td>
-                      <td className="py-3 pr-3 text-teal-950">
-                        {row.projectId ? (
-                          <Link
-                            href={`/projects/${row.projectId}`}
-                            className="hover:underline"
-                          >
-                            {row.projectName}
-                          </Link>
-                        ) : (
-                          row.projectName
-                        )}
-                        <span className="text-teal-900/55">
-                          {" "}
-                          · {row.location}
-                        </span>
-                      </td>
-                      <td className="max-w-md py-3 pr-3 text-teal-950">
-                        <span className="text-teal-900/55">{row.kind}</span>
-                        {" · "}
-                        {row.description}
-                        {meta?.createdBy ? (
-                          <span className="text-teal-900/55">
-                            {" "}
-                            · {meta.createdBy}
-                          </span>
-                        ) : null}
-                        {meta?.proofUrl ? (
-                          <>
-                            {" "}
-                            ·{" "}
-                            <ProofReviewLink
-                              href={meta.proofUrl}
-                              title={row.description}
-                            >
-                              Lihat bukti
-                            </ProofReviewLink>
-                          </>
-                        ) : null}
-                        {showBreakdown && meta ? (
-                          <DisbursementProofDetails
-                            cairAmount={meta.amount}
-                            proofs={linkedProofs.map((p) => ({
-                              id: p.id,
-                              date: p.date,
-                              amount: p.amount,
-                              description: p.description,
-                              proofUrl: p.proofUrl,
-                              mandorName: p.createdBy.name,
-                            }))}
-                          />
-                        ) : null}
-                      </td>
-                      <td className="py-3 pr-3 whitespace-nowrap text-teal-950">
-                        {row.sourceName}
-                      </td>
-                      <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
-                        {moneyCell(row.debit)}
-                      </td>
-                      <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-rose-800">
-                        {moneyCell(row.credit)}
-                      </td>
-                      <td
-                        className={`py-3 pr-3 text-right whitespace-nowrap tabular-nums ${
-                          row.balance < 0 ? "text-rose-700" : "text-teal-950"
-                        }`}
-                      >
-                        {formatRupiah(row.balance)}
-                      </td>
-                      <td className="py-3 pr-4 sm:pr-5 print:hidden">
-                        {meta?.proofUrl ? (
-                          <ProofReviewLink
-                            href={meta.proofUrl}
-                            title={row.description}
-                            className="mr-3 text-sm font-medium text-teal-700 underline"
-                          >
-                            Lihat bukti
-                          </ProofReviewLink>
-                        ) : null}
-                        {admin && meta?.entry === "tx" ? (
-                          <div className="flex flex-wrap items-center gap-3">
-                            <Link
-                              href={`/transactions/${meta.entityId}/edit`}
-                              className="text-sm text-teal-700 underline"
-                            >
-                              Edit
-                            </Link>
-                            <form action={deleteTransactionAction}>
-                              <input
-                                type="hidden"
-                                name="id"
-                                value={meta.entityId}
-                              />
-                              <button
-                                type="submit"
-                                className="text-sm text-rose-700 underline"
-                              >
-                                Hapus
-                              </button>
-                            </form>
-                          </div>
-                        ) : admin && meta?.entry === "advance" ? (
-                          <div className="flex flex-wrap items-center gap-3">
-                            <Link
-                              href={`/projects/${row.projectId}`}
-                              className="text-sm text-teal-700 underline"
-                            >
-                              Proyek
-                            </Link>
-                            <form action={deleteContractorAdvanceAction}>
-                              <input
-                                type="hidden"
-                                name="id"
-                                value={meta.entityId}
-                              />
-                              <button
-                                type="submit"
-                                className="text-sm text-rose-700 underline"
-                              >
-                                Hapus
-                              </button>
-                            </form>
-                          </div>
-                        ) : (
-                          <span className="text-teal-900/40">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {opening > 0 ? (
-                  <tr className="border-b border-teal-900/8 bg-teal-50/50">
-                    <td className="px-4 py-3 pr-3 whitespace-nowrap text-teal-900/55 sm:px-5">
-                      —
-                    </td>
-                    <td className="py-3 pr-3 text-teal-900/55">—</td>
-                    <td className="py-3 pr-3 text-teal-950">
-                      Saldo awal
-                      {params.projectId ? "" : " (gabungan proyek)"}
-                    </td>
-                    <td className="py-3 pr-3 text-teal-900/55">—</td>
-                    <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
-                      {moneyCell(opening)}
-                    </td>
-                    <td className="py-3 pr-2 text-right text-teal-900/40">—</td>
-                    <td className="py-3 pr-3 text-right whitespace-nowrap tabular-nums text-teal-950">
-                      {formatRupiah(opening)}
-                    </td>
-                    <td className="py-3 pr-4 text-teal-900/40 sm:pr-5 print:hidden">
-                      —
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-teal-900/15 bg-teal-950/[0.03] text-sm">
-                  <td
-                    colSpan={4}
-                    className="px-4 py-3 pr-3 text-right font-medium text-teal-950 sm:px-5"
-                  >
-                    Saldo akhir
-                  </td>
-                  <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
-                    {moneyCell(totalDebit + (opening > 0 ? opening : 0))}
-                  </td>
-                  <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-rose-800">
-                    {moneyCell(totalCredit)}
-                  </td>
-                  <td className="py-3 pr-3 text-right whitespace-nowrap tabular-nums font-medium text-teal-950">
-                    {formatRupiah(saldoAkhir)}
-                  </td>
-                  <td className="py-3 pr-4 sm:pr-5 print:hidden" />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
+      <Card className="overflow-hidden p-3 sm:p-4">
+        <p className="mb-2 text-xs text-teal-900/55">
+          {params.projectId
+            ? tidyCase(projectsInScope[0]?.name ?? "Proyek")
+            : "Semua proyek"}{" "}
+          · urut tanggal
+        </p>
+        <BookLedgerTable
+          rows={bookRows}
+          opening={opening}
+          showProject
+          empty="Belum ada mutasi."
+        />
       </Card>
-    </div>
-  );
-}
-
-function SummaryPill({
-  label,
-  value,
-  hint,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: "neutral" | "in" | "out" | "bal";
-}) {
-  const color =
-    tone === "in"
-      ? "text-emerald-800"
-      : tone === "out"
-        ? "text-rose-800"
-        : tone === "bal"
-          ? "text-teal-900"
-          : "text-teal-950";
-
-  return (
-    <div className="min-w-0 rounded-xl border border-teal-900/10 bg-[var(--surface)] px-3 py-3 text-sm sm:px-4">
-      <p className="text-teal-900/55">{label}</p>
-      <p
-        className={`mt-1 min-w-0 break-words tabular-nums font-medium ${color}`}
-      >
-        {value}
-      </p>
-      {hint ? (
-        <p className="mt-1 text-xs leading-snug text-teal-900/55">{hint}</p>
-      ) : null}
     </div>
   );
 }
