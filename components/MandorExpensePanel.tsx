@@ -1,6 +1,10 @@
 import { format } from "date-fns";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
+import {
+  MandorExpenseBreakdownForm,
+  type ExpenseLineRow,
+} from "@/components/MandorExpenseBreakdownForm";
 
 export type MandorExpenseRow = {
   id: string;
@@ -9,6 +13,8 @@ export type MandorExpenseRow = {
   description: string;
   proofUrl: string | null;
   mandorName: string;
+  pencairanLabel?: string | null;
+  lines: ExpenseLineRow[];
 };
 
 export type MandorFundBrief = {
@@ -23,18 +29,20 @@ export function MandorExpensePanel({
   rows,
   fundBriefs,
   bukuKasHref,
+  canBreakDown = false,
 }: {
   rows: MandorExpenseRow[];
   fundBriefs: MandorFundBrief[];
   bukuKasHref?: string;
+  canBreakDown?: boolean;
 }) {
   return (
     <div className="space-y-4">
       <div>
         <h3 className="font-medium text-[var(--ink)]">Bukti belanja Mandor</h3>
         <p className="text-xs text-[var(--ink-faint)]">
-          Upload dari aplikasi Mandor (laporan pemakaian dana cair — tidak
-          memotong kas lagi).
+          Laporan pemakaian dana cair — tidak memotong Kas Besar lagi. Admin
+          dapat memecah tiap nota menjadi bahan / pekerja.
         </p>
       </div>
 
@@ -75,35 +83,41 @@ export function MandorExpensePanel({
       {rows.length > 0 ? (
         <ul className="divide-y divide-[var(--line-soft)] rounded-lg border border-[var(--line)]">
           {rows.map((r) => (
-            <li
-              key={r.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm"
-            >
-              <div className="min-w-0">
-                <p className="font-medium text-[var(--ink)]">
-                  {tidyCase(r.description)}
-                </p>
-                <p className="text-xs text-[var(--ink-faint)]">
-                  {format(r.date, "dd/MM/yyyy")} · {r.mandorName}
-                </p>
+            <li key={r.id} className="px-3 py-2.5 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-[var(--ink)]">
+                    {tidyCase(r.description)}
+                  </p>
+                  <p className="text-xs text-[var(--ink-faint)]">
+                    {format(r.date, "dd/MM/yyyy")} · {r.mandorName}
+                    {r.pencairanLabel ? ` · ${r.pencairanLabel}` : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="tabular-nums text-[var(--rose-ink)]">
+                    {formatRupiah(r.amount)}
+                  </span>
+                  {r.proofUrl ? (
+                    <a
+                      href={r.proofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--accent)] underline"
+                    >
+                      Lihat bukti
+                    </a>
+                  ) : (
+                    <span className="text-[var(--ink-faint)]">Tanpa file</span>
+                  )}
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="tabular-nums text-[var(--rose-ink)]">
-                  {formatRupiah(r.amount)}
-                </span>
-                {r.proofUrl ? (
-                  <a
-                    href={r.proofUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[var(--accent)] underline"
-                  >
-                    Lihat bukti
-                  </a>
-                ) : (
-                  <span className="text-[var(--ink-faint)]">Tanpa file</span>
-                )}
-              </div>
+              <MandorExpenseBreakdownForm
+                transactionId={r.id}
+                proofAmount={r.amount}
+                lines={r.lines}
+                canEdit={canBreakDown}
+              />
             </li>
           ))}
         </ul>
@@ -115,12 +129,11 @@ export function MandorExpensePanel({
 
       {bukuKasHref ? (
         <p className="text-xs text-[var(--ink-faint)]">
-          Juga tercatat di{" "}
+          Rincian di{" "}
           <a href={bukuKasHref} className="text-[var(--accent)] underline">
-            Buku Kas
+            Kas Proyek
           </a>{" "}
-          sebagai <strong>Belanja Mandor</strong> (tidak memotong saldo kas
-          lagi).
+          sebagai <strong>Belanja Mandor (laporan)</strong>.
         </p>
       ) : null}
     </div>

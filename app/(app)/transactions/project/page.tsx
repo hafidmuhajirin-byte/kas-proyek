@@ -1,24 +1,26 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { redirect } from "next/navigation";
 import { deleteContractorAdvanceAction } from "@/lib/actions/contractor";
 import { deleteTransactionAction } from "@/lib/actions/transactions";
-import { isOwner, isAdmin, requireSession } from "@/lib/auth";
-import { getGlobalCashBreakdown } from "@/lib/balance";
+import {
+  canBreakDownMandorExpense,
+  isOwner,
+  isAdmin,
+  requireSession,
+} from "@/lib/auth";
 import {
   buildRunningBalance,
   moneyCell,
   sumCashMovements,
   type LedgerLine,
 } from "@/lib/report-ledger";
-import {
-  getLinkedProofsForAdvances,
-  getLinkedProofsForDisbursements,
-} from "@/lib/mandor-pencairan";
 import { formatRupiah } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { tidyCase } from "@/lib/text";
-import { DisbursementProofDetails } from "@/components/DisbursementProofDetails";
+import {
+  MandorExpenseBreakdownForm,
+  type ExpenseLineRow,
+} from "@/components/MandorExpenseBreakdownForm";
 import {
   btnSecondaryClass,
   Card,
@@ -27,10 +29,9 @@ import {
 } from "@/components/ui";
 
 /**
- * Kas Besar — pemasukan owner + outflow nyata (termasuk termin/pencairan Mandor).
- * Bukti Mandor TIDAK menjadi baris kredit; tampil sebagai breakdown di bawah pencairan.
+ * Kas Proyek — mutasi per proyek termasuk bukti Mandor sebagai laporan pemakaian dana.
  */
-export default async function KasBesarPage({
+export default async function KasProyekPage({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -42,27 +43,19 @@ export default async function KasBesarPage({
   const user = await requireSession();
   const owner = isOwner(user);
   const readOnlyAdmin = isAdmin(user);
-  const admin = owner;
+  const canMutate = owner;
+  const canBreakDown = canBreakDownMandorExpense(user);
   const params = await searchParams;
   const hasTypeFilter =
     params.type === "INCOME" || params.type === "EXPENSE";
   const includeAdvances = params.type !== "INCOME";
-
-  // Admin diarahkan ke Kas Proyek (wajib pilih proyek)
-  if (readOnlyAdmin) {
-    const q = new URLSearchParams();
-    if (params.projectId) q.set("projectId", params.projectId);
-    if (params.q) q.set("q", params.q);
-    if (params.type) q.set("type", params.type);
-    redirect(
-      `/transactions/project${q.toString() ? `?${q.toString()}` : ""}`,
-    );
-  }
+  const needsProject = !params.projectId;
 
   const where = {
-    isMandorExpense: false,
+    ...(needsProject ? { id: "__none__" } : {}),
     ...(params.projectId ? { projectId: params.projectId } : {}),
     ...(hasTypeFilter ? { type: params.type as "INCOME" | "EXPENSE" } : {}),
+    ...(readOnlyAdmin ? { isOwnerPersonal: false } : {}),
     ...(params.q
       ? {
           OR: [
@@ -77,6 +70,7 @@ export default async function KasBesarPage({
   };
 
   const advanceWhere = {
+    ...(needsProject ? { id: "__none__" } : {}),
     ...(params.projectId
       ? { contractor: { projectId: params.projectId } }
       : {}),
@@ -87,17 +81,12 @@ export default async function KasBesarPage({
             { cashSource: { name: { contains: params.q } } },
             { contractor: { name: { contains: params.q } } },
             { contractor: { project: { name: { contains: params.q } } } },
-            {
-              contractor: {
-                project: { location: { contains: params.q } },
-              },
-            },
           ],
         }
       : {}),
   };
 
-  const [transactions, advances, projects, kasBesar] = await Promise.all([
+  const [transactions, advances, projects] = await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -119,7 +108,29 @@ export default async function KasBesarPage({
         category: { select: { id: true, name: true, type: true } },
         createdBy: { select: { id: true, name: true } },
         fundingStage: { select: { id: true, name: true } },
-        mandorDisbursement: { select: { id: true } },
+        linkedMandorDisbursement: {
+          select: { label: true, amount: true },
+        },
+        linkedContractorAdvance: {
+          select: {
+            description: true,
+            amount: true,
+            contractor: { select: { name: true } },
+          },
+        },
+        expenseLines: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            kind: true,
+            description: true,
+            quantity: true,
+            unit: true,
+            workDays: true,
+            dailyRate: true,
+            amount: true,
+          },
+        },
       },
     }),
     includeAdvances
@@ -154,77 +165,62 @@ export default async function KasBesarPage({
         openingBalance: true,
       },
     }),
-    getGlobalCashBreakdown(),
   ]);
-
-  const disbursementIds = transactions
-    .filter((tx) => tx.isMandorDisbursement && tx.mandorDisbursement?.id)
-    .map((tx) => tx.mandorDisbursement!.id);
-  // Also find MandorDisbursement by transaction relation reverse — already have via mandorDisbursement
-  const advanceIds = advances.map((a) => a.id);
-
-  const [proofsByDisbursement, proofsByAdvance] = await Promise.all([
-    getLinkedProofsForDisbursements(disbursementIds),
-    getLinkedProofsForAdvances(advanceIds),
-  ]);
-
-  const proofsMapD = new Map<string, typeof proofsByDisbursement>();
-  for (const p of proofsByDisbursement) {
-    const k = p.linkedMandorDisbursementId!;
-    const list = proofsMapD.get(k) ?? [];
-    list.push(p);
-    proofsMapD.set(k, list);
-  }
-  const proofsMapA = new Map<string, typeof proofsByAdvance>();
-  for (const p of proofsByAdvance) {
-    const k = p.linkedContractorAdvanceId!;
-    const list = proofsMapA.get(k) ?? [];
-    list.push(p);
-    proofsMapA.set(k, list);
-  }
 
   const projectsInScope = params.projectId
     ? projects.filter((p) => p.id === params.projectId)
-    : projects;
+    : [];
 
   const opening =
-    !params.q && !hasTypeFilter
+    params.projectId && !params.q && !hasTypeFilter
       ? projectsInScope.reduce((sum, p) => sum + p.openingBalance, 0)
       : 0;
 
   const ledgerLines: LedgerLine[] = [
-    ...transactions.map((tx) => ({
-      id: `tx-${tx.id}`,
-      date: tx.date,
-      projectId: tx.projectId ?? "",
-      projectName: tx.project
-        ? tidyCase(tx.project.name)
-        : "Dana pribadi owner",
-      location: tx.project ? tidyCase(tx.project.location) : "—",
-      sourceName: tidyCase(tx.cashSource.name),
-      kind:
-        tx.type === "INCOME"
-          ? tx.isOwnerPersonal
-            ? "Setoran pribadi"
-            : "Pemasukan"
-          : tx.isFeeTransfer
-            ? "Transfer fee"
-            : tx.isMandorDisbursement
-              ? "Pembayaran ke Mandor"
-              : tx.isOwnerPersonal
-                ? "Ambil pribadi"
-                : tx.isFromGlobalCash
-                  ? "Masuk kas besar"
-                  : "Pengeluaran",
-      description: tx.fundingStage
-        ? `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)} · ${tidyCase(tx.fundingStage.name)}`
-        : tx.isOwnerPersonal && tx.type === "EXPENSE" && !tx.isFeeTransfer
-          ? `${tidyCase(tx.description)} · dari kas besar (bukan biaya proyek)`
-          : `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)}`,
-      debit: tx.type === "INCOME" ? tx.amount : 0,
-      credit: tx.type === "EXPENSE" ? tx.amount : 0,
-      skipBalance: tx.type === "EXPENSE" && tx.isFromGlobalCash,
-    })),
+    ...transactions.map((tx) => {
+      let pencairanNote = "";
+      if (tx.isMandorExpense) {
+        if (tx.linkedMandorDisbursement) {
+          pencairanNote = ` · acuan ${tidyCase(tx.linkedMandorDisbursement.label)}`;
+        } else if (tx.linkedContractorAdvance) {
+          pencairanNote = ` · acuan termin ${tidyCase(tx.linkedContractorAdvance.contractor.name)}`;
+        }
+      }
+      return {
+        id: `tx-${tx.id}`,
+        date: tx.date,
+        projectId: tx.projectId ?? "",
+        projectName: tx.project
+          ? tidyCase(tx.project.name)
+          : "Dana pribadi owner",
+        location: tx.project ? tidyCase(tx.project.location) : "—",
+        sourceName: tidyCase(tx.cashSource.name),
+        kind:
+          tx.type === "INCOME"
+            ? tx.isOwnerPersonal
+              ? "Setoran pribadi"
+              : "Pemasukan"
+            : tx.isFeeTransfer
+              ? "Transfer fee"
+              : tx.isMandorExpense
+                ? "Belanja Mandor (laporan)"
+                : tx.isMandorDisbursement
+                  ? "Pembayaran ke Mandor"
+                  : tx.isOwnerPersonal
+                    ? "Ambil pribadi"
+                    : tx.isFromGlobalCash
+                      ? "Masuk kas besar"
+                      : "Pengeluaran",
+        description: tx.fundingStage
+          ? `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)} · ${tidyCase(tx.fundingStage.name)}${pencairanNote}`
+          : `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)}${pencairanNote}`,
+        debit: tx.type === "INCOME" ? tx.amount : 0,
+        credit: tx.type === "EXPENSE" ? tx.amount : 0,
+        skipBalance:
+          (tx.type === "EXPENSE" && tx.isFromGlobalCash) ||
+          Boolean(tx.isMandorExpense),
+      };
+    }),
     ...advances.map((a) => ({
       id: `adv-${a.id}`,
       date: a.date,
@@ -252,6 +248,25 @@ export default async function KasBesarPage({
       ? bookChrono[bookChrono.length - 1].balance
       : opening;
 
+  const expenseLinesByTx = new Map<string, ExpenseLineRow[]>();
+  for (const tx of transactions) {
+    if (tx.isMandorExpense) {
+      expenseLinesByTx.set(
+        tx.id,
+        tx.expenseLines.map((l) => ({
+          id: l.id,
+          kind: l.kind,
+          description: l.description,
+          quantity: l.quantity,
+          unit: l.unit,
+          workDays: l.workDays,
+          dailyRate: l.dailyRate,
+          amount: l.amount,
+        })),
+      );
+    }
+  }
+
   const rowMeta = new Map<
     string,
     {
@@ -259,9 +274,8 @@ export default async function KasBesarPage({
       entityId: string;
       proofUrl: string | null;
       createdBy?: string;
-      amount: number;
-      disbursementId?: string;
-      advanceId?: string;
+      isMandorExpense?: boolean;
+      amount?: number;
     }
   >();
   for (const tx of transactions) {
@@ -270,8 +284,8 @@ export default async function KasBesarPage({
       entityId: tx.id,
       proofUrl: tx.proofUrl,
       createdBy: tx.createdBy.name,
+      isMandorExpense: tx.isMandorExpense,
       amount: tx.amount,
-      disbursementId: tx.mandorDisbursement?.id,
     });
   }
   for (const a of advances) {
@@ -279,21 +293,21 @@ export default async function KasBesarPage({
       entry: "advance",
       entityId: a.id,
       proofUrl: a.proofUrl,
-      amount: a.amount,
-      advanceId: a.id,
     });
   }
 
   return (
     <div>
       <PageHeader
-        title="Kas Besar"
-        description="Pemasukan ke owner dan pembayaran ke Mandor/Pemborong. Bukti belanja Mandor tidak menambah kredit di sini — lihat breakdown di bawah pencairan."
+        title="Kas Proyek"
+        description="Mutasi per proyek termasuk bukti belanja Mandor (laporan pemakaian dana cair) dan pecahan Admin."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link href="/transactions/project" className={btnSecondaryClass}>
-              Kas Proyek
-            </Link>
+            {!readOnlyAdmin ? (
+              <Link href="/transactions" className={btnSecondaryClass}>
+                Kas Besar
+              </Link>
+            ) : null}
             {owner ? (
               <Link href="/transactions/new" className={btnSecondaryClass}>
                 + Catat transaksi
@@ -303,51 +317,51 @@ export default async function KasBesarPage({
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryPill
-          label="Kas besar (saat ini)"
-          value={formatRupiah(kasBesar.total)}
-          hint={`Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`}
-          tone="bal"
-        />
-        <SummaryPill
-          label="Debit (masuk)"
-          value={formatRupiah(totalDebit + (opening > 0 ? opening : 0))}
-          hint={
-            opening > 0
-              ? `Termasuk saldo awal ${formatRupiah(opening)}`
-              : "Pemasukan dalam filter"
-          }
-          tone="in"
-        />
-        <SummaryPill
-          label="Kredit (keluar)"
-          value={formatRupiah(totalCredit)}
-          hint="Pengeluaran nyata + pembayaran Mandor/Pemborong"
-          tone="out"
-        />
-        <SummaryPill
-          label="Saldo buku (filter)"
-          value={formatRupiah(saldoAkhir)}
-          hint="Saldo setelah semua mutasi (terbaru di atas)"
-          tone="bal"
-        />
-      </div>
+      {needsProject ? (
+        <Card className="mb-4 border-amber-200 bg-amber-50/80">
+          <p className="text-sm text-amber-950">
+            Pilih satu proyek di filter di bawah untuk menampilkan buku kas
+            proyek.
+          </p>
+        </Card>
+      ) : null}
+
+      {!needsProject ? (
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <SummaryPill
+            label="Debit (masuk)"
+            value={formatRupiah(totalDebit + (opening > 0 ? opening : 0))}
+            tone="in"
+          />
+          <SummaryPill
+            label="Kredit kas (keluar nyata)"
+            value={formatRupiah(totalCredit)}
+            hint="Tidak termasuk bukti Mandor"
+            tone="out"
+          />
+          <SummaryPill
+            label="Saldo proyek"
+            value={formatRupiah(saldoAkhir)}
+            tone="bal"
+          />
+        </div>
+      ) : null}
 
       <Card className="mb-4 print:hidden">
         <form className="grid gap-3 sm:grid-cols-4">
           <input
             name="q"
             defaultValue={params.q}
-            placeholder="Cari uraian / proyek / sumber / kategori"
+            placeholder="Cari uraian / sumber / kategori"
             className="min-h-11 rounded-xl border border-teal-900/15 bg-white px-3 py-2.5 text-base outline-none focus:border-teal-600 sm:col-span-2 sm:text-sm"
           />
           <select
             name="projectId"
             defaultValue={params.projectId ?? ""}
             className="min-h-11 rounded-xl border border-teal-900/15 bg-white px-3 py-2.5 text-base outline-none focus:border-teal-600 sm:text-sm"
+            required
           >
-            <option value="">Semua proyek</option>
+            <option value="">Pilih proyek…</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {tidyCase(p.name)}
@@ -380,18 +394,23 @@ export default async function KasBesarPage({
             <p className="font-medium text-teal-950">
               {params.projectId
                 ? projectsInScope[0]?.name ?? "Proyek"
-                : "Gabungan semua proyek"}
+                : "Pilih proyek"}
             </p>
             <p className="text-teal-900/55">
-              Terbaru di atas · Debit = masuk · Kredit = keluar · Saldo
-              berjalan
+              Bukti Mandor = laporan (tidak potong saldo)
             </p>
           </div>
         </div>
 
-        {book.length === 0 && opening <= 0 ? (
+        {needsProject || (book.length === 0 && opening <= 0) ? (
           <div className="p-5">
-            <EmptyState message="Belum ada mutasi yang cocok." />
+            <EmptyState
+              message={
+                needsProject
+                  ? "Pilih proyek untuk melihat mutasi."
+                  : "Belum ada mutasi yang cocok."
+              }
+            />
           </div>
         ) : (
           <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
@@ -401,7 +420,6 @@ export default async function KasBesarPage({
                   <th className="px-4 py-3 pr-3 font-medium sm:px-5">
                     Tanggal
                   </th>
-                  <th className="py-3 pr-3 font-medium">Proyek</th>
                   <th className="py-3 pr-3 font-medium">Uraian</th>
                   <th className="py-3 pr-3 font-medium">Sumber</th>
                   <th className="py-3 pr-2 text-right font-medium">Debit</th>
@@ -415,46 +433,24 @@ export default async function KasBesarPage({
               <tbody>
                 {book.map((row) => {
                   const meta = rowMeta.get(row.id);
-                  const dProofs = meta?.disbursementId
-                    ? (proofsMapD.get(meta.disbursementId) ?? [])
-                    : [];
-                  const aProofs = meta?.advanceId
-                    ? (proofsMapA.get(meta.advanceId) ?? [])
-                    : [];
-                  const linkedProofs =
-                    meta?.entry === "advance"
-                      ? aProofs
-                      : meta?.disbursementId
-                        ? dProofs
-                        : [];
-                  const showBreakdown =
-                    Boolean(meta?.advanceId) || Boolean(meta?.disbursementId);
+                  const lines =
+                    meta?.isMandorExpense && meta.entityId
+                      ? (expenseLinesByTx.get(meta.entityId) ?? [])
+                      : [];
 
                   return (
                     <tr
                       key={row.id}
-                      className="border-b border-teal-900/6 odd:bg-white/40"
+                      className={`border-b border-teal-900/6 ${
+                        meta?.isMandorExpense
+                          ? "bg-amber-50/40"
+                          : "odd:bg-white/40"
+                      }`}
                     >
-                      <td className="px-4 py-3 pr-3 whitespace-nowrap text-teal-950 sm:px-5">
+                      <td className="px-4 py-3 pr-3 whitespace-nowrap align-top text-teal-950 sm:px-5">
                         {format(row.date, "dd/MM/yyyy")}
                       </td>
-                      <td className="py-3 pr-3 text-teal-950">
-                        {row.projectId ? (
-                          <Link
-                            href={`/projects/${row.projectId}`}
-                            className="hover:underline"
-                          >
-                            {row.projectName}
-                          </Link>
-                        ) : (
-                          row.projectName
-                        )}
-                        <span className="text-teal-900/55">
-                          {" "}
-                          · {row.location}
-                        </span>
-                      </td>
-                      <td className="max-w-md py-3 pr-3 text-teal-950">
+                      <td className="max-w-lg py-3 pr-3 align-top text-teal-950">
                         <span className="text-teal-900/55">{row.kind}</span>
                         {" · "}
                         {row.description}
@@ -478,48 +474,39 @@ export default async function KasBesarPage({
                             </a>
                           </>
                         ) : null}
-                        {showBreakdown && meta ? (
-                          <DisbursementProofDetails
-                            cairAmount={meta.amount}
-                            proofs={linkedProofs.map((p) => ({
-                              id: p.id,
-                              date: p.date,
-                              amount: p.amount,
-                              description: p.description,
-                              proofUrl: p.proofUrl,
-                              mandorName: p.createdBy.name,
-                            }))}
+                        {meta?.isMandorExpense && meta.amount != null ? (
+                          <MandorExpenseBreakdownForm
+                            transactionId={meta.entityId}
+                            proofAmount={meta.amount}
+                            lines={lines}
+                            canEdit={canBreakDown}
                           />
                         ) : null}
                       </td>
-                      <td className="py-3 pr-3 whitespace-nowrap text-teal-950">
+                      <td className="py-3 pr-3 align-top whitespace-nowrap text-teal-950">
                         {row.sourceName}
                       </td>
-                      <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
+                      <td className="py-3 pr-2 align-top text-right whitespace-nowrap tabular-nums text-emerald-800">
                         {moneyCell(row.debit)}
                       </td>
-                      <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-rose-800">
-                        {moneyCell(row.credit)}
+                      <td className="py-3 pr-2 align-top text-right whitespace-nowrap tabular-nums text-rose-800">
+                        {meta?.isMandorExpense ? (
+                          <span className="text-amber-800/80">
+                            {moneyCell(row.credit)}*
+                          </span>
+                        ) : (
+                          moneyCell(row.credit)
+                        )}
                       </td>
                       <td
-                        className={`py-3 pr-3 text-right whitespace-nowrap tabular-nums ${
+                        className={`py-3 pr-3 align-top text-right whitespace-nowrap tabular-nums ${
                           row.balance < 0 ? "text-rose-700" : "text-teal-950"
                         }`}
                       >
                         {formatRupiah(row.balance)}
                       </td>
-                      <td className="py-3 pr-4 sm:pr-5 print:hidden">
-                        {meta?.proofUrl ? (
-                          <a
-                            href={meta.proofUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mr-3 text-sm font-medium text-teal-700 underline"
-                          >
-                            Lihat bukti
-                          </a>
-                        ) : null}
-                        {admin && meta?.entry === "tx" ? (
+                      <td className="py-3 pr-4 align-top sm:pr-5 print:hidden">
+                        {canMutate && meta?.entry === "tx" && !meta.isMandorExpense ? (
                           <div className="flex flex-wrap items-center gap-3">
                             <Link
                               href={`/transactions/${meta.entityId}/edit`}
@@ -541,14 +528,8 @@ export default async function KasBesarPage({
                               </button>
                             </form>
                           </div>
-                        ) : admin && meta?.entry === "advance" ? (
+                        ) : canMutate && meta?.entry === "advance" ? (
                           <div className="flex flex-wrap items-center gap-3">
-                            <Link
-                              href={`/projects/${row.projectId}`}
-                              className="text-sm text-teal-700 underline"
-                            >
-                              Proyek
-                            </Link>
                             <form action={deleteContractorAdvanceAction}>
                               <input
                                 type="hidden"
@@ -576,11 +557,7 @@ export default async function KasBesarPage({
                     <td className="px-4 py-3 pr-3 whitespace-nowrap text-teal-900/55 sm:px-5">
                       —
                     </td>
-                    <td className="py-3 pr-3 text-teal-900/55">—</td>
-                    <td className="py-3 pr-3 text-teal-950">
-                      Saldo awal
-                      {params.projectId ? "" : " (gabungan proyek)"}
-                    </td>
+                    <td className="py-3 pr-3 text-teal-950">Saldo awal</td>
                     <td className="py-3 pr-3 text-teal-900/55">—</td>
                     <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
                       {moneyCell(opening)}
@@ -598,10 +575,10 @@ export default async function KasBesarPage({
               <tfoot>
                 <tr className="border-t border-teal-900/15 bg-teal-950/[0.03] text-sm">
                   <td
-                    colSpan={4}
+                    colSpan={3}
                     className="px-4 py-3 pr-3 text-right font-medium text-teal-950 sm:px-5"
                   >
-                    Saldo akhir
+                    Saldo akhir · * = laporan (tidak potong kas)
                   </td>
                   <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
                     {moneyCell(totalDebit + (opening > 0 ? opening : 0))}

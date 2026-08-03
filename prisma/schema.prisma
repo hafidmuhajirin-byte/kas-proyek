@@ -53,6 +53,7 @@ model User {
   cashTransfers CashTransfer[]
   projectAssignments ProjectAssignment[]
   mandorDisbursements MandorDisbursement[] @relation("MandorDisbursements")
+  mandorExpenseLines MandorExpenseLine[]
 }
 
 model Project {
@@ -116,6 +117,7 @@ model MandorDisbursement {
   cashSource   CashSource @relation(fields: [cashSourceId], references: [id], onDelete: Restrict)
   transactionId String?   @unique
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  linkedProofs Transaction[] @relation("ProofLinkedToDisbursement")
 
   @@index([projectId])
   @@index([mandorId])
@@ -183,9 +185,37 @@ model ContractorAdvance {
   contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   cashSourceId String
   cashSource   CashSource @relation(fields: [cashSourceId], references: [id], onDelete: Restrict)
+  linkedProofs Transaction[] @relation("ProofLinkedToAdvance")
 
   @@index([contractorId])
   @@index([date])
+}
+
+enum MandorExpenseLineKind {
+  MATERIAL
+  LABOR
+}
+
+/// Pecahan Admin atas nota Mandor (bahan / upah pekerja)
+model MandorExpenseLine {
+  id          String               @id @default(cuid())
+  kind        MandorExpenseLineKind
+  description String               @db.Text
+  quantity    Float?
+  unit        String?
+  workDays    Float?
+  dailyRate   Int?
+  amount      Int
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  createdById   String
+  createdBy     User        @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([transactionId])
+  @@index([createdById])
 }
 
 model ContractorExpense {
@@ -314,6 +344,13 @@ model Transaction {
   fundingStage   FundingStage? @relation(fields: [fundingStageId], references: [id], onDelete: SetNull)
   mandorDisbursement MandorDisbursement?
 
+  /// Bukti Mandor ditautkan ke pencairan (salah satu wajib untuk upload baru)
+  linkedMandorDisbursementId String?
+  linkedMandorDisbursement   MandorDisbursement? @relation("ProofLinkedToDisbursement", fields: [linkedMandorDisbursementId], references: [id], onDelete: SetNull)
+  linkedContractorAdvanceId String?
+  linkedContractorAdvance   ContractorAdvance? @relation("ProofLinkedToAdvance", fields: [linkedContractorAdvanceId], references: [id], onDelete: SetNull)
+  expenseLines MandorExpenseLine[]
+
   @@index([date])
   @@index([projectId])
   @@index([cashSourceId])
@@ -324,4 +361,6 @@ model Transaction {
   @@index([isFeeTransfer])
   @@index([isMandorDisbursement])
   @@index([isMandorExpense])
+  @@index([linkedMandorDisbursementId])
+  @@index([linkedContractorAdvanceId])
 }

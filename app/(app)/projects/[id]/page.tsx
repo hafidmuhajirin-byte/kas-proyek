@@ -12,7 +12,12 @@ import {
   deleteWorkItemAction,
 } from "@/lib/actions/work-items";
 import { calcStageStatus, getGlobalCashBreakdown } from "@/lib/balance";
-import { isOwner, isAdmin, requireSession } from "@/lib/auth";
+import {
+  canBreakDownMandorExpense,
+  isOwner,
+  isAdmin,
+  requireSession,
+} from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
 import { getMandorFundSummariesFor } from "@/lib/mandor-fund";
 import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
@@ -62,6 +67,7 @@ export default async function ProjectDetailPage({
   const user = await requireSession();
   const admin = isOwner(user);
   const readOnlyAdmin = isAdmin(user);
+  const canBreakDown = canBreakDownMandorExpense(user);
   const { id } = await params;
 
   const [project, sources, kasBesar, assignedMandors, disbursements] =
@@ -125,6 +131,28 @@ export default async function ProjectDetailPage({
             category: { select: { name: true, type: true } },
             cashSource: { select: { name: true } },
             createdBy: { select: { id: true, name: true } },
+            linkedMandorDisbursement: {
+              select: { label: true },
+            },
+            linkedContractorAdvance: {
+              select: {
+                description: true,
+                contractor: { select: { name: true } },
+              },
+            },
+            expenseLines: {
+              orderBy: { createdAt: "asc" },
+              select: {
+                id: true,
+                kind: true,
+                description: true,
+                quantity: true,
+                unit: true,
+                workDays: true,
+                dailyRate: true,
+                amount: true,
+              },
+            },
           },
         },
         contractor: {
@@ -340,6 +368,21 @@ export default async function ProjectDetailPage({
       description: tx.description,
       proofUrl: tx.proofUrl,
       mandorName: tx.createdBy.name,
+      pencairanLabel: tx.linkedMandorDisbursement
+        ? tidyCase(tx.linkedMandorDisbursement.label)
+        : tx.linkedContractorAdvance
+          ? `Termin ${tidyCase(tx.linkedContractorAdvance.contractor.name)}`
+          : null,
+      lines: tx.expenseLines.map((l) => ({
+        id: l.id,
+        kind: l.kind,
+        description: l.description,
+        quantity: l.quantity,
+        unit: l.unit,
+        workDays: l.workDays,
+        dailyRate: l.dailyRate,
+        amount: l.amount,
+      })),
     }));
 
   return (
@@ -389,7 +432,8 @@ export default async function ProjectDetailPage({
         <MandorExpensePanel
           rows={mandorExpenseRows}
           fundBriefs={fundBriefs}
-          bukuKasHref={`/transactions?projectId=${project.id}`}
+          bukuKasHref={`/transactions/project?projectId=${project.id}`}
+          canBreakDown={canBreakDown}
         />
       </Card>
 
@@ -398,12 +442,12 @@ export default async function ProjectDetailPage({
           <p className="text-sm text-[var(--ink-muted)]">
             Mode baca Admin — untuk buku kas detail dengan bukti, buka{" "}
             <Link
-              href={`/transactions?projectId=${project.id}`}
+              href={`/transactions/project?projectId=${project.id}`}
               className="text-[var(--accent)] underline"
             >
-              Buku Kas proyek ini
+              Kas Proyek ini
             </Link>
-            .
+            . Anda dapat memecah nota Mandor di panel di atas.
           </p>
         </Card>
       ) : null}

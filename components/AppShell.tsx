@@ -25,7 +25,7 @@ function navForRole(role: SessionUser["role"]): {
     const primary = [
       { href: "/dashboard", label: "Dashboard", short: "Home" },
       { href: "/projects", label: "Proyek", short: "Proyek" },
-      { href: "/transactions", label: "Buku Kas", short: "Kas" },
+      { href: "/transactions/project", label: "Kas Proyek", short: "Kas" },
     ];
     return { primary, secondary: [], mobile: primary, showAssistant: false };
   }
@@ -37,7 +37,8 @@ function navForRole(role: SessionUser["role"]): {
   const primary = [
     { href: "/dashboard", label: "Dashboard", short: "Home" },
     { href: "/projects", label: "Proyek", short: "Proyek" },
-    { href: "/transactions", label: "Buku Kas", short: "Kas" },
+    { href: "/transactions", label: "Kas Besar", short: "Besar" },
+    { href: "/transactions/project", label: "Kas Proyek", short: "Proyek" },
     { href: "/reports", label: "Laporan", short: "Lapor" },
   ];
   const secondary = [
@@ -77,8 +78,15 @@ export function AppShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const nav = useMemo(() => navForRole(user.role), [user.role]);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = (href: string) => {
+    if (href === "/transactions") {
+      return pathname === "/transactions" || pathname.startsWith("/transactions/new") || /^\/transactions\/[^/]+\/edit/.test(pathname);
+    }
+    if (href === "/transactions/project") {
+      return pathname === "/transactions/project" || pathname.startsWith("/transactions/project/");
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   const secondaryActive = nav.secondary.some((item) => isActive(item.href));
   const [setupOpen, setSetupOpen] = useState(secondaryActive);

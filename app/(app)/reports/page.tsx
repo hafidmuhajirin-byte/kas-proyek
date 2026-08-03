@@ -11,6 +11,7 @@ import { getGlobalCashBreakdown } from "@/lib/balance";
 import {
   buildRunningBalance,
   moneyCell,
+  sumCashMovements,
   type LedgerLine,
 } from "@/lib/report-ledger";
 import { formatRupiah } from "@/lib/money";
@@ -160,7 +161,7 @@ export default async function ReportsPage({
           : tx.isFeeTransfer
             ? "Transfer fee"
             : tx.isMandorExpense
-              ? "Belanja Mandor"
+              ? "Belanja Mandor (laporan)"
               : tx.isOwnerPersonal
                 ? "Ambil pribadi"
                 : tx.isFromGlobalCash
@@ -195,8 +196,9 @@ export default async function ReportsPage({
   const gabunganBook = buildRunningBalance(ledgerLines, openingGabungan, {
     honorSkipBalance: true,
   });
-  const income = ledgerLines.reduce((sum, l) => sum + l.debit, 0);
-  const expense = ledgerLines.reduce((sum, l) => sum + l.credit, 0);
+  const cashMoves = sumCashMovements(ledgerLines);
+  const income = cashMoves.debit;
+  const expense = cashMoves.credit;
   const posisiFilter =
     gabunganBook.length > 0
       ? gabunganBook[gabunganBook.length - 1].balance

@@ -94,6 +94,19 @@ export function canRecordDisbursement(user: SessionUser): boolean {
   return user.role === "OWNER";
 }
 
+/** Admin & Owner boleh memecah nota Mandor (MATERIAL / LABOR). */
+export function canBreakDownMandorExpense(user: SessionUser): boolean {
+  return user.role === "OWNER" || user.role === "ADMIN";
+}
+
+export async function requireBreakdownAccess(): Promise<SessionUser> {
+  const session = await requireSession();
+  if (!canBreakDownMandorExpense(session)) {
+    redirect(homePathForRole(session.role));
+  }
+  return session;
+}
+
 export function homePathForRole(role: SessionRole): string {
   if (role === "MANDOR") return "/mandor";
   if (role === "ADMIN") return "/dashboard";
