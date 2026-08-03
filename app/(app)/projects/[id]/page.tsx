@@ -227,6 +227,7 @@ export default async function ProjectDetailPage({
         tx.type === "EXPENSE" &&
         !tx.isOwnerPersonal &&
         !tx.isFeeTransfer &&
+        !tx.isMandorExpense &&
         tx.category.name !== SCHOOL_RESIDUAL_CATEGORY,
     )
     .reduce((sum, tx) => sum + tx.amount, 0);

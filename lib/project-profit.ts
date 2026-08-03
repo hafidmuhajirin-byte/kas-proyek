@@ -19,8 +19,9 @@ export type ProjectProfitInput = {
   billingMode: "ON_REQUEST" | "TERMIN_PLAN" | "PAY_AT_END";
   workCompletedValue: number;
   clientIncome: number;
-  /** Biaya operasional terpakai (tanpa ambil owner / sisa sekolah) */
+  /** Biaya operasional terpakai (tanpa ambil owner / sisa sekolah / bukti Mandor) */
   operatingExpense: number;
+  /** Termin/pembayaran ke pemborong (biaya kas nyata; bukti Mandor tidak dijumlah lagi) */
   contractorAdvances: number;
   /** Sisa rencana 5 pos dana: sum(max(0, planned − spent)) */
   remainingPlannedFunds: number;
@@ -65,6 +66,7 @@ export function calcProjectProfit(
   );
 
   const revenueBase = calcRevenueBase(input);
+  // Biaya nyata: operasional + termin pemborong. Bukti Mandor = laporan pemakaian dana cair, bukan biaya baru.
   const costUsed = input.operatingExpense + input.contractorAdvances;
   const remainingPlannedFunds = Math.max(0, input.remainingPlannedFunds);
   const contingencyBase = costUsed + remainingPlannedFunds;
@@ -116,7 +118,7 @@ export function calcProjectProfit(
   };
 }
 
-export const PROFIT_METHOD_NOTE = `Acuan margin = fee proyek ${PROJECT_FEE_PERCENT}% dari pendapatan. Keuntungan realisasi bisa bertambah jika pembayaran masuk dan biaya tetap terkendali. Estimasi bukan jaminan laba.`;
+export const PROFIT_METHOD_NOTE = `Acuan margin = fee proyek ${PROJECT_FEE_PERCENT}% dari pendapatan. Realisasi = pembayaran klien − (biaya operasional + termin pemborong). Bukti Mandor tidak dihitung biaya kedua. Estimasi bukan jaminan laba.`;
 
 /** Kuota fee proyek: target − transfer fee − ambil pribadi owner */
 export function calcFeeTransferQuota(input: {

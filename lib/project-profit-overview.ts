@@ -51,6 +51,7 @@ export async function getProjectsProfitOverview(options?: {
         amount: true,
         isOwnerPersonal: true,
         isFeeTransfer: true,
+        isMandorExpense: true,
         category: { select: { name: true } },
       },
     }),
@@ -100,6 +101,7 @@ export async function getProjectsProfitOverview(options?: {
         tx.type === "EXPENSE" &&
         !tx.isOwnerPersonal &&
         !tx.isFeeTransfer &&
+        !tx.isMandorExpense &&
         tx.category.name !== SCHOOL_RESIDUAL_CATEGORY
       ) {
         operatingExpense += tx.amount;
