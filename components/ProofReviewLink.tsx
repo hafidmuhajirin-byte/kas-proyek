@@ -121,7 +121,7 @@ export function ProofReviewHost() {
           ) : null}
 
           {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
+            // Media hanya dimuat saat panel dibuka
             <img
               src={url}
               alt={title}
