@@ -462,12 +462,13 @@ export default async function KasBesarPage({
           {params.projectId
             ? tidyCase(projectsInScope[0]?.name ?? "Proyek")
             : "Semua proyek"}{" "}
-          · urut tanggal
+          · terbaru di atas
         </p>
         <BookLedgerTable
           rows={bookRows}
           opening={opening}
           showProject
+          newestFirst
           empty="Belum ada mutasi."
         />
       </Card>

@@ -22,6 +22,127 @@ export type BookRow = {
   extra?: ReactNode;
 };
 
+function OpeningRow({
+  opening,
+  showProject,
+  hasAnyAction,
+}: {
+  opening: number;
+  showProject: boolean;
+  hasAnyAction: boolean;
+}) {
+  return (
+    <tr className="bg-teal-50/70">
+      <td className="border border-teal-900/10 px-2 py-1.5 text-teal-900/45">
+        —
+      </td>
+      {showProject ? (
+        <td className="border border-teal-900/10 px-2 py-1.5 text-teal-900/45">
+          —
+        </td>
+      ) : null}
+      <td className="border border-teal-900/10 px-2 py-1.5">Saldo awal</td>
+      <td className="border border-teal-900/10 px-2 py-1.5 text-right tabular-nums text-emerald-800">
+        {moneyCell(opening)}
+      </td>
+      <td className="border border-teal-900/10 px-2 py-1.5 text-center text-teal-900/35">
+        —
+      </td>
+      <td className="border border-teal-900/10 px-2 py-1.5 text-right tabular-nums font-medium">
+        {formatRupiah(opening)}
+      </td>
+      {hasAnyAction ? (
+        <td className="border border-teal-900/10 px-2 py-1.5 print:hidden" />
+      ) : null}
+    </tr>
+  );
+}
+
+function LedgerBodyRow({
+  row,
+  showProject,
+  hasAnyAction,
+}: {
+  row: BookRow;
+  showProject: boolean;
+  hasAnyAction: boolean;
+}) {
+  return (
+    <tr
+      className={
+        row.skipBalance
+          ? "bg-amber-50/50"
+          : "odd:bg-white even:bg-teal-50/25"
+      }
+    >
+      <td className="border border-teal-900/10 px-2 py-1.5 whitespace-nowrap align-top">
+        {format(row.date, "dd/MM/yyyy")}
+      </td>
+      {showProject ? (
+        <td className="border border-teal-900/10 px-2 py-1.5 align-top">
+          {row.projectHref && row.projectLabel ? (
+            <Link
+              href={row.projectHref}
+              className="text-teal-800 hover:underline"
+            >
+              {row.projectLabel}
+            </Link>
+          ) : (
+            (row.projectLabel ?? "—")
+          )}
+        </td>
+      ) : null}
+      <td className="border border-teal-900/10 px-2 py-1.5 align-top">
+        <div className="text-teal-950">{row.keterangan}</div>
+        {row.meta ? (
+          <p className="mt-0.5 text-[11px] text-teal-900/50">{row.meta}</p>
+        ) : null}
+        {row.extra}
+      </td>
+      <td className="border border-teal-900/10 px-2 py-1.5 text-right align-top whitespace-nowrap tabular-nums text-emerald-800">
+        {moneyCell(row.penerimaan)}
+      </td>
+      <td className="border border-teal-900/10 px-2 py-1.5 text-right align-top whitespace-nowrap tabular-nums text-rose-800">
+        {row.skipBalance && row.pengeluaran > 0 ? (
+          <span className="text-amber-800/80">
+            {moneyCell(row.pengeluaran)}*
+          </span>
+        ) : (
+          moneyCell(row.pengeluaran)
+        )}
+      </td>
+      <td
+        className={`border border-teal-900/10 px-2 py-1.5 text-right align-top whitespace-nowrap tabular-nums font-medium ${
+          row.saldo < 0 ? "text-rose-700" : "text-teal-950"
+        }`}
+      >
+        {formatRupiah(row.saldo)}
+      </td>
+      {hasAnyAction ? (
+        <td className="border border-teal-900/10 px-2 py-1.5 align-top text-xs print:hidden">
+          <div className="flex flex-wrap items-center gap-2">
+            {row.proofHref ? (
+              <ProofReviewLink
+                href={row.proofHref}
+                title={
+                  row.proofTitle ??
+                  (typeof row.keterangan === "string"
+                    ? row.keterangan
+                    : "Bukti")
+                }
+                className="text-teal-700 underline"
+              >
+                Bukti
+              </ProofReviewLink>
+            ) : null}
+            {row.actions}
+          </div>
+        </td>
+      ) : null}
+    </tr>
+  );
+}
+
 /** Tabel pembukuan ringkas — mudah dibaca seperti buku kas lapangan. */
 export function BookLedgerTable({
   rows,
@@ -30,6 +151,8 @@ export function BookLedgerTable({
   empty = "Belum ada mutasi.",
   footnote,
   showActions = true,
+  /** true = tampil terbaru di atas (saldo awal di bawah). rows tetap chrono untuk saldo. */
+  newestFirst = false,
 }: {
   rows: BookRow[];
   opening?: number;
@@ -37,6 +160,7 @@ export function BookLedgerTable({
   empty?: string;
   footnote?: string;
   showActions?: boolean;
+  newestFirst?: boolean;
 }) {
   if (rows.length === 0 && opening <= 0) {
     return <p className="px-1 py-4 text-sm text-teal-900/55">{empty}</p>;
@@ -56,7 +180,8 @@ export function BookLedgerTable({
   const saldoAkhir =
     rows.length > 0 ? rows[rows.length - 1].saldo : opening;
 
-  const labelCols = (showProject ? 3 : 2) + (hasAnyAction ? 0 : 0);
+  const displayRows = newestFirst ? [...rows].reverse() : rows;
+  const labelCols = showProject ? 3 : 2;
 
   return (
     <div className="overflow-x-auto">
@@ -91,111 +216,30 @@ export function BookLedgerTable({
           </tr>
         </thead>
         <tbody>
-          {opening > 0 ? (
-            <tr className="bg-teal-50/70">
-              <td className="border border-teal-900/10 px-2 py-1.5 text-teal-900/45">
-                —
-              </td>
-              {showProject ? (
-                <td className="border border-teal-900/10 px-2 py-1.5 text-teal-900/45">
-                  —
-                </td>
-              ) : null}
-              <td className="border border-teal-900/10 px-2 py-1.5">
-                Saldo awal
-              </td>
-              <td className="border border-teal-900/10 px-2 py-1.5 text-right tabular-nums text-emerald-800">
-                {moneyCell(opening)}
-              </td>
-              <td className="border border-teal-900/10 px-2 py-1.5 text-center text-teal-900/35">
-                —
-              </td>
-              <td className="border border-teal-900/10 px-2 py-1.5 text-right tabular-nums font-medium">
-                {formatRupiah(opening)}
-              </td>
-              {hasAnyAction ? (
-                <td className="border border-teal-900/10 px-2 py-1.5 print:hidden" />
-              ) : null}
-            </tr>
+          {!newestFirst && opening > 0 ? (
+            <OpeningRow
+              opening={opening}
+              showProject={showProject}
+              hasAnyAction={hasAnyAction}
+            />
           ) : null}
 
-          {rows.map((row) => (
-            <tr
+          {displayRows.map((row) => (
+            <LedgerBodyRow
               key={row.id}
-              className={
-                row.skipBalance
-                  ? "bg-amber-50/50"
-                  : "odd:bg-white even:bg-teal-50/25"
-              }
-            >
-              <td className="border border-teal-900/10 px-2 py-1.5 whitespace-nowrap align-top">
-                {format(row.date, "dd/MM/yyyy")}
-              </td>
-              {showProject ? (
-                <td className="border border-teal-900/10 px-2 py-1.5 align-top">
-                  {row.projectHref && row.projectLabel ? (
-                    <Link
-                      href={row.projectHref}
-                      className="text-teal-800 hover:underline"
-                    >
-                      {row.projectLabel}
-                    </Link>
-                  ) : (
-                    (row.projectLabel ?? "—")
-                  )}
-                </td>
-              ) : null}
-              <td className="border border-teal-900/10 px-2 py-1.5 align-top">
-                <div className="text-teal-950">{row.keterangan}</div>
-                {row.meta ? (
-                  <p className="mt-0.5 text-[11px] text-teal-900/50">
-                    {row.meta}
-                  </p>
-                ) : null}
-                {row.extra}
-              </td>
-              <td className="border border-teal-900/10 px-2 py-1.5 text-right align-top whitespace-nowrap tabular-nums text-emerald-800">
-                {moneyCell(row.penerimaan)}
-              </td>
-              <td className="border border-teal-900/10 px-2 py-1.5 text-right align-top whitespace-nowrap tabular-nums text-rose-800">
-                {row.skipBalance && row.pengeluaran > 0 ? (
-                  <span className="text-amber-800/80">
-                    {moneyCell(row.pengeluaran)}*
-                  </span>
-                ) : (
-                  moneyCell(row.pengeluaran)
-                )}
-              </td>
-              <td
-                className={`border border-teal-900/10 px-2 py-1.5 text-right align-top whitespace-nowrap tabular-nums font-medium ${
-                  row.saldo < 0 ? "text-rose-700" : "text-teal-950"
-                }`}
-              >
-                {formatRupiah(row.saldo)}
-              </td>
-              {hasAnyAction ? (
-                <td className="border border-teal-900/10 px-2 py-1.5 align-top text-xs print:hidden">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {row.proofHref ? (
-                      <ProofReviewLink
-                        href={row.proofHref}
-                        title={
-                          row.proofTitle ??
-                          (typeof row.keterangan === "string"
-                            ? row.keterangan
-                            : "Bukti")
-                        }
-                        className="text-teal-700 underline"
-                      >
-                        Bukti
-                      </ProofReviewLink>
-                    ) : null}
-                    {row.actions}
-                  </div>
-                </td>
-              ) : null}
-            </tr>
+              row={row}
+              showProject={showProject}
+              hasAnyAction={hasAnyAction}
+            />
           ))}
+
+          {newestFirst && opening > 0 ? (
+            <OpeningRow
+              opening={opening}
+              showProject={showProject}
+              hasAnyAction={hasAnyAction}
+            />
+          ) : null}
         </tbody>
         <tfoot>
           <tr className="bg-teal-800/10 font-medium">
