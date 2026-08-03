@@ -8,6 +8,7 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { getGlobalCashBreakdown } from "@/lib/balance";
+import { buildProjectBkkRows } from "@/lib/build-project-bkk-rows";
 import {
   buildRunningBalance,
   moneyCell,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/project-funds";
 import { isOwnerPersonalDraw } from "@/lib/owner-personal";
 import { PROJECT_FEE_PERCENT, calcFeeTransferQuota } from "@/lib/project-profit";
+import { ProjectBkkLedger } from "@/components/ProjectBkkLedger";
 
 export default async function ReportsPage({
   searchParams,
@@ -117,6 +119,20 @@ export default async function ReportsPage({
           project: true,
           cashSource: true,
           category: true,
+          expenseLines: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              kind: true,
+              description: true,
+              quantity: true,
+              unit: true,
+              unitPrice: true,
+              workDays: true,
+              dailyRate: true,
+              amount: true,
+            },
+          },
         },
       }),
       hasCategoryFilter || params.type === "INCOME"
@@ -477,7 +493,9 @@ export default async function ReportsPage({
             III. Pembukuan per Proyek
           </h2>
           <p className="mt-1 text-xs text-teal-900/55">
-            Buku kas masing-masing proyek — siap dilampirkan ke laporan lapangan.
+            Format BKK lapangan: Tanggal · No. Bukti · Uraian (Qty/Sat/Harga) ·
+            Penerimaan / Pengeluaran · Saldo. Bukti Mandor dipecah per item (*)
+            tanpa memotong kas dua kali.
           </p>
 
           {projectsInScope.length === 0 ? (
@@ -505,10 +523,9 @@ export default async function ReportsPage({
                 const book = buildRunningBalance(projectLines, opening, {
                   honorSkipBalance: true,
                 });
-                const masuk = projectLines.reduce((s, l) => s + l.debit, 0);
-                const keluar = projectLines
-                  .filter((l) => l.kind !== "Ambil pribadi")
-                  .reduce((s, l) => s + l.credit, 0);
+                const cash = sumCashMovements(projectLines);
+                const masuk = cash.debit;
+                const keluar = cash.credit;
                 const saldo =
                   book.length > 0 ? book[book.length - 1].balance : opening;
                 const contractor = project.contractor;
@@ -525,6 +542,7 @@ export default async function ReportsPage({
                   if (tx.projectId !== project.id || tx.type !== "EXPENSE") {
                     continue;
                   }
+                  if (tx.isMandorExpense) continue;
                   const kind = fundKindFromCategoryName(tx.category.name);
                   if (!kind) continue;
                   spentByKind[kind] = (spentByKind[kind] ?? 0) + tx.amount;
@@ -535,6 +553,39 @@ export default async function ReportsPage({
                 const hasFundPlan = projectFundKinds.some(
                   (k) => (fundByKind.get(k) ?? 0) > 0 || (spentByKind[k] ?? 0) > 0,
                 );
+
+                const projectTxs = transactions.filter(
+                  (tx) => tx.projectId === project.id,
+                );
+                const projectAdvs = advances.filter(
+                  (a) => a.contractor.projectId === project.id,
+                );
+                const bkkRows = buildProjectBkkRows(
+                  projectTxs.map((tx) => ({
+                    id: tx.id,
+                    date: tx.date,
+                    type: tx.type,
+                    amount: tx.amount,
+                    description: tx.description,
+                    isOwnerPersonal: tx.isOwnerPersonal,
+                    isFeeTransfer: tx.isFeeTransfer,
+                    isFromGlobalCash: tx.isFromGlobalCash,
+                    isMandorExpense: tx.isMandorExpense,
+                    isMandorDisbursement: tx.isMandorDisbursement,
+                    categoryName: tx.category.name,
+                    expenseLines: tx.expenseLines,
+                  })),
+                  projectAdvs.map((a) => ({
+                    id: a.id,
+                    date: a.date,
+                    amount: a.amount,
+                    description: a.description,
+                    contractorName: a.contractor.name,
+                  })),
+                );
+                const bulanKe = from
+                  ? from.getMonth() + 1
+                  : new Date().getMonth() + 1;
 
                 return (
                   <div
@@ -636,12 +687,13 @@ export default async function ReportsPage({
                       </div>
                     ) : null}
 
-                    <div className="px-2 py-2 sm:px-4">
-                      <LedgerTable
-                        rows={book}
+                    <div className="px-2 py-3 sm:px-4">
+                      <ProjectBkkLedger
+                        projectName={project.name}
+                        location={project.location}
+                        rows={bkkRows}
                         opening={opening}
-                        showProject={false}
-                        empty="Belum ada mutasi kas pada proyek ini."
+                        bulanKe={bulanKe}
                       />
                     </div>
                   </div>
@@ -901,12 +953,11 @@ function LedgerTable({
             </td>
             <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
               {moneyCell(
-                rows.reduce((s, r) => s + r.debit, 0) +
-                  (opening > 0 ? opening : 0),
+                sumCashMovements(rows).debit + (opening > 0 ? opening : 0),
               )}
             </td>
             <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-rose-800">
-              {moneyCell(rows.reduce((s, r) => s + r.credit, 0))}
+              {moneyCell(sumCashMovements(rows).credit)}
             </td>
             <td className="py-3 text-right whitespace-nowrap tabular-nums font-medium text-teal-950">
               {formatRupiah(

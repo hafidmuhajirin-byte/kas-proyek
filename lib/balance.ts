@@ -172,7 +172,7 @@ export async function getProjectBalances() {
       agg.expense += amount;
     }
     if (isOwnerPersonalDraw(tx)) agg.ownerPersonalExpense += amount;
-    if (g.type === "EXPENSE" && !g.isOwnerPersonal && !g.isFeeTransfer) {
+    if (g.type === "EXPENSE" && !g.isOwnerPersonal && !g.isFeeTransfer && !g.isMandorExpense) {
       agg.projectExpense += amount;
     }
     if (!isOwnerPersonalDraw(tx) && !g.isMandorExpense) {
@@ -390,7 +390,13 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
 
   const [txGroups, advanceSum] = await Promise.all([
     prisma.transaction.groupBy({
-      by: ["type", "isOwnerPersonal", "isFeeTransfer", "isFromGlobalCash"],
+      by: [
+        "type",
+        "isOwnerPersonal",
+        "isFeeTransfer",
+        "isFromGlobalCash",
+        "isMandorExpense",
+      ],
       where: dateFilter,
       _sum: { amount: true },
     }),
@@ -406,6 +412,7 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
   let ownerPersonalExpense = 0;
   let feeTransferExpense = 0;
   let cashAffectingExpense = 0;
+  let mandorExpense = 0;
 
   for (const g of txGroups) {
     const amount = g._sum.amount ?? 0;
@@ -421,7 +428,12 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
     if (g.type === "EXPENSE") expense += amount;
     if (isOwnerPersonalDraw(tx)) ownerPersonalExpense += amount;
     if (g.type === "EXPENSE" && g.isFeeTransfer) feeTransferExpense += amount;
-    if (g.type === "EXPENSE" && !g.isFromGlobalCash) {
+    if (g.type === "EXPENSE" && g.isMandorExpense) mandorExpense += amount;
+    if (
+      g.type === "EXPENSE" &&
+      !g.isFromGlobalCash &&
+      !g.isMandorExpense
+    ) {
       cashAffectingExpense += amount;
     }
   }
@@ -434,7 +446,8 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
     ownerPersonalExpense,
     ownerPersonalInjection,
     contractorAdvances,
-    projectExpense: expense - ownerPersonalExpense - feeTransferExpense,
+    projectExpense:
+      expense - ownerPersonalExpense - feeTransferExpense - mandorExpense,
     net:
       income +
       ownerPersonalInjection -
