@@ -196,6 +196,12 @@ enum MandorExpenseLineKind {
   LABOR
 }
 
+enum MandorBreakdownStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 /// Pecahan Admin atas nota Mandor (bahan / upah pekerja)
 model MandorExpenseLine {
   id          String               @id @default(cuid())
@@ -203,6 +209,7 @@ model MandorExpenseLine {
   description String               @db.Text
   quantity    Float?
   unit        String?
+  unitPrice   Int?
   workDays    Float?
   dailyRate   Int?
   amount      Int
@@ -329,6 +336,9 @@ model Transaction {
   isFeeTransfer   Boolean     @default(false)
   isMandorDisbursement Boolean @default(false)
   isMandorExpense      Boolean @default(false)
+  breakdownVendor      String?
+  breakdownStatus      MandorBreakdownStatus @default(PENDING)
+  breakdownNote        String? @db.Text
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 

@@ -3,6 +3,7 @@ import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import {
   MandorExpenseBreakdownForm,
+  type BreakdownStatus,
   type ExpenseLineRow,
 } from "@/components/MandorExpenseBreakdownForm";
 
@@ -14,6 +15,9 @@ export type MandorExpenseRow = {
   proofUrl: string | null;
   mandorName: string;
   pencairanLabel?: string | null;
+  vendor?: string | null;
+  breakdownStatus?: BreakdownStatus;
+  breakdownNote?: string | null;
   lines: ExpenseLineRow[];
 };
 
@@ -41,8 +45,8 @@ export function MandorExpensePanel({
       <div>
         <h3 className="font-medium text-[var(--ink)]">Bukti belanja Mandor</h3>
         <p className="text-xs text-[var(--ink-faint)]">
-          Laporan pemakaian dana cair — tidak memotong Kas Besar lagi. Admin
-          dapat memecah tiap nota menjadi bahan / pekerja.
+          Laporan pemakaian dana cair. Pecah nota dalam tabel ringkas; setujui
+          jika total = nota, atau tolak agar Mandor kirim foto ulang.
         </p>
       </div>
 
@@ -88,6 +92,16 @@ export function MandorExpensePanel({
                 <div className="min-w-0">
                   <p className="font-medium text-[var(--ink)]">
                     {tidyCase(r.description)}
+                    {r.breakdownStatus === "APPROVED" ? (
+                      <span className="ml-2 text-[11px] font-normal text-emerald-700">
+                        ✓ disetujui
+                      </span>
+                    ) : null}
+                    {r.breakdownStatus === "REJECTED" ? (
+                      <span className="ml-2 text-[11px] font-normal text-rose-700">
+                        ditolak
+                      </span>
+                    ) : null}
                   </p>
                   <p className="text-xs text-[var(--ink-faint)]">
                     {format(r.date, "dd/MM/yyyy")} · {r.mandorName}
@@ -117,6 +131,9 @@ export function MandorExpensePanel({
                 proofAmount={r.amount}
                 lines={r.lines}
                 canEdit={canBreakDown}
+                vendor={r.vendor}
+                status={r.breakdownStatus ?? "PENDING"}
+                rejectNote={r.breakdownNote}
               />
             </li>
           ))}

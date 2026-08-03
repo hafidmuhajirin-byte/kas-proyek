@@ -102,6 +102,9 @@ export default async function KasProyekPage({
         isFromGlobalCash: true,
         isMandorDisbursement: true,
         isMandorExpense: true,
+        breakdownVendor: true,
+        breakdownStatus: true,
+        breakdownNote: true,
         projectId: true,
         project: { select: { id: true, name: true, location: true } },
         cashSource: { select: { id: true, name: true, type: true } },
@@ -126,6 +129,7 @@ export default async function KasProyekPage({
             description: true,
             quantity: true,
             unit: true,
+            unitPrice: true,
             workDays: true,
             dailyRate: true,
             amount: true,
@@ -249,6 +253,14 @@ export default async function KasProyekPage({
       : opening;
 
   const expenseLinesByTx = new Map<string, ExpenseLineRow[]>();
+  const breakdownMetaByTx = new Map<
+    string,
+    {
+      vendor: string | null;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+      note: string | null;
+    }
+  >();
   for (const tx of transactions) {
     if (tx.isMandorExpense) {
       expenseLinesByTx.set(
@@ -259,11 +271,17 @@ export default async function KasProyekPage({
           description: l.description,
           quantity: l.quantity,
           unit: l.unit,
+          unitPrice: l.unitPrice,
           workDays: l.workDays,
           dailyRate: l.dailyRate,
           amount: l.amount,
         })),
       );
+      breakdownMetaByTx.set(tx.id, {
+        vendor: tx.breakdownVendor,
+        status: tx.breakdownStatus,
+        note: tx.breakdownNote,
+      });
     }
   }
 
@@ -480,6 +498,16 @@ export default async function KasProyekPage({
                             proofAmount={meta.amount}
                             lines={lines}
                             canEdit={canBreakDown}
+                            vendor={
+                              breakdownMetaByTx.get(meta.entityId)?.vendor
+                            }
+                            status={
+                              breakdownMetaByTx.get(meta.entityId)?.status ??
+                              "PENDING"
+                            }
+                            rejectNote={
+                              breakdownMetaByTx.get(meta.entityId)?.note
+                            }
                           />
                         ) : null}
                       </td>

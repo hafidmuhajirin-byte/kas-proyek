@@ -35,11 +35,29 @@ export default async function MandorHomePage() {
     );
   }
 
-  const projects = await prisma.project.findMany({
-    where: { id: { in: ids } },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, location: true },
-  });
+  const [projects, rejectedProofs] = await Promise.all([
+    prisma.project.findMany({
+      where: { id: { in: ids } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, location: true },
+    }),
+    prisma.transaction.findMany({
+      where: {
+        createdById: user.id,
+        isMandorExpense: true,
+        breakdownStatus: "REJECTED",
+        projectId: { in: ids },
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      select: {
+        id: true,
+        amount: true,
+        description: true,
+        breakdownNote: true,
+        project: { select: { id: true, name: true } },
+      },
+    }),
+  ]);
 
   const fundMap = await getMandorFundSummariesFor(
     projects.map((p) => ({ projectId: p.id, mandorId: user.id })),
@@ -50,6 +68,34 @@ export default async function MandorHomePage() {
       <h1 className="text-center text-2xl font-bold uppercase tracking-wide text-[var(--ink)]">
         Proyek saya
       </h1>
+
+      {rejectedProofs.length > 0 ? (
+        <Card className="space-y-2 border-rose-200 bg-rose-50/80">
+          <p className="text-center text-sm font-medium text-rose-950">
+            Bukti ditolak — kirim foto/nota yang benar
+          </p>
+          {rejectedProofs.map((r) => (
+            <div
+              key={r.id}
+              className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-rose-950"
+            >
+              <p className="font-medium">
+                {r.project?.name ?? "Proyek"} · {formatRupiah(r.amount)}
+              </p>
+              <p className="text-xs text-rose-900/80">{r.description}</p>
+              {r.breakdownNote ? (
+                <p className="mt-1 text-xs">Alasan: {r.breakdownNote}</p>
+              ) : null}
+              <Link
+                href={`/mandor/upload?projectId=${r.project?.id ?? ""}`}
+                className="mt-2 inline-block text-sm font-medium text-[var(--accent)] underline"
+              >
+                Upload ulang
+              </Link>
+            </div>
+          ))}
+        </Card>
+      ) : null}
 
       <div className="space-y-4">
         {projects.map((p) => {
