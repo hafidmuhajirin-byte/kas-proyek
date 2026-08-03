@@ -507,6 +507,7 @@ export default async function KasProyekPage({
                             rejectNote={
                               breakdownMetaByTx.get(meta.entityId)?.note
                             }
+                            defaultOpen={false}
                           />
                         ) : null}
                       </td>

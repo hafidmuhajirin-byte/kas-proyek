@@ -82,6 +82,7 @@ export function MandorExpenseBreakdownForm({
   vendor = null,
   status = "PENDING",
   rejectNote = null,
+  defaultOpen = true,
 }: {
   transactionId: string;
   proofAmount: number;
@@ -90,6 +91,8 @@ export function MandorExpenseBreakdownForm({
   vendor?: string | null;
   status?: BreakdownStatus;
   rejectNote?: string | null;
+  /** false = hanya tombol singkat sampai diklik (Kas Proyek) */
+  defaultOpen?: boolean;
 }) {
   const initialKind =
     lines[0]?.kind ?? ("MATERIAL" as "MATERIAL" | "LABOR");
@@ -99,6 +102,7 @@ export function MandorExpenseBreakdownForm({
     linesToDrafts(lines, initialKind),
   );
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   const [saveState, saveAction, savePending] = useActionState(
     saveMandorExpenseBreakdownAction,
@@ -154,19 +158,57 @@ export function MandorExpenseBreakdownForm({
   }
 
   if (status === "APPROVED" && !canEdit) {
+    if (!open) {
+      return (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-1 text-[11px] text-emerald-700 underline"
+        >
+          ✓ pecahan disetujui — lihat
+        </button>
+      );
+    }
     return (
-      <ApprovedSummary
-        kind={initialKind}
-        vendor={vendor}
-        lines={lines}
-        proofAmount={proofAmount}
-      />
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="mb-1 text-[11px] text-teal-700 underline"
+        >
+          Sembunyikan
+        </button>
+        <ApprovedSummary
+          kind={initialKind}
+          vendor={vendor}
+          lines={lines}
+          proofAmount={proofAmount}
+        />
+      </div>
     );
   }
 
   if (status === "APPROVED" && canEdit) {
+    if (!open) {
+      return (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-1 text-[11px] text-emerald-700 underline"
+        >
+          ✓ pecahan disetujui — lihat
+        </button>
+      );
+    }
     return (
       <div className="mt-2 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-[11px] text-teal-700 underline"
+        >
+          Sembunyikan
+        </button>
         <ApprovedSummary
           kind={initialKind}
           vendor={vendor}
@@ -183,18 +225,45 @@ export function MandorExpenseBreakdownForm({
     );
   }
 
+  if (!open) {
+    const label =
+      status === "REJECTED"
+        ? "Ditolak — buka pecahan"
+        : lines.length > 0
+          ? "Buka pecahan"
+          : "Pecah nota";
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1 text-[11px] text-teal-700 underline"
+      >
+        {label}
+      </button>
+    );
+  }
+
   return (
     <div className="mt-2 space-y-2 rounded-lg border border-teal-900/10 bg-teal-950/[0.02] p-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-medium text-teal-950">Pecahan Admin</p>
-        <p
-          className={`text-[11px] tabular-nums ${
-            matches ? "text-emerald-700" : "text-teal-900/55"
-          }`}
-        >
-          Total {formatRupiah(draftTotal)}
-          {matches ? " · sesuai nota" : ` · nota ${formatRupiah(proofAmount)}`}
-        </p>
+        <div className="flex items-center gap-2">
+          <p
+            className={`text-[11px] tabular-nums ${
+              matches ? "text-emerald-700" : "text-teal-900/55"
+            }`}
+          >
+            Total {formatRupiah(draftTotal)}
+            {matches ? " · sesuai nota" : ` · nota ${formatRupiah(proofAmount)}`}
+          </p>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-[11px] text-teal-700 underline"
+          >
+            Sembunyikan
+          </button>
+        </div>
       </div>
 
       {status === "REJECTED" ? (
