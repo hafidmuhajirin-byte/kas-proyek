@@ -4,7 +4,7 @@ Aplikasi web pembukuan kas untuk banyak proyek di berbagai lokasi, dengan kas ma
 
 ## Fitur
 
-- Login Admin / Operator
+- Login Owner / Admin / Mandor
 - Manajemen proyek (nama, lokasi, status, nilai kontrak, saldo awal)
 - **Pendanaan bertahap** per proyek (DP, Termin 1, Termin 2, dst.) dengan progress %
 - Sumber kas (bank, tunai, transfer klien, lainnya)
@@ -15,9 +15,9 @@ Aplikasi web pembukuan kas untuk banyak proyek di berbagai lokasi, dengan kas ma
 
 ## Alur kerja singkat
 
-1. Admin membuat **Proyek** dan isi **nilai kontrak**
+1. Owner membuat **Proyek** dan isi **nilai kontrak**
 2. Di detail proyek, atur **tahapan dana** (mis. DP 30%, Termin 1 40%, Termin 2 30%)
-3. Admin menambah **Sumber Kas** bila perlu
+3. Owner menambah **Sumber Kas** bila perlu
 4. Catat **Transaksi** pemasukan → pilih tahapan yang sedang cair
 5. Pantau progress di **Dashboard** / detail proyek, dan **Laporan**
 
@@ -36,16 +36,18 @@ Buka [http://localhost:3000](http://localhost:3000)
 
 | Username | Password | Role |
 |---|---|---|
+| `owner` | `owner123` | Owner |
 | `admin` | `admin123` | Admin |
-| `operator` | `operator123` | Operator |
+| `mandor` | `mandor123` | Mandor |
 
 Ganti password default setelah login pertama. Ubah juga `AUTH_SECRET` di file `.env`.
 
 ## Deploy produksi
 
-- **Render (gratis, disarankan jika shared Node bentrok CV):** [deploy-fix/RENDER.md](./deploy-fix/RENDER.md)
-- **Niagahoster / cPanel / VPS:** [DEPLOY.md](./DEPLOY.md)
+- **VPS (produksi):** https://hafitproyek.online — lihat [DEPLOY.md](./DEPLOY.md) & [HANDOFF-KAS-PROYEK.md](./HANDOFF-KAS-PROYEK.md)
+- **Render (alternatif):** [deploy-fix/RENDER.md](./deploy-fix/RENDER.md)
+- **cPanel MySQL (tidak disarankan):** [deploy-fix/HOSTING-MYSQL.md](./deploy-fix/HOSTING-MYSQL.md)
 
 ## Teknologi
 
-Next.js, TypeScript, Tailwind CSS, Prisma, MySQL
+Next.js, TypeScript, Tailwind CSS, Prisma, MySQL / MariaDB

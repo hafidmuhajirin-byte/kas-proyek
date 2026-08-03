@@ -103,7 +103,7 @@ model MandorDisbursement {
   label       String
   sequence    Int      @default(1)
   amount      Int
-  description String   @default("") @db.Text
+  description String   @default("")
   proofUrl    String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -97,7 +97,7 @@ export function MandorUploadForm({
         />
       </Field>
 
-      <Field label="Bukti (wajib)" htmlFor="proof">
+      <Field label="Bukti (wajib)">
         <ProofCapture onApplySuggestion={applyOcr} />
       </Field>
 

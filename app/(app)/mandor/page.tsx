@@ -10,6 +10,11 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { btnPrimaryClass, Card } from "@/components/ui";
 
+function googleMapsSearchUrl(name: string, location: string) {
+  const query = [name, location].map((s) => s.trim()).filter(Boolean).join(" ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 export default async function MandorHomePage() {
   const user = await requireSession();
   if (!isMandor(user)) redirect("/dashboard");
@@ -18,7 +23,9 @@ export default async function MandorHomePage() {
   if (ids === "all" || ids.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="font-serif text-2xl text-[var(--ink)]">Beranda</h1>
+        <h1 className="text-center text-2xl font-bold uppercase tracking-wide text-[var(--ink)]">
+          Beranda
+        </h1>
         <Card>
           <p className="text-base text-[var(--ink)]">
             Belum ada proyek. Hubungi Owner untuk penugasan.
@@ -40,7 +47,9 @@ export default async function MandorHomePage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-serif text-2xl text-[var(--ink)]">Proyek saya</h1>
+      <h1 className="text-center text-2xl font-bold uppercase tracking-wide text-[var(--ink)]">
+        Proyek saya
+      </h1>
 
       <div className="space-y-4">
         {projects.map((p) => {
@@ -51,11 +60,21 @@ export default async function MandorHomePage() {
             totalBukti: 0,
             sisa: 0,
           };
+          const mapsUrl = googleMapsSearchUrl(p.name, p.location);
           return (
             <Card key={p.id} className="space-y-3">
-              <div>
+              <div className="text-center">
                 <p className="text-lg font-medium text-[var(--ink)]">{p.name}</p>
-                <p className="text-sm text-[var(--ink-faint)]">{p.location}</p>
+                {p.location ? (
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-0.5 inline-block text-sm text-[var(--accent)] underline-offset-2 hover:underline"
+                  >
+                    {p.location}
+                  </a>
+                ) : null}
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>

@@ -82,7 +82,7 @@ export default async function TransactionsPage({
   const [transactions, advances, projects, kasBesar] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
         date: true,
@@ -105,7 +105,7 @@ export default async function TransactionsPage({
     includeAdvances
       ? prisma.contractorAdvance.findMany({
           where: advanceWhere,
-          orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+          orderBy: [{ date: "desc" }, { createdAt: "desc" }],
           select: {
             id: true,
             date: true,
@@ -163,11 +163,13 @@ export default async function TransactionsPage({
             : "Pemasukan"
           : tx.isFeeTransfer
             ? "Transfer fee"
-            : tx.isOwnerPersonal
-              ? "Ambil pribadi"
-              : tx.isFromGlobalCash
-                ? "Masuk kas besar"
-                : "Pengeluaran",
+            : tx.isMandorExpense
+              ? "Belanja Mandor"
+              : tx.isOwnerPersonal
+                ? "Ambil pribadi"
+                : tx.isFromGlobalCash
+                  ? "Masuk kas besar"
+                  : "Pengeluaran",
       description: tx.fundingStage
         ? `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)} · ${tidyCase(tx.fundingStage.name)}`
         : tx.isOwnerPersonal && tx.type === "EXPENSE" && !tx.isFeeTransfer
@@ -175,7 +177,10 @@ export default async function TransactionsPage({
           : `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)}`,
       debit: tx.type === "INCOME" ? tx.amount : 0,
       credit: tx.type === "EXPENSE" ? tx.amount : 0,
-      skipBalance: tx.type === "EXPENSE" && tx.isFromGlobalCash,
+      // Bukti Mandor = laporan pemakaian dana cair; kas sudah terpotong saat pencairan.
+      skipBalance:
+        (tx.type === "EXPENSE" && tx.isFromGlobalCash) ||
+        Boolean(tx.isMandorExpense),
     })),
     ...advances.map((a) => ({
       id: `adv-${a.id}`,
@@ -191,14 +196,18 @@ export default async function TransactionsPage({
     })),
   ];
 
-  const book = buildRunningBalance(ledgerLines, opening, {
+  // Saldo dihitung kronologis (lama → baru), lalu dibalik untuk tampilan terbaru di atas.
+  const bookChrono = buildRunningBalance(ledgerLines, opening, {
     honorSkipBalance: true,
   });
+  const book = [...bookChrono].reverse();
 
-  const totalDebit = book.reduce((sum, row) => sum + row.debit, 0);
-  const totalCredit = book.reduce((sum, row) => sum + row.credit, 0);
+  const totalDebit = bookChrono.reduce((sum, row) => sum + row.debit, 0);
+  const totalCredit = bookChrono.reduce((sum, row) => sum + row.credit, 0);
   const saldoAkhir =
-    book.length > 0 ? book[book.length - 1].balance : opening;
+    bookChrono.length > 0
+      ? bookChrono[bookChrono.length - 1].balance
+      : opening;
 
   const rowMeta = new Map<
     string,
@@ -279,7 +288,7 @@ export default async function TransactionsPage({
         <SummaryPill
           label="Saldo buku (filter)"
           value={formatRupiah(saldoAkhir)}
-          hint="Saldo berjalan akhir tabel"
+          hint="Saldo setelah semua mutasi (terbaru di atas)"
           tone="bal"
         />
       </div>
@@ -337,7 +346,8 @@ export default async function TransactionsPage({
                 : "Gabungan semua proyek"}
             </p>
             <p className="text-teal-900/55">
-              Debit = masuk · Kredit = keluar · Saldo berjalan
+              Terbaru di atas · Debit = masuk · Kredit = keluar · Saldo
+              berjalan
             </p>
           </div>
         </div>
@@ -366,30 +376,6 @@ export default async function TransactionsPage({
                 </tr>
               </thead>
               <tbody>
-                {opening > 0 ? (
-                  <tr className="border-b border-teal-900/8 bg-teal-50/50">
-                    <td className="px-4 py-3 pr-3 whitespace-nowrap text-teal-900/55 sm:px-5">
-                      —
-                    </td>
-                    <td className="py-3 pr-3 text-teal-900/55">—</td>
-                    <td className="py-3 pr-3 text-teal-950">
-                      Saldo awal
-                      {params.projectId ? "" : " (gabungan proyek)"}
-                    </td>
-                    <td className="py-3 pr-3 text-teal-900/55">—</td>
-                    <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
-                      {moneyCell(opening)}
-                    </td>
-                    <td className="py-3 pr-2 text-right text-teal-900/40">—</td>
-                    <td className="py-3 pr-3 text-right whitespace-nowrap tabular-nums text-teal-950">
-                      {formatRupiah(opening)}
-                    </td>
-                    <td className="py-3 pr-4 text-teal-900/40 sm:pr-5 print:hidden">
-                      —
-                    </td>
-                  </tr>
-                ) : null}
-
                 {book.map((row) => {
                   const meta = rowMeta.get(row.id);
                   return (
@@ -515,6 +501,30 @@ export default async function TransactionsPage({
                     </tr>
                   );
                 })}
+
+                {opening > 0 ? (
+                  <tr className="border-b border-teal-900/8 bg-teal-50/50">
+                    <td className="px-4 py-3 pr-3 whitespace-nowrap text-teal-900/55 sm:px-5">
+                      —
+                    </td>
+                    <td className="py-3 pr-3 text-teal-900/55">—</td>
+                    <td className="py-3 pr-3 text-teal-950">
+                      Saldo awal
+                      {params.projectId ? "" : " (gabungan proyek)"}
+                    </td>
+                    <td className="py-3 pr-3 text-teal-900/55">—</td>
+                    <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
+                      {moneyCell(opening)}
+                    </td>
+                    <td className="py-3 pr-2 text-right text-teal-900/40">—</td>
+                    <td className="py-3 pr-3 text-right whitespace-nowrap tabular-nums text-teal-950">
+                      {formatRupiah(opening)}
+                    </td>
+                    <td className="py-3 pr-4 text-teal-900/40 sm:pr-5 print:hidden">
+                      —
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
               <tfoot>
                 <tr className="border-t border-teal-900/15 bg-teal-950/[0.03] text-sm">

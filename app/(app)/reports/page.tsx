@@ -159,15 +159,19 @@ export default async function ReportsPage({
             : "Pemasukan"
           : tx.isFeeTransfer
             ? "Transfer fee"
-            : tx.isOwnerPersonal
-              ? "Ambil pribadi"
-              : tx.isFromGlobalCash
-                ? "Masuk kas besar"
-                : "Pengeluaran",
+            : tx.isMandorExpense
+              ? "Belanja Mandor"
+              : tx.isOwnerPersonal
+                ? "Ambil pribadi"
+                : tx.isFromGlobalCash
+                  ? "Masuk kas besar"
+                  : "Pengeluaran",
       description: `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)}`,
       debit: tx.type === "INCOME" ? tx.amount : 0,
       credit: tx.type === "EXPENSE" ? tx.amount : 0,
-      skipBalance: tx.type === "EXPENSE" && tx.isFromGlobalCash,
+      skipBalance:
+        (tx.type === "EXPENSE" && tx.isFromGlobalCash) ||
+        Boolean(tx.isMandorExpense),
     })),
     ...advances.map((a) => ({
       id: `adv-${a.id}`,
