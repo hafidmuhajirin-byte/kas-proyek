@@ -163,11 +163,13 @@ export default async function TransactionsPage({
             : "Pemasukan"
           : tx.isFeeTransfer
             ? "Transfer fee"
-            : tx.isOwnerPersonal
-              ? "Ambil pribadi"
-              : tx.isFromGlobalCash
-                ? "Masuk kas besar"
-                : "Pengeluaran",
+            : tx.isMandorExpense
+              ? "Belanja Mandor"
+              : tx.isOwnerPersonal
+                ? "Ambil pribadi"
+                : tx.isFromGlobalCash
+                  ? "Masuk kas besar"
+                  : "Pengeluaran",
       description: tx.fundingStage
         ? `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)} · ${tidyCase(tx.fundingStage.name)}`
         : tx.isOwnerPersonal && tx.type === "EXPENSE" && !tx.isFeeTransfer
@@ -175,7 +177,10 @@ export default async function TransactionsPage({
           : `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)}`,
       debit: tx.type === "INCOME" ? tx.amount : 0,
       credit: tx.type === "EXPENSE" ? tx.amount : 0,
-      skipBalance: tx.type === "EXPENSE" && tx.isFromGlobalCash,
+      // Bukti Mandor = laporan pemakaian dana cair; kas sudah terpotong saat pencairan.
+      skipBalance:
+        (tx.type === "EXPENSE" && tx.isFromGlobalCash) ||
+        Boolean(tx.isMandorExpense),
     })),
     ...advances.map((a) => ({
       id: `adv-${a.id}`,

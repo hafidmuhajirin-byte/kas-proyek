@@ -16,6 +16,7 @@ import { isOwner, isAdmin, requireSession } from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
 import { getMandorFundSummariesFor } from "@/lib/mandor-fund";
 import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
+import { MandorExpensePanel } from "@/components/MandorExpensePanel";
 import {
   billingModeHints,
   billingModeLabels,
@@ -123,6 +124,7 @@ export default async function ProjectDetailPage({
             isMandorExpense: true,
             category: { select: { name: true, type: true } },
             cashSource: { select: { name: true } },
+            createdBy: { select: { id: true, name: true } },
           },
         },
         contractor: {
@@ -315,12 +317,30 @@ export default async function ProjectDetailPage({
     assignedMandors.map((a) => ({ projectId: id, mandorId: a.userId })),
   );
   const overspend: { mandorName: string; amount: number }[] = [];
-  for (const a of assignedMandors) {
+  const fundBriefs = assignedMandors.map((a) => {
     const s = fundMap.get(`${id}::${a.userId}`);
     if (s && s.sisa < 0) {
       overspend.push({ mandorName: a.user.name, amount: -s.sisa });
     }
-  }
+    return {
+      mandorName: a.user.name,
+      totalCair: s?.totalCair ?? 0,
+      totalBukti: s?.totalBukti ?? 0,
+      sisa: s?.sisa ?? 0,
+    };
+  });
+
+  const mandorExpenseRows = project.transactions
+    .filter((tx) => tx.type === "EXPENSE" && tx.isMandorExpense)
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .map((tx) => ({
+      id: tx.id,
+      date: tx.date,
+      amount: tx.amount,
+      description: tx.description,
+      proofUrl: tx.proofUrl,
+      mandorName: tx.createdBy.name,
+    }));
 
   return (
     <div>
@@ -362,6 +382,14 @@ export default async function ProjectDetailPage({
             proofUrl: d.proofUrl,
           }))}
           overspend={overspend}
+        />
+      </Card>
+
+      <Card className="mb-6">
+        <MandorExpensePanel
+          rows={mandorExpenseRows}
+          fundBriefs={fundBriefs}
+          bukuKasHref={`/transactions?projectId=${project.id}`}
         />
       </Card>
 
