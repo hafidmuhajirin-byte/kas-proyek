@@ -59,20 +59,6 @@ export function ProofReviewHost() {
     };
   }, [desktop]);
 
-  useEffect(() => {
-    if (!url) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setUrl(null);
-    };
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    // Jangan lock scroll penuh — user masih isi form di kiri
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [url]);
-
   const close = useCallback(() => setUrl(null), []);
 
   if (!desktop || !url) return null;
@@ -80,81 +66,73 @@ export function ProofReviewHost() {
   const image = isImageUrl(url);
   const pdf = isPdfUrl(url);
 
+  // Panel kanan saja — area kiri tetap bisa diisi (pecahan Admin dll).
+  // Hanya tombol Tutup yang menutup; klik di luar / Esc tidak menutup.
   return (
-    <div className="pointer-events-none fixed inset-0 z-[80] hidden lg:block">
-      <button
-        type="button"
-        aria-label="Tutup overlay"
-        className="pointer-events-auto absolute inset-0 bg-teal-950/25"
-        onClick={close}
-      />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="pointer-events-auto absolute inset-y-0 right-0 flex w-[min(440px,42vw)] flex-col border-l border-teal-900/15 bg-[#fffcf7] shadow-xl"
-      >
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-teal-900/10 px-3 py-2.5">
-          <p className="truncate text-sm font-medium text-teal-950">{title}</p>
-          <div className="flex shrink-0 items-center gap-2">
+    <aside
+      role="complementary"
+      aria-label={title}
+      className="fixed inset-y-0 right-0 z-[80] hidden w-[min(440px,42vw)] flex-col border-l border-teal-900/15 bg-[#fffcf7] shadow-xl lg:flex"
+    >
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-teal-900/10 px-3 py-2.5">
+        <p className="truncate text-sm font-medium text-teal-950">{title}</p>
+        <div className="flex shrink-0 items-center gap-2">
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-teal-700 underline"
+          >
+            Tab baru
+          </a>
+          <button
+            type="button"
+            onClick={close}
+            className="rounded-md bg-teal-800 px-2.5 py-1 text-sm font-medium text-white hover:bg-teal-900"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+
+      <div className="relative min-h-0 flex-1 overflow-auto bg-teal-950/[0.03] p-3">
+        {!ready ? (
+          <p className="text-center text-xs text-teal-900/50">Memuat…</p>
+        ) : null}
+
+        {image ? (
+          <img
+            src={url}
+            alt={title}
+            className={`mx-auto max-h-full max-w-full object-contain ${
+              ready ? "" : "invisible absolute"
+            }`}
+            onLoad={() => setReady(true)}
+            onError={() => setReady(true)}
+          />
+        ) : pdf ? (
+          <iframe
+            title={title}
+            src={url}
+            className="h-full min-h-[70vh] w-full rounded border border-teal-900/10 bg-white"
+            onLoad={() => setReady(true)}
+          />
+        ) : (
+          <div className="space-y-2 text-center text-sm">
+            <p className="text-teal-900/70">Pratinjau tidak tersedia.</p>
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-teal-700 underline"
+              className="text-teal-700 underline"
+              onClick={() => setReady(true)}
             >
-              Tab baru
+              Buka file
             </a>
-            <button
-              type="button"
-              onClick={close}
-              className="rounded-md px-2 py-1 text-sm text-teal-900/70 hover:bg-teal-900/5"
-            >
-              Tutup
-            </button>
           </div>
-        </div>
-
-        <div className="relative min-h-0 flex-1 overflow-auto bg-teal-950/[0.03] p-3">
-          {!ready ? (
-            <p className="text-center text-xs text-teal-900/50">Memuat…</p>
-          ) : null}
-
-          {image ? (
-            // Media hanya dimuat saat panel dibuka
-            <img
-              src={url}
-              alt={title}
-              className={`mx-auto max-h-full max-w-full object-contain ${
-                ready ? "" : "invisible absolute"
-              }`}
-              onLoad={() => setReady(true)}
-              onError={() => setReady(true)}
-            />
-          ) : pdf ? (
-            <iframe
-              title={title}
-              src={url}
-              className="h-full min-h-[70vh] w-full rounded border border-teal-900/10 bg-white"
-              onLoad={() => setReady(true)}
-            />
-          ) : (
-            <div className="space-y-2 text-center text-sm">
-              <p className="text-teal-900/70">Pratinjau tidak tersedia.</p>
-              <a
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-teal-700 underline"
-                onClick={() => setReady(true)}
-              >
-                Buka file
-              </a>
-            </div>
-          )}
-        </div>
-      </aside>
-    </div>
+        )}
+      </div>
+    </aside>
   );
 }
 
