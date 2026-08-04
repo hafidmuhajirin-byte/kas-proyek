@@ -56,40 +56,46 @@ export function MandorDisbursementPanel({
   const totalCair = rows
     .filter((r) => r.hasKasBesar !== false)
     .reduce((s, r) => s + r.amount, 0);
+  const visibleRows = rows.filter((r) => r.hasKasBesar !== false);
 
   return (
     <div className="space-y-4">
-      {!compact ? (
-        <div>
-          <h3 className="font-medium text-[var(--ink)]">Dana ke Mandor</h3>
-          <p className="text-xs text-[var(--ink-faint)]">
-            Pencairan Owner → Mandor (bukan pembayaran klien).
-          </p>
-        </div>
-      ) : (
-        <div>
-          <h3 className="text-base font-medium text-teal-950">Dana ke Mandor</h3>
-          <p className="mt-0.5 text-sm text-teal-900/55">
-            {rows.length} pencairan · {formatRupiah(totalCair)}
-          </p>
-        </div>
-      )}
+      <div>
+        <h3
+          className={
+            compact
+              ? "text-base font-medium text-teal-950"
+              : "font-medium text-[var(--ink)]"
+          }
+        >
+          Dana ke Mandor
+          {totalCair > 0 ? (
+            <span
+              className={
+                compact
+                  ? "ml-2 text-sm font-normal text-teal-900/55"
+                  : "ml-2 text-sm font-normal text-[var(--ink-faint)]"
+              }
+            >
+              {formatRupiah(totalCair)}
+            </span>
+          ) : null}
+        </h3>
+      </div>
 
       {overspend && overspend.length > 0 ? (
-        <div className="space-y-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-3 text-sm text-rose-950">
-          <p className="font-medium">Alarm: bukti melebihi dana cair</p>
+        <div className="space-y-1 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-950">
           {overspend.map((o) => (
             <p key={o.mandorName}>
-              {o.mandorName}: kelebihan {formatRupiah(o.amount)} — segera
-              berikan dana berikutnya.
+              {o.mandorName}: kelebihan {formatRupiah(o.amount)}
             </p>
           ))}
         </div>
       ) : null}
 
-      {rows.length > 0 ? (
+      {visibleRows.length > 0 ? (
         <ul className="divide-y divide-[var(--line-soft)] rounded-lg border border-[var(--line)]">
-          {rows.map((r) => (
+          {visibleRows.map((r) => (
             <li
               key={r.id}
               className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
@@ -97,11 +103,6 @@ export function MandorDisbursementPanel({
               <div>
                 <p className="font-medium">
                   {r.label} · {r.mandorName}
-                  {r.hasKasBesar === false ? (
-                    <span className="ml-1.5 text-[11px] font-normal text-amber-800">
-                      (duplikat / belum ke Kas Besar)
-                    </span>
-                  ) : null}
                 </p>
                 <p className="text-xs text-[var(--ink-faint)]">{r.date}</p>
               </div>
@@ -125,9 +126,7 @@ export function MandorDisbursementPanel({
                       onClick={(e) => {
                         if (
                           !confirm(
-                            r.hasKasBesar === false
-                              ? "Hapus baris duplikat ini?"
-                              : "Hapus pencairan ini beserta transaksi Kas Besar?",
+                            "Hapus pencairan ini beserta transaksi Kas Besar?",
                           )
                         ) {
                           e.preventDefault();
@@ -142,9 +141,7 @@ export function MandorDisbursementPanel({
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="text-sm text-[var(--ink-faint)]">Belum ada pencairan.</p>
-      )}
+      ) : null}
 
       {canEdit && mandors.length > 0 ? (
         <div className="overflow-hidden rounded-lg border border-[var(--line)]">
@@ -198,7 +195,7 @@ export function MandorDisbursementPanel({
                     ))}
                   </select>
                 </Field>
-                <Field label="Label pencairan" htmlFor="label">
+                <Field label="Label" htmlFor="label">
                   <input
                     id="label"
                     name="label"
@@ -245,7 +242,7 @@ export function MandorDisbursementPanel({
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="isFromGlobalCash" />
-                Dari kas besar (bukan kas proyek)
+                Dari kas besar
               </label>
               <Field label="Bukti (opsional)" htmlFor="proof">
                 <input
@@ -266,10 +263,6 @@ export function MandorDisbursementPanel({
             </form>
           ) : null}
         </div>
-      ) : canEdit ? (
-        <p className="text-sm text-[var(--ink-faint)]">
-          Belum ada Mandor ditugaskan. Atur di menu Pengguna.
-        </p>
       ) : null}
     </div>
   );

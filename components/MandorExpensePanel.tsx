@@ -61,12 +61,7 @@ export function MandorExpensePanel({
 
   return (
     <div className="space-y-3">
-      <div>
-        <h3 className="font-medium text-[var(--ink)]">Bukti belanja Mandor</h3>
-        <p className="text-xs text-[var(--ink-faint)]">
-          {rows.length} bukti · buka pecah bila perlu
-        </p>
-      </div>
+      <h3 className="font-medium text-[var(--ink)]">Bukti belanja Mandor</h3>
 
       {fundBriefs.length > 0 ? (
         <div>
@@ -75,7 +70,7 @@ export function MandorExpensePanel({
             onClick={() => setFundsOpen((v) => !v)}
             className="text-xs text-[var(--accent)] underline"
           >
-            {fundsOpen ? "Sembunyikan ringkasan dana" : "Ringkasan dana Mandor"}
+            {fundsOpen ? "Sembunyikan dana" : "Ringkasan dana"}
           </button>
           {fundsOpen ? (
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -88,23 +83,9 @@ export function MandorExpensePanel({
                   <p className="mt-1 tabular-nums text-[var(--ink)]/85">
                     Cair {formatRupiah(b.totalCair)} · Bukti{" "}
                     {formatRupiah(b.totalBukti)}
-                  </p>
-                  <p
-                    className={`text-xs ${
-                      b.sisa < 0
-                        ? "text-[var(--rose-ink)]"
-                        : b.sisa > 0
-                          ? "text-amber-800"
-                          : "text-[var(--emerald-ink)]"
-                    }`}
-                  >
-                    {b.sisa > 0
-                      ? `Sisa ${formatRupiah(b.sisa)}`
-                      : b.sisa < 0
-                        ? `Kelebihan ${formatRupiah(-b.sisa)}`
-                        : b.totalCair > 0
-                          ? "Bukti menutup dana cair"
-                          : "Belum ada pencairan"}
+                    {b.sisa !== 0
+                      ? ` · ${b.sisa > 0 ? "Sisa" : "Lebih"} ${formatRupiah(Math.abs(b.sisa))}`
+                      : ""}
                   </p>
                 </div>
               ))}
@@ -177,20 +158,15 @@ export function MandorExpensePanel({
             );
           })}
         </ul>
-      ) : (
-        <p className="text-sm text-[var(--ink-faint)]">
-          Belum ada upload bukti dari Mandor.
-        </p>
-      )}
+      ) : null}
 
       {bukuKasHref ? (
-        <p className="text-xs text-[var(--ink-faint)]">
-          Rincian di{" "}
-          <a href={bukuKasHref} className="text-[var(--accent)] underline">
-            Kas Proyek
-          </a>
-          .
-        </p>
+        <a
+          href={bukuKasHref}
+          className="inline-block text-xs text-[var(--accent)] underline"
+        >
+          Kas Proyek
+        </a>
       ) : null}
     </div>
   );

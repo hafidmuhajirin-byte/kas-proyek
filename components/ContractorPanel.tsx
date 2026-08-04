@@ -1,10 +1,6 @@
 import {
-  assessContractorBudget,
   calcContractorBudgetAmount,
-  CONTRACTOR_MAX_SAFE_PERCENT,
   CONTRACTOR_TARGET_PERCENT,
-  contractorStatusLabels,
-  summarizeContractor,
 } from "@/lib/contractor";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
@@ -57,10 +53,6 @@ function ContractorForm({
     contractValue,
     CONTRACTOR_TARGET_PERCENT,
   );
-  const maxSafeAmount = calcContractorBudgetAmount(
-    contractValue,
-    CONTRACTOR_MAX_SAFE_PERCENT,
-  );
   const defaultAgreed =
     contractor?.agreedAmount && contractor.agreedAmount > 0
       ? contractor.agreedAmount
@@ -84,14 +76,7 @@ function ContractorForm({
           defaultValue={contractor?.phone ?? ""}
         />
       </Field>
-      <Field
-        label="Nilai borongan"
-        hint={
-          contractValue > 0
-            ? `Target ${CONTRACTOR_TARGET_PERCENT}% = ${formatRupiah(targetAmount)} · maks aman ${CONTRACTOR_MAX_SAFE_PERCENT}% = ${formatRupiah(maxSafeAmount)}`
-            : `Target ${CONTRACTOR_TARGET_PERCENT}% kontrak (aman s.d. ${CONTRACTOR_MAX_SAFE_PERCENT}%). Isi nilai kontrak dulu.`
-        }
-      >
+      <Field label="Nilai borongan">
         <RupiahInput
           name="agreedAmount"
           defaultValue={defaultAgreed}
@@ -110,13 +95,11 @@ function ContractorForm({
   );
 }
 
-/**
- * Panel pemborong + Dana ke Mandor (satu saluran pembayaran).
- */
+/** Panel pemborong + Dana ke Mandor — ringkas. */
 export function ContractorPanel({
   projectId,
   admin,
-  projectCash,
+  projectCash: _projectCash,
   contractValue,
   sources,
   contractor,
@@ -145,24 +128,6 @@ export function ContractorPanel({
   );
   const mandorCairTotal = mandorPayments.reduce((s, r) => s + r.amount, 0);
 
-  const summary = summarizeContractor({
-    agreedAmount: contractor?.agreedAmount ?? 0,
-    payments: mandorPayments,
-    expenses: contractor?.expenses ?? [],
-  });
-  const budget = assessContractorBudget(
-    contractor?.agreedAmount ?? 0,
-    contractValue,
-  );
-  const budgetTone =
-    budget.band === "ideal"
-      ? "text-teal-800"
-      : budget.band === "aman"
-        ? "text-amber-800"
-        : budget.band === "berisiko"
-          ? "text-rose-700"
-          : "text-teal-900/55";
-
   const showMandorBlock = mandors.length > 0 || mandorDisbursements.length > 0;
 
   const mandorSection = showMandorBlock ? (
@@ -184,14 +149,7 @@ export function ContractorPanel({
       <div className="mt-4 space-y-4">
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-medium text-teal-950">Pemborong</h3>
-              <p className="mt-0.5 text-sm text-teal-900/55">
-                Belum ada data. Target borongan {CONTRACTOR_TARGET_PERCENT}%
-                kontrak (aman {CONTRACTOR_TARGET_PERCENT}–
-                {CONTRACTOR_MAX_SAFE_PERCENT}%).
-              </p>
-            </div>
+            <h3 className="text-base font-medium text-teal-950">Pemborong</h3>
             {admin ? (
               <details className="w-full max-w-md sm:w-auto">
                 <summary
@@ -224,24 +182,14 @@ export function ContractorPanel({
               {tidyCase(contractor.name)}
             </h3>
             <p className="mt-1 text-teal-900/65">
-              Borongan {formatRupiah(summary.agreedAmount)} · Dana Mandor{" "}
-              {formatRupiah(mandorCairTotal)} ·{" "}
-              {contractorStatusLabels[summary.status]}
-              {contractor.phone ? ` · ${contractor.phone}` : ""}
-            </p>
-            <p className={`mt-1 ${budgetTone}`}>{budget.label}</p>
-            <p className="mt-1 text-teal-900/55">
-              Kas proyek {formatRupiah(projectCash)} · Sisa plafon{" "}
-              {formatRupiah(summary.remainingCeiling)}
-              {budget.targetAmount > 0
-                ? ` · Target ${formatRupiah(budget.targetAmount)}`
-                : ""}
+              Borongan {formatRupiah(contractor.agreedAmount)} · Cair{" "}
+              {formatRupiah(mandorCairTotal)}
             </p>
           </div>
           {admin ? (
             <details>
               <summary className="cursor-pointer text-sm text-teal-700 underline">
-                Ubah data
+                Ubah
               </summary>
               <div className="mt-3 max-w-md">
                 <ContractorForm
@@ -253,13 +201,6 @@ export function ContractorPanel({
               </div>
             </details>
           ) : null}
-        </div>
-
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-teal-900/10">
-          <div
-            className="h-full rounded-full bg-teal-700"
-            style={{ width: `${summary.progressPercent}%` }}
-          />
         </div>
       </Card>
 

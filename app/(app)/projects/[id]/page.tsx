@@ -15,13 +15,11 @@ import { calcStageStatus, getGlobalCashBreakdown } from "@/lib/balance";
 import {
   canBreakDownMandorExpense,
   isOwner,
-  isAdmin,
   requireSession,
 } from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
 import { getMandorFundSummariesFor } from "@/lib/mandor-fund";
 import { MandorExpensePanel } from "@/components/MandorExpensePanel";import {
-  billingModeHints,
   billingModeLabels,
   fundingStatusLabels,
   projectStatusLabels,
@@ -64,7 +62,6 @@ export default async function ProjectDetailPage({
 }) {
   const user = await requireSession();
   const admin = isOwner(user);
-  const readOnlyAdmin = isAdmin(user);
   const canBreakDown = canBreakDownMandorExpense(user);
   const { id } = await params;
 
@@ -440,43 +437,23 @@ export default async function ProjectDetailPage({
         />
       </Card>
 
-      {readOnlyAdmin ? (
-        <Card className="mb-6">
-          <p className="text-sm text-[var(--ink-muted)]">
-            Mode baca Admin — untuk buku kas detail dengan bukti, buka{" "}
-            <Link
-              href={`/transactions/project?projectId=${project.id}`}
-              className="text-[var(--accent)] underline"
-            >
-              Kas Proyek ini
-            </Link>
-            . Anda dapat memecah nota Mandor di panel di atas.
-          </p>
-        </Card>
-      ) : null}
-
-      <p className="mb-4 text-sm text-teal-900/65">
-        {billingModeHints[project.billingMode]}
-      </p>
       {isPayAtEnd ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Nilai pekerjaan selesai"
               value={formatRupiah(workCompletedValue)}
-              hint={`${project.workItems.length} catatan · tanpa kontrak & saldo awal`}
               tone="neutral"
             />
             <StatCard
               label="Sudah dibayar"
               value={formatRupiah(clientIncomeTotal)}
-              hint={`${workPaidPercent}% dari pekerjaan`}
+              hint={`${workPaidPercent}%`}
               tone="income"
             />
             <StatCard
               label="Biaya dari kas besar"
               value={formatRupiah(expenseTotal)}
-              hint="Pengeluaran proyek ini diambil dari kas gabungan"
               tone="expense"
             />
             <StatCard
@@ -488,8 +465,7 @@ export default async function ProjectDetailPage({
           </div>
 
           <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-950/80">
-            Sisa tagihan (piutang): <strong>{formatRupiah(receivable)}</strong> —
-            pekerjaan selesai dikurangi pembayaran klien.
+            Sisa tagihan: <strong>{formatRupiah(receivable)}</strong>
           </div>
 
           <div className="mt-4 h-3 overflow-hidden rounded-full bg-teal-900/10">
@@ -498,24 +474,15 @@ export default async function ProjectDetailPage({
               style={{ width: `${workPaidPercent}%` }}
             />
           </div>
-          <p className="mt-2 text-sm text-teal-900/60">
-            Progress pembayaran: {formatRupiah(clientIncomeTotal)} dari{" "}
-            {formatRupiah(workCompletedValue)} pekerjaan selesai (
-            {workPaidPercent}%).
-          </p>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
             <Card>
               <h3 className="font-serif text-xl text-teal-950">
                 Pekerjaan yang sudah dikerjakan
               </h3>
-              <p className="mt-1 text-sm text-teal-900/60">
-                Catat progress pekerjaan beserta nilainya. Pembayaran dilakukan di
-                akhir berdasarkan total pekerjaan ini.
-              </p>
               <div className="mt-4 space-y-3">
                 {project.workItems.length === 0 ? (
-                  <EmptyState message="Belum ada pekerjaan dicatat. Tambahkan progres pekerjaan di samping." />
+                  <EmptyState message="Belum ada pekerjaan." />
                 ) : (
                   project.workItems.map((item) => (
                     <div
@@ -664,17 +631,12 @@ export default async function ProjectDetailPage({
             <StatCard
               label="Sudah dibayar"
               value={formatRupiah(clientIncomeTotal)}
-              hint={`${contractPaidPercent}% dari kontrak`}
+              hint={`${contractPaidPercent}%`}
               tone="income"
             />
             <StatCard
               label="Sisa belum terbayar"
               value={formatRupiah(contractRemaining)}
-              hint={
-                project.contractValue > 0
-                  ? `${Math.max(0, 100 - contractPaidPercent)}% belum cair`
-                  : "Isi nilai kontrak dulu"
-              }
               tone="expense"
             />
             <StatCard
@@ -683,7 +645,7 @@ export default async function ProjectDetailPage({
               hint={
                 project.openingBalance > 0
                   ? `Awal ${formatRupiah(project.openingBalance)}`
-                  : `Tanpa saldo awal · Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`
+                  : undefined
               }
               tone="balance"
             />
@@ -691,14 +653,9 @@ export default async function ProjectDetailPage({
 
           <div className="mt-4 rounded-2xl border border-teal-900/8 bg-white/80 p-4">
             <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <p className="text-xs font-medium tracking-wide text-teal-900/55 uppercase">
-                  Progress pembayaran (pengawasan)
-                </p>
-                <p className="mt-1 font-serif text-2xl text-teal-950">
-                  {contractPaidPercent}%
-                </p>
-              </div>
+              <p className="font-serif text-2xl text-teal-950">
+                {contractPaidPercent}%
+              </p>
               <p className="text-sm text-teal-900/65">
                 {formatRupiah(clientIncomeTotal)} /{" "}
                 {formatRupiah(project.contractValue)}
@@ -710,10 +667,6 @@ export default async function ProjectDetailPage({
                 style={{ width: `${contractPaidPercent}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-teal-900/55">
-              Sisa tagihan kontrak: {formatRupiah(contractRemaining)}. Digunakan
-              untuk laporan pengawasan pembayaran proyek.
-            </p>
           </div>
 
           {showTermin ? (
@@ -737,11 +690,8 @@ export default async function ProjectDetailPage({
             {showTermin ? (
               <Card>
                 <h3 className="font-serif text-xl text-teal-950">
-                  Rencana termin (acuan)
+                  Rencana termin
                 </h3>
-                <p className="mt-1 text-sm text-teal-900/60">
-                  Rencana saja. Nominal pembayaran tetap sesuai permintaan Anda.
-                </p>
                 <div className="mt-4 space-y-4">
                   {stages.length === 0 ? (
                     <EmptyState message="Belum ada rencana termin." />
