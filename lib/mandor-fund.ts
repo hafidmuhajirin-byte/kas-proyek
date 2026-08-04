@@ -5,15 +5,35 @@ export type MandorFundSummary = {
   mandorId: string;
   totalCair: number;
   totalBukti: number;
-  /** cair - bukti; >0 tanggungan mandor; <0 overspend */
+  /** cair − bukti; >0 tanggungan upload; <0 overspend */
   sisa: number;
 };
 
-function key(projectId: string, mandorId: string) {
+export type MandorFundDisbursement = {
+  id: string;
+  projectId: string;
+  mandorId: string;
+  amount: number;
+};
+
+export type MandorFundProof = {
+  amount: number;
+  projectId: string | null;
+  createdById: string;
+  linkedMandorDisbursementId: string | null;
+  linkedContractorAdvanceId: string | null;
+};
+
+export type MandorFundAdvance = {
+  id: string;
+  amount: number;
+};
+
+function pairKey(projectId: string, mandorId: string) {
   return `${projectId}::${mandorId}`;
 }
 
-/** Samakan "Bpk Istiadi" dengan nama user Mandor. */
+/** Samakan nama untuk fallback legacy saja (bukan untuk mencampur dua saluran aktif). */
 export function namesMatch(a: string, b: string): boolean {
   const n = (s: string) =>
     s
@@ -27,13 +47,88 @@ export function namesMatch(a: string, b: string): boolean {
   return x === y || x.includes(y) || y.includes(x);
 }
 
+/**
+ * Rumus andal dana Mandor (satu saluran, tanpa double-count):
+ *
+ * totalCair =
+ *   Σ MandorDisbursement(project, mandor)
+ *   + Σ termin pemborong (nama cocok) HANYA jika belum ada pencairan Mandor
+ *     → mencegah 50+50 pencairan + 50 termin = 150
+ *
+ * totalBukti =
+ *   Σ bukti MandorExpense unik yang:
+ *     • tertaut ke pencairan Mandor milik mandor ini, ATAU
+ *     • diunggah mandor ini (termasuk yang tertaut termin), ATAU
+ *     • tertaut ke termin yang ikut dihitung di totalCair (mode legacy)
+ *
+ * sisa = totalCair − totalBukti
+ *
+ * Tidak memakai ContractorExpense (buku pemborong terpisah).
+ * Tidak menjumlahkan Transaction isMandorDisbursement (sudah diwakili MandorDisbursement).
+ */
+export function computeMandorFund(input: {
+  projectId: string;
+  mandorId: string;
+  disbursements: MandorFundDisbursement[];
+  proofs: MandorFundProof[];
+  /** Termin pemborong bila nama cocok; kosongkan jika tidak relevan. */
+  matchedAdvances?: MandorFundAdvance[];
+}): MandorFundSummary {
+  const { projectId, mandorId } = input;
+  const mine = input.disbursements.filter(
+    (d) => d.projectId === projectId && d.mandorId === mandorId,
+  );
+  const fromDisbursement = mine.reduce((s, d) => s + d.amount, 0);
+  const myDisbursementIds = new Set(mine.map((d) => d.id));
+
+  const advances = input.matchedAdvances ?? [];
+  // Jangan campur termin ke pencairan Mandor yang sudah ada (akar bug 100+50=150).
+  const includeTerminLegacy = fromDisbursement <= 0 && advances.length > 0;
+  const fromTermin = includeTerminLegacy
+    ? advances.reduce((s, a) => s + a.amount, 0)
+    : 0;
+  const advanceIds = includeTerminLegacy
+    ? new Set(advances.map((a) => a.id))
+    : new Set<string>();
+
+  const totalCair = fromDisbursement + fromTermin;
+
+  let totalBukti = 0;
+  for (const b of input.proofs) {
+    if (b.projectId !== projectId) continue;
+
+    const linkedToMyDisbursement =
+      !!b.linkedMandorDisbursementId &&
+      myDisbursementIds.has(b.linkedMandorDisbursementId);
+
+    const uploadedByMe = b.createdById === mandorId;
+
+    const linkedToLegacyTermin =
+      includeTerminLegacy &&
+      !!b.linkedContractorAdvanceId &&
+      advanceIds.has(b.linkedContractorAdvanceId);
+
+    if (linkedToMyDisbursement || uploadedByMe || linkedToLegacyTermin) {
+      totalBukti += b.amount;
+    }
+  }
+
+  return {
+    projectId,
+    mandorId,
+    totalCair,
+    totalBukti,
+    sisa: totalCair - totalBukti,
+  };
+}
+
 export async function getMandorFundSummary(
   projectId: string,
   mandorId: string,
 ): Promise<MandorFundSummary> {
   const map = await getMandorFundSummariesFor([{ projectId, mandorId }]);
   return (
-    map.get(key(projectId, mandorId)) ?? {
+    map.get(pairKey(projectId, mandorId)) ?? {
       projectId,
       mandorId,
       totalCair: 0,
@@ -43,10 +138,7 @@ export async function getMandorFundSummary(
   );
 }
 
-/**
- * Batch: pencairan MandorDisbursement + termin pemborong (nama cocok).
- * Bukti dihitung dari yang tertaut ke pencairan tersebut (fallback: bukti proyek mandor bila belum tertaut).
- */
+/** Batch ringkasan dana Mandor per pasangan proyek–mandor. */
 export async function getMandorFundSummariesFor(
   pairs: Array<{ projectId: string; mandorId: string }>,
 ): Promise<Map<string, MandorFundSummary>> {
@@ -56,128 +148,56 @@ export async function getMandorFundSummariesFor(
   const projectIds = [...new Set(pairs.map((p) => p.projectId))];
   const mandorIds = [...new Set(pairs.map((p) => p.mandorId))];
 
-  const [cairRows, disbursements, buktiRows, mandors, contractors] =
-    await Promise.all([
-      prisma.mandorDisbursement.groupBy({
-        by: ["projectId", "mandorId"],
-        where: { projectId: { in: projectIds }, mandorId: { in: mandorIds } },
-        _sum: { amount: true },
-      }),
-      prisma.mandorDisbursement.findMany({
-        where: { projectId: { in: projectIds }, mandorId: { in: mandorIds } },
-        select: { id: true, projectId: true, mandorId: true, amount: true },
-      }),
-      prisma.transaction.findMany({
-        where: {
-          projectId: { in: projectIds },
-          type: "EXPENSE",
-          isMandorExpense: true,
-        },
-        select: {
-          amount: true,
-          projectId: true,
-          createdById: true,
-          linkedMandorDisbursementId: true,
-          linkedContractorAdvanceId: true,
-        },
-      }),
-      prisma.user.findMany({
-        where: { id: { in: mandorIds } },
-        select: { id: true, name: true },
-      }),
-      prisma.contractor.findMany({
-        where: { projectId: { in: projectIds } },
-        select: {
-          projectId: true,
-          name: true,
-          advances: { select: { id: true, amount: true } },
-          expenses: { select: { amount: true } },
-        },
-      }),
-    ]);
+  const [disbursements, proofs, mandors, contractors] = await Promise.all([
+    prisma.mandorDisbursement.findMany({
+      where: { projectId: { in: projectIds }, mandorId: { in: mandorIds } },
+      select: { id: true, projectId: true, mandorId: true, amount: true },
+    }),
+    prisma.transaction.findMany({
+      where: {
+        projectId: { in: projectIds },
+        type: "EXPENSE",
+        isMandorExpense: true,
+      },
+      select: {
+        amount: true,
+        projectId: true,
+        createdById: true,
+        linkedMandorDisbursementId: true,
+        linkedContractorAdvanceId: true,
+      },
+    }),
+    prisma.user.findMany({
+      where: { id: { in: mandorIds } },
+      select: { id: true, name: true },
+    }),
+    prisma.contractor.findMany({
+      where: { projectId: { in: projectIds } },
+      select: {
+        projectId: true,
+        name: true,
+        advances: { select: { id: true, amount: true } },
+      },
+    }),
+  ]);
 
-  const cairMap = new Map(
-    cairRows.map((r) => [key(r.projectId, r.mandorId), r._sum.amount ?? 0]),
-  );
   const nameById = new Map(mandors.map((m) => [m.id, m.name]));
 
-  const disbursementOwner = new Map(
-    disbursements.map((d) => [d.id, key(d.projectId, d.mandorId)]),
-  );
-
   for (const p of pairs) {
-    const k = key(p.projectId, p.mandorId);
     const mandorName = nameById.get(p.mandorId) ?? "";
     const contractor = contractors.find(
       (c) =>
         c.projectId === p.projectId && namesMatch(c.name, mandorName),
     );
-    const fromTermin = contractor
-      ? contractor.advances.reduce((s, a) => s + a.amount, 0)
-      : 0;
-    const advanceIds = new Set(
-      contractor?.advances.map((a) => a.id) ?? [],
-    );
 
-    const totalCair = (cairMap.get(k) ?? 0) + fromTermin;
-
-    let totalBukti = 0;
-    let hasLinked = false;
-    for (const b of buktiRows) {
-      if (b.projectId !== p.projectId) continue;
-      if (b.linkedMandorDisbursementId) {
-        const owner = disbursementOwner.get(b.linkedMandorDisbursementId);
-        if (owner === k) {
-          totalBukti += b.amount;
-          hasLinked = true;
-        }
-        continue;
-      }
-      if (b.linkedContractorAdvanceId) {
-        if (advanceIds.has(b.linkedContractorAdvanceId)) {
-          totalBukti += b.amount;
-          hasLinked = true;
-        }
-        continue;
-      }
-      // Fallback bukti belum tertaut: hitung ke mandor yang mengunggah
-      if (!hasLinked && b.createdById === p.mandorId) {
-        totalBukti += b.amount;
-      }
-    }
-
-    // Jika sudah ada tautan, jangan double-count fallback; ulang hitung murni tertaut
-    if (hasLinked) {
-      totalBukti = 0;
-      for (const b of buktiRows) {
-        if (b.projectId !== p.projectId) continue;
-        if (
-          b.linkedMandorDisbursementId &&
-          disbursementOwner.get(b.linkedMandorDisbursementId) === k
-        ) {
-          totalBukti += b.amount;
-        } else if (
-          b.linkedContractorAdvanceId &&
-          advanceIds.has(b.linkedContractorAdvanceId)
-        ) {
-          totalBukti += b.amount;
-        }
-      }
-    }
-
-    // Biaya pemborong (ContractorExpense) tetap dihitung sebagai pemakaian bila ada
-    const fromBuktiPemborong = contractor
-      ? contractor.expenses.reduce((s, e) => s + e.amount, 0)
-      : 0;
-    totalBukti += fromBuktiPemborong;
-
-    map.set(k, {
+    const summary = computeMandorFund({
       projectId: p.projectId,
       mandorId: p.mandorId,
-      totalCair,
-      totalBukti,
-      sisa: totalCair - totalBukti,
+      disbursements,
+      proofs,
+      matchedAdvances: contractor?.advances,
     });
+    map.set(pairKey(p.projectId, p.mandorId), summary);
   }
 
   return map;

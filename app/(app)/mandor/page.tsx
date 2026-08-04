@@ -129,7 +129,7 @@ export default async function MandorHomePage() {
                     {formatRupiah(s.totalCair)}
                   </p>
                   <p className="text-[11px] text-[var(--ink-faint)]">
-                    Termin pemborong + pencairan
+                    Pencairan ke Mandor
                   </p>
                 </div>
                 <div>
