@@ -258,6 +258,12 @@ export default async function ProjectDetailPage({
     const spent = spentByKind[kind] ?? 0;
     return sum + Math.max(0, planned - spent);
   }, 0);
+  const operationalFunds = projectFundKinds.reduce((sum, kind) => {
+    return (
+      sum +
+      Math.max(0, project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0)
+    );
+  }, 0);
 
   const checklist: ProjectChecklistState = {
     checkPlanning: project.checkPlanning,
@@ -313,6 +319,7 @@ export default async function ProjectDetailPage({
     clientIncome: clientIncomeTotal,
     operatingExpense,
     contractorAdvances,
+    operationalFunds,
     remainingPlannedFunds,
     contingencyPercent: 0,
   });
@@ -872,6 +879,7 @@ export default async function ProjectDetailPage({
             clientIncome: clientIncomeTotal,
             operatingExpense,
             contractorAdvances,
+            operationalFunds,
             remainingPlannedFunds,
           }}
           feeTransferred={feeTransferred}

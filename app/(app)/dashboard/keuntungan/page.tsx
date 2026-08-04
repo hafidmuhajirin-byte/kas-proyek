@@ -54,7 +54,7 @@ export default async function KeuntunganPage() {
           tone={totals.realizedProfit >= 0 ? "income" : "expense"}
         />
         <StatCard
-          label={`Target fee ${PROJECT_FEE_PERCENT}%`}
+          label={`Estimasi ${PROJECT_FEE_PERCENT}%`}
           value={formatRupiah(totals.feeTargetProfit)}
           tone="neutral"
         />
@@ -74,8 +74,7 @@ export default async function KeuntunganPage() {
               Keuntungan realisasi
             </dt>
             <dd className="mt-1 text-[var(--ink-muted)]">
-              Pemasukan klien − biaya terpakai (operasional + uang muka
-              kontraktor)
+              Pemasukan klien − biaya terpakai (operasional + dana ke mandor)
             </dd>
             <dd className="mt-2 font-serif text-base tabular-nums text-[var(--ink)]">
               {formatRupiah(totals.clientIncome)} −{" "}
@@ -94,14 +93,12 @@ export default async function KeuntunganPage() {
 
           <div className="rounded-xl border border-[var(--line-soft)] bg-[var(--paper-tint)]/60 px-3.5 py-3">
             <dt className="font-medium text-[var(--ink)]">
-              Target fee {PROJECT_FEE_PERCENT}%
+              Estimasi keuntungan {PROJECT_FEE_PERCENT}%
             </dt>
             <dd className="mt-1 text-[var(--ink-muted)]">
-              Pendapatan acuan (nilai kontrak / acuan billing) ×{" "}
-              {PROJECT_FEE_PERCENT}%
+              (Nilai kontrak − dana operasional) × {PROJECT_FEE_PERCENT}%
             </dd>
             <dd className="mt-2 font-serif text-base tabular-nums text-[var(--ink)]">
-              {formatRupiah(totals.revenueBase)} × {PROJECT_FEE_PERCENT}% ={" "}
               {formatRupiah(totals.feeTargetProfit)}
             </dd>
           </div>
@@ -186,7 +183,7 @@ export default async function KeuntunganPage() {
                   </div>
                   <div className="flex justify-between gap-2 sm:block">
                     <dt className="text-[var(--ink-faint)]">
-                      Fee {PROJECT_FEE_PERCENT}%
+                      Estimasi {PROJECT_FEE_PERCENT}%
                     </dt>
                     <dd className="tabular-nums text-[var(--ink)]">
                       {formatRupiah(row.profit.feeTargetProfit)}

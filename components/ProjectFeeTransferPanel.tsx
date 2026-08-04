@@ -72,14 +72,14 @@ export function ProjectFeeTransferPanel({
 
         <div className="mt-4 border-t border-[var(--line-soft)] pt-4">
           <p className="text-sm text-[var(--ink-muted)]">
-            Fee maksimal {PROJECT_FEE_PERCENT}% dari pendapatan acuan. Sisa
+            Estimasi (kontrak − dana operasional) × {PROJECT_FEE_PERCENT}%. Sisa
             kuota berkurang oleh transfer fee dan ambil pribadi owner.
           </p>
 
           <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-[var(--line-soft)] bg-[#fffcf7] px-3 py-3">
               <p className="text-[11px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase">
-                Target fee {PROJECT_FEE_PERCENT}%
+                Estimasi {PROJECT_FEE_PERCENT}%
               </p>
               <p className="mt-1 font-serif text-lg tabular-nums text-[var(--ink)]">
                 {formatRupiah(feeTargetProfit)}

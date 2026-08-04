@@ -204,7 +204,7 @@ export default async function DashboardPage() {
           tone="balance"
         />
         <StatCard
-          label={`Target fee ${PROJECT_FEE_PERCENT}%`}
+          label={`Estimasi ${PROJECT_FEE_PERCENT}%`}
           value={formatRupiah(profitTotals.feeTargetProfit)}
           tone="neutral"
         />

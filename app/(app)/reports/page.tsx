@@ -30,7 +30,7 @@ import {
   type ProjectFundKind,
 } from "@/lib/project-funds";
 import { isOwnerPersonalDraw } from "@/lib/owner-personal";
-import { PROJECT_FEE_PERCENT, calcFeeTransferQuota } from "@/lib/project-profit";
+import { PROJECT_FEE_PERCENT, calcFeeTransferQuota, calcOperationalFunds } from "@/lib/project-profit";
 import {
   BookLedgerTable,
   BookSummaryStrip,
@@ -254,9 +254,9 @@ export default async function ReportsPage({
       const injects = ownerInjectTxs.filter((tx) => tx.projectId === project.id);
       const drawSum = draws.reduce((s, tx) => s + tx.amount, 0);
       const injectSum = injects.reduce((s, tx) => s + tx.amount, 0);
-      const feeTarget = Math.round(
-        (Math.max(project.contractValue, 0) * PROJECT_FEE_PERCENT) / 100,
-      );
+      const opsFunds = calcOperationalFunds(project.funds);
+      const feeBase = Math.max(0, project.contractValue - opsFunds);
+      const feeTarget = Math.round((feeBase * PROJECT_FEE_PERCENT) / 100);
       const feeTransferred = transactions
         .filter(
           (tx) =>

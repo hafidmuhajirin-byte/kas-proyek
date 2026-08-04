@@ -122,6 +122,15 @@ export async function getProjectFeeQuota(projectId: string) {
       project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0;
     return sum + Math.max(0, planned - (spentByKind[kind] ?? 0));
   }, 0);
+  const operationalFunds = projectFundKinds.reduce((sum, kind) => {
+    return (
+      sum +
+      Math.max(
+        0,
+        project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0,
+      )
+    );
+  }, 0);
   const workCompletedValue = project.workItems.reduce(
     (sum, item) => sum + item.amount,
     0,
@@ -134,6 +143,7 @@ export async function getProjectFeeQuota(projectId: string) {
     clientIncome,
     operatingExpense,
     contractorAdvances,
+    operationalFunds,
     remainingPlannedFunds,
     contingencyPercent: 0,
   });
@@ -188,12 +198,12 @@ export async function createFeeTransferAction(
   if (!quota) return { error: "Gagal menghitung kuota fee." };
   if (quota.feeTargetProfit <= 0) {
     return {
-      error: `Belum ada target fee ${PROJECT_FEE_PERCENT}%. Isi nilai kontrak / nilai pekerjaan dulu.`,
+      error: `Belum ada estimasi keuntungan ${PROJECT_FEE_PERCENT}%. Isi nilai kontrak dan dana operasional dulu.`,
     };
   }
   if (amount > quota.remaining) {
     return {
-      error: `Nominal melebihi sisa kuota fee ${PROJECT_FEE_PERCENT}% (tersisa ${formatRupiah(quota.remaining)} dari target ${formatRupiah(quota.feeTargetProfit)}).`,
+      error: `Nominal melebihi sisa kuota estimasi ${PROJECT_FEE_PERCENT}% (tersisa ${formatRupiah(quota.remaining)} dari ${formatRupiah(quota.feeTargetProfit)}).`,
     };
   }
 

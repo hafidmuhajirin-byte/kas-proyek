@@ -146,6 +146,15 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
         project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0;
       return sum + Math.max(0, planned - (spentByKind[kind] ?? 0));
     }, 0);
+    const operationalFunds = projectFundKinds.reduce((sum, kind) => {
+      return (
+        sum +
+        Math.max(
+          0,
+          project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0,
+        )
+      );
+    }, 0);
     const workCompletedValue = project.workItems.reduce(
       (s, i) => s + i.amount,
       0,
@@ -157,6 +166,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
       clientIncome,
       operatingExpense,
       contractorAdvances,
+      operationalFunds,
       remainingPlannedFunds,
       contingencyPercent: 0,
     });

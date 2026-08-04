@@ -46,12 +46,12 @@ export function ProjectProfitPanel({
 
   const marginHint =
     profit.marginBand === "within"
-      ? `Sekitar fee ${PROJECT_FEE_PERCENT}% (${PROFIT_MARGIN_BENCHMARK.low}–${PROFIT_MARGIN_BENCHMARK.high}%)`
+      ? `Sekitar estimasi ${PROJECT_FEE_PERCENT}% (${PROFIT_MARGIN_BENCHMARK.low}–${PROFIT_MARGIN_BENCHMARK.high}%)`
       : profit.marginBand === "above"
-        ? `Di atas fee ${PROJECT_FEE_PERCENT}%`
+        ? `Di atas estimasi ${PROJECT_FEE_PERCENT}%`
         : profit.marginBand === "below"
-          ? `Di bawah fee ${PROJECT_FEE_PERCENT}%`
-          : "Belum ada pendapatan acuan";
+          ? `Di bawah estimasi ${PROJECT_FEE_PERCENT}%`
+          : "Belum ada acuan kontrak";
 
   return (
     <Card id="keuntungan" className="mt-5 scroll-mt-24 sm:mt-6">
@@ -66,7 +66,7 @@ export function ProjectProfitPanel({
                 Estimasi keuntungan
               </h3>
               <p className="mt-0.5 text-sm text-[var(--ink-muted)]">
-                Fee {formatRupiah(profit.feeTargetProfit)} · Realisasi{" "}
+                Estimasi {formatRupiah(profit.feeTargetProfit)} · Realisasi{" "}
                 {formatRupiah(profit.realizedProfit)}
               </p>
             </div>
@@ -80,10 +80,13 @@ export function ProjectProfitPanel({
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-[var(--line-soft)] bg-[#fffcf7] p-3.5">
               <p className="text-[11px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase">
-                Target fee {PROJECT_FEE_PERCENT}%
+                Estimasi {PROJECT_FEE_PERCENT}%
               </p>
               <p className="mt-1.5 font-serif text-xl tabular-nums text-[var(--ink)] sm:text-2xl">
                 {formatRupiah(profit.feeTargetProfit)}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--ink-faint)]">
+                (Kontrak − ops) × {PROJECT_FEE_PERCENT}%
               </p>
             </div>
 
@@ -140,7 +143,7 @@ export function ProjectProfitPanel({
             {profit.feeTargetProfit > 0 ? (
               <>
                 {" "}
-                · Gap ke fee:{" "}
+                · Gap ke estimasi:{" "}
                 <strong className="tabular-nums">
                   {formatRupiah(profit.feeTargetProfit - profit.realizedProfit)}
                 </strong>
@@ -189,9 +192,21 @@ export function ProjectProfitPanel({
 
           <dl className="mt-5 grid gap-2 border-t border-teal-900/10 pt-4 text-sm text-teal-900/75 sm:grid-cols-2">
             <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
-              <dt>Pendapatan acuan</dt>
+              <dt>Nilai kontrak</dt>
               <dd className="tabular-nums font-medium text-teal-950">
-                {formatRupiah(profit.revenueBase)}
+                {formatRupiah(input.contractValue)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
+              <dt>Dana operasional</dt>
+              <dd className="tabular-nums font-medium text-rose-800">
+                {formatRupiah(profit.operationalFunds)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
+              <dt>Dasar estimasi</dt>
+              <dd className="tabular-nums font-medium text-teal-950">
+                {formatRupiah(profit.feeBase)}
               </dd>
             </div>
             <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">

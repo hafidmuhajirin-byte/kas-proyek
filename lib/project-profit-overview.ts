@@ -120,6 +120,15 @@ export async function getProjectsProfitOverview(options?: {
       const spent = spentByKind[kind] ?? 0;
       return sum + Math.max(0, planned - spent);
     }, 0);
+    const operationalFunds = projectFundKinds.reduce((sum, kind) => {
+      return (
+        sum +
+        Math.max(
+          0,
+          project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0,
+        )
+      );
+    }, 0);
 
     const workCompletedValue = project.workItems.reduce(
       (sum, item) => sum + item.amount,
@@ -133,6 +142,7 @@ export async function getProjectsProfitOverview(options?: {
       clientIncome,
       operatingExpense,
       contractorAdvances,
+      operationalFunds,
       remainingPlannedFunds,
       contingencyPercent: 0,
     });
