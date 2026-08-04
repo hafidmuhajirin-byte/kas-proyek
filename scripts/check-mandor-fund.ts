@@ -4,7 +4,7 @@
 import {
   computeMandorFund,
   namesMatch,
-} from "../lib/mandor-fund";
+} from "../lib/mandor-fund-math";
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(msg);
