@@ -678,14 +678,16 @@ export default async function ProjectDetailPage({
                 />
               </div>
               <p className="mt-2 text-sm text-teal-900/60">
-                Acuan rencana termin: {formatRupiah(receivedFunding)} dari{" "}
-                {formatRupiah(fundingBase)} ({fundingProgressPercent}%).
+                Termin: {formatRupiah(receivedFunding)} /{" "}
+                {formatRupiah(fundingBase)} ({fundingProgressPercent}%)
               </p>
             </>
           ) : null}
 
           <div
-            className={`mt-6 grid gap-6 ${admin ? "lg:grid-cols-[1fr_320px]" : ""}`}
+            className={`mt-6 grid gap-6 ${
+              admin && showTermin ? "lg:grid-cols-[1fr_320px]" : ""
+            }`}
           >
             {showTermin ? (
               <Card>
@@ -778,41 +780,7 @@ export default async function ProjectDetailPage({
                   )}
                 </div>
               </Card>
-            ) : (
-              <Card>
-                <h3 className="font-serif text-xl text-teal-950">
-                  Pembayaran sesuai permintaan
-                </h3>
-                <p className="mt-2 text-sm text-teal-900/65">
-                  Catat pemasukan kapan saja sesuai permintaan kas. Progress di
-                  atas mengikuti nilai kontrak untuk laporan pengawasan.
-                </p>
-                <div className="mt-4 grid gap-2 text-sm text-teal-900/75">
-                  <div className="flex justify-between border-b border-teal-900/5 py-2">
-                    <span>Sudah dibayar</span>
-                    <strong>{formatRupiah(clientIncomeTotal)}</strong>
-                  </div>
-                  <div className="flex justify-between border-b border-teal-900/5 py-2">
-                    <span>Sisa belum terbayar</span>
-                    <strong className="text-rose-700">
-                      {formatRupiah(contractRemaining)}
-                    </strong>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span>Persentase pembayaran</span>
-                    <strong className="text-teal-800">
-                      {contractPaidPercent}%
-                    </strong>
-                  </div>
-                </div>
-                <Link
-                  href={`/transactions/new?projectId=${project.id}&type=INCOME`}
-                  className={`${btnSecondaryClass} mt-4`}
-                >
-                  + Catat pembayaran
-                </Link>
-              </Card>
-            )}
+            ) : null}
 
             {admin ? (
               <div className="space-y-6">
