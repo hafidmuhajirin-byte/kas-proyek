@@ -140,9 +140,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
       }
     }
 
-    const contractorAdvances = project.contractor
-      ? project.contractor.advances.reduce((s, a) => s + a.amount, 0)
-      : 0;
+    const contractorAdvances = 0; // Termin digabung ke Dana ke Mandor
     const remainingPlannedFunds = projectFundKinds.reduce((sum, kind) => {
       const planned =
         project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0;

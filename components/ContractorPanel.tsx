@@ -1,8 +1,6 @@
 import { format } from "date-fns";
 import {
-  createContractorAdvanceAction,
   createContractorExpenseAction,
-  deleteContractorAdvanceAction,
   deleteContractorExpenseAction,
   upsertContractorAction,
 } from "@/lib/actions/contractor";
@@ -28,17 +26,6 @@ import {
 } from "@/components/ui";
 
 type SourceOption = { id: string; name: string };
-
-type AdvanceRow = {
-  id: string;
-  date: Date;
-  amount: number;
-  fromProjectAmount: number;
-  fromGlobalAmount: number;
-  description: string;
-  proofUrl: string | null;
-  cashSource: { name: string };
-};
 
 type ExpenseRow = {
   id: string;
@@ -134,6 +121,10 @@ function ContractorForm({
   );
 }
 
+/**
+ * Panel pemborong + Dana ke Mandor (satu saluran pembayaran).
+ * Termin terpisah dihapus agar tidak double-input.
+ */
 export function ContractorPanel({
   projectId,
   admin,
@@ -149,25 +140,26 @@ export function ContractorPanel({
   admin: boolean;
   projectCash: number;
   contractValue: number;
-  globalCash?: number;
-  globalCashTunai?: number;
-  globalCashBank?: number;
   sources: SourceOption[];
   contractor: {
     name: string;
     phone: string | null;
     notes: string | null;
     agreedAmount: number;
-    advances: AdvanceRow[];
     expenses: ExpenseRow[];
   } | null;
   mandors?: MandorOption[];
   mandorDisbursements?: MandorDisbursementRow[];
   mandorOverspend?: { mandorName: string; amount: number }[];
 }) {
+  const mandorPayments = mandorDisbursements.filter(
+    (r) => r.hasKasBesar !== false,
+  );
+  const mandorCairTotal = mandorPayments.reduce((s, r) => s + r.amount, 0);
+
   const summary = summarizeContractor({
     agreedAmount: contractor?.agreedAmount ?? 0,
-    advances: contractor?.advances ?? [],
+    payments: mandorPayments,
     expenses: contractor?.expenses ?? [],
   });
   const budget = assessContractorBudget(
@@ -182,10 +174,6 @@ export function ContractorPanel({
         : budget.band === "berisiko"
           ? "text-rose-700"
           : "text-teal-900/55";
-
-  const mandorCairTotal = mandorDisbursements
-    .filter((r) => r.hasKasBesar !== false)
-    .reduce((s, r) => s + r.amount, 0);
 
   const showMandorBlock = mandors.length > 0 || mandorDisbursements.length > 0;
 
@@ -248,12 +236,9 @@ export function ContractorPanel({
               {tidyCase(contractor.name)}
             </h3>
             <p className="mt-1 text-teal-900/65">
-              Borongan {formatRupiah(summary.agreedAmount)} · Termin{" "}
-              {formatRupiah(summary.totalAdvances)}
-              {mandorCairTotal > 0
-                ? ` · Dana Mandor ${formatRupiah(mandorCairTotal)}`
-                : ""}{" "}
-              · Bukti {formatRupiah(summary.totalExpenses)} ·{" "}
+              Borongan {formatRupiah(summary.agreedAmount)} · Dana Mandor{" "}
+              {formatRupiah(mandorCairTotal)} · Bukti{" "}
+              {formatRupiah(summary.totalExpenses)} ·{" "}
               {contractorStatusLabels[summary.status]}
               {contractor.phone ? ` · ${contractor.phone}` : ""}
             </p>
@@ -291,114 +276,10 @@ export function ContractorPanel({
         </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        <Card>
-          <h3 className="text-base font-medium text-teal-950">Termin</h3>
-          <p className="mt-0.5 text-sm text-teal-900/55">
-            Pembayaran borongan · {formatRupiah(summary.totalAdvances)}
-          </p>
-          {admin ? (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-sm text-teal-700 underline">
-                + Catat termin
-              </summary>
-              <div className="mt-3">
-                <ActionForm
-                  action={createContractorAdvanceAction}
-                  submitLabel="Catat termin"
-                >
-                  <input type="hidden" name="projectId" value={projectId} />
-                  <Field label="Tanggal">
-                    <input
-                      name="date"
-                      type="date"
-                      className={inputClass}
-                      defaultValue={format(new Date(), "yyyy-MM-dd")}
-                      required
-                    />
-                  </Field>
-                  <Field label="Sumber kas">
-                    <select name="cashSourceId" className={inputClass} required>
-                      <option value="">Pilih sumber</option>
-                      {sources.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {tidyCase(s.name)}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Nominal">
-                    <RupiahInput name="amount" defaultValue={0} required />
-                  </Field>
-                  <Field label="Keterangan">
-                    <input name="description" className={inputClass} required />
-                  </Field>
-                  <Field label="Bukti (opsional)">
-                    <input
-                      name="proof"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      className={inputClass}
-                    />
-                  </Field>
-                </ActionForm>
-              </div>
-            </details>
-          ) : null}
-
-          <div className="mt-3 space-y-2 text-sm">
-            {contractor.advances.length === 0 ? (
-              <EmptyState message="Belum ada termin." />
-            ) : (
-              contractor.advances.map((row) => (
-                <div
-                  key={row.id}
-                  className="flex flex-wrap items-start justify-between gap-2 border-b border-teal-900/6 py-2 last:border-0"
-                >
-                  <div>
-                    <p className="text-teal-950">{tidyCase(row.description)}</p>
-                    <p className="text-teal-900/55">
-                      {format(row.date, "dd/MM/yyyy")} ·{" "}
-                      {tidyCase(row.cashSource.name)}
-                      {row.proofUrl ? (
-                        <>
-                          {" "}
-                          ·{" "}
-                          <ProofReviewLink
-                            href={row.proofUrl}
-                            title={tidyCase(row.description)}
-                          >
-                            bukti
-                          </ProofReviewLink>
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="tabular-nums text-rose-700">
-                      {formatRupiah(row.amount)}
-                    </p>
-                    {admin ? (
-                      <form action={deleteContractorAdvanceAction}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <button
-                          type="submit"
-                          className="text-sm text-rose-700 underline"
-                        >
-                          Hapus
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-
+      <div className="grid gap-4 lg:grid-cols-2">
         {mandorSection}
 
-        <Card className={showMandorBlock ? "" : "lg:col-span-1 xl:col-span-2"}>
+        <Card>
           <details>
             <summary className="cursor-pointer list-none">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -524,4 +405,3 @@ export function ContractorPanel({
     </div>
   );
 }
-

@@ -139,16 +139,18 @@ export default async function ReportsPage({
           },
         },
       }),
-      hasCategoryFilter || params.type === "INCOME"
-        ? Promise.resolve([])
-        : prisma.contractorAdvance.findMany({
-            where: advanceWhere,
-            include: {
-              cashSource: true,
-              contractor: { include: { project: true } },
-            },
-            orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-          }),
+      Promise.resolve([] as Array<{
+        id: string;
+        date: Date;
+        amount: number;
+        description: string;
+        cashSource: { name: string };
+        contractor: {
+          projectId: string;
+          name: string;
+          project: { name: string; location: string };
+        };
+      }>),
       getGlobalCashBreakdown(),
     ]);
 
@@ -193,18 +195,6 @@ export default async function ReportsPage({
       skipBalance:
         (tx.type === "EXPENSE" && tx.isFromGlobalCash) ||
         Boolean(tx.isMandorExpense),
-    })),
-    ...advances.map((a) => ({
-      id: `adv-${a.id}`,
-      date: a.date,
-      projectId: a.contractor.projectId,
-      projectName: tidyCase(a.contractor.project.name),
-      location: tidyCase(a.contractor.project.location),
-      sourceName: tidyCase(a.cashSource.name),
-      kind: "Termin pemborong",
-      description: `${tidyCase(a.contractor.name)} — ${tidyCase(a.description)}`,
-      debit: 0,
-      credit: a.amount,
     })),
   ];
 
@@ -560,9 +550,12 @@ export default async function ReportsPage({
                 const saldo =
                   book.length > 0 ? book[book.length - 1].balance : opening;
                 const contractor = project.contractor;
-                const termin = contractor
-                  ? contractor.advances.reduce((s, a) => s + a.amount, 0)
-                  : 0;
+                const projectTxs = transactions.filter(
+                  (tx) => tx.projectId === project.id,
+                );
+                const termin = projectTxs
+                  .filter((tx) => tx.isMandorDisbursement)
+                  .reduce((s, tx) => s + tx.amount, 0);
                 const bukti = contractor
                   ? contractor.expenses.reduce((s, e) => s + e.amount, 0)
                   : 0;
@@ -585,12 +578,13 @@ export default async function ReportsPage({
                   (k) => (fundByKind.get(k) ?? 0) > 0 || (spentByKind[k] ?? 0) > 0,
                 );
 
-                const projectTxs = transactions.filter(
-                  (tx) => tx.projectId === project.id,
-                );
-                const projectAdvs = advances.filter(
-                  (a) => a.contractor.projectId === project.id,
-                );
+                const projectAdvs: Array<{
+                  id: string;
+                  date: Date;
+                  amount: number;
+                  description: string;
+                  contractorName: string;
+                }> = [];
                 const bkkRows = buildProjectBkkRows(
                   projectTxs.map((tx) => ({
                     id: tx.id,
@@ -606,13 +600,7 @@ export default async function ReportsPage({
                     categoryName: tx.category.name,
                     expenseLines: tx.expenseLines,
                   })),
-                  projectAdvs.map((a) => ({
-                    id: a.id,
-                    date: a.date,
-                    amount: a.amount,
-                    description: a.description,
-                    contractorName: a.contractor.name,
-                  })),
+                  projectAdvs,
                 );
                 const bulanKe = from
                   ? from.getMonth() + 1
@@ -690,7 +678,7 @@ export default async function ReportsPage({
                         {" · "}
                         Borongan {formatRupiah(contractor.agreedAmount)}
                         {" · "}
-                        Termin {formatRupiah(termin)}
+                        Dana Mandor {formatRupiah(termin)}
                         {" · "}
                         Bukti {formatRupiah(bukti)}
                         {contractor.phone ? ` · ${contractor.phone}` : ""}

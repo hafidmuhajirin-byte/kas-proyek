@@ -81,7 +81,7 @@ export function MandorUploadForm({
         </select>
       </Field>
 
-      <Field label="Acuan pencairan / termin" htmlFor="pencairanKey">
+      <Field label="Acuan pencairan Mandor" htmlFor="pencairanKey">
         <select
           id="pencairanKey"
           name="pencairanKey"

@@ -65,8 +65,8 @@ export async function createMandorExpenseAction(
   }
 
   const pencairan = parsePencairanKey(pencairanRaw);
-  if (!pencairan) {
-    return { error: "Pilih pencairan / termin yang menjadi acuan bukti." };
+  if (!pencairan || pencairan.kind !== "disbursement") {
+    return { error: "Pilih pencairan Dana ke Mandor yang menjadi acuan bukti." };
   }
 
   await requireProjectAccess(user, projectId);
@@ -124,10 +124,8 @@ export async function createMandorExpenseAction(
       createdById: user.id,
       isMandorExpense: true,
       isFromGlobalCash: false,
-      linkedMandorDisbursementId:
-        pencairan.kind === "disbursement" ? pencairan.id : null,
-      linkedContractorAdvanceId:
-        pencairan.kind === "advance" ? pencairan.id : null,
+      linkedMandorDisbursementId: pencairan.id,
+      linkedContractorAdvanceId: null,
     },
   });
 

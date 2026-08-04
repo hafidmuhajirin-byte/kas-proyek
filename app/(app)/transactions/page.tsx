@@ -48,7 +48,7 @@ export default async function KasBesarPage({
   const params = await searchParams;
   const hasTypeFilter =
     params.type === "INCOME" || params.type === "EXPENSE";
-  const includeAdvances = params.type !== "INCOME";
+  const includeAdvances = false; // Termin digabung ke Dana ke Mandor
 
   if (readOnlyAdmin) {
     const q = new URLSearchParams();

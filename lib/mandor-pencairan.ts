@@ -11,55 +11,38 @@ export {
   parsePencairanKey,
 } from "@/lib/mandor-pencairan-shared";
 
-/** Daftar pencairan yang bisa ditautkan bukti Mandor untuk satu proyek. */
+/** Daftar pencairan Mandor yang bisa ditautkan bukti (tanpa termin terpisah). */
 export async function getPencairanOptionsForProject(
   projectId: string,
   opts?: { excludeProofId?: string },
 ): Promise<PencairanOption[]> {
-  const [disbursements, advances, proofs] = await Promise.all([
+  const [disbursements, proofs] = await Promise.all([
     prisma.mandorDisbursement.findMany({
-      where: { projectId },
+      where: { projectId, transactionId: { not: null } },
       orderBy: [{ date: "asc" }, { sequence: "asc" }],
       select: {
         id: true,
         date: true,
         label: true,
         amount: true,
-        transactionId: true,
         mandor: { select: { name: true } },
-      },
-    }),
-    prisma.contractorAdvance.findMany({
-      where: { contractor: { projectId } },
-      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        date: true,
-        amount: true,
-        description: true,
-        contractor: { select: { name: true } },
       },
     }),
     prisma.transaction.findMany({
       where: {
         projectId,
         isMandorExpense: true,
+        linkedMandorDisbursementId: { not: null },
         ...(opts?.excludeProofId ? { id: { not: opts.excludeProofId } } : {}),
-        OR: [
-          { linkedMandorDisbursementId: { not: null } },
-          { linkedContractorAdvanceId: { not: null } },
-        ],
       },
       select: {
         amount: true,
         linkedMandorDisbursementId: true,
-        linkedContractorAdvanceId: true,
       },
     }),
   ]);
 
   const usedByDisbursement = new Map<string, number>();
-  const usedByAdvance = new Map<string, number>();
   for (const p of proofs) {
     if (p.linkedMandorDisbursementId) {
       usedByDisbursement.set(
@@ -67,44 +50,21 @@ export async function getPencairanOptionsForProject(
         (usedByDisbursement.get(p.linkedMandorDisbursementId) ?? 0) + p.amount,
       );
     }
-    if (p.linkedContractorAdvanceId) {
-      usedByAdvance.set(
-        p.linkedContractorAdvanceId,
-        (usedByAdvance.get(p.linkedContractorAdvanceId) ?? 0) + p.amount,
-      );
-    }
   }
 
-  const options: PencairanOption[] = [
-    ...disbursements
-      .filter((d) => Boolean(d.transactionId))
-      .map((d) => {
-      const used = usedByDisbursement.get(d.id) ?? 0;
-      return {
-        key: optionKey("disbursement", d.id),
-        kind: "disbursement" as const,
-        id: d.id,
-        label: `${d.label} · ${d.mandor.name}`,
-        amount: d.amount,
-        used,
-        remaining: d.amount - used,
-        date: d.date,
-      };
-    }),
-    ...advances.map((a) => {
-      const used = usedByAdvance.get(a.id) ?? 0;
-      return {
-        key: optionKey("advance", a.id),
-        kind: "advance" as const,
-        id: a.id,
-        label: `Termin ${a.contractor.name} — ${a.description}`,
-        amount: a.amount,
-        used,
-        remaining: a.amount - used,
-        date: a.date,
-      };
-    }),
-  ];
+  const options: PencairanOption[] = disbursements.map((d) => {
+    const used = usedByDisbursement.get(d.id) ?? 0;
+    return {
+      key: optionKey("disbursement", d.id),
+      kind: "disbursement" as const,
+      id: d.id,
+      label: `${d.label} · ${d.mandor.name}`,
+      amount: d.amount,
+      used,
+      remaining: d.amount - used,
+      date: d.date,
+    };
+  });
 
   return options.sort(
     (a, b) => a.date.getTime() - b.date.getTime() || a.key.localeCompare(b.key),

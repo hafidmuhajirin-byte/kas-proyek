@@ -112,7 +112,7 @@ export async function getProjectsProfitOverview(options?: {
       }
     }
 
-    const contractorAdvances = advanceByProject.get(project.id) ?? 0;
+    const contractorAdvances = 0; // Termin → Dana ke Mandor (sudah di operatingExpense)
 
     const remainingPlannedFunds = projectFundKinds.reduce((sum, kind) => {
       const planned =

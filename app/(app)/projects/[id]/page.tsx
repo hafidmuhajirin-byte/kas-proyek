@@ -159,10 +159,6 @@ export default async function ProjectDetailPage({
         },
         contractor: {
           include: {
-            advances: {
-              orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-              include: { cashSource: { select: { name: true } } },
-            },
             expenses: {
               orderBy: [{ date: "desc" }, { createdAt: "desc" }],
             },
@@ -247,14 +243,12 @@ export default async function ProjectDetailPage({
       cashSourceName: tx.cashSource.name,
       proofUrl: tx.proofUrl,
     }));
-  const contractorAdvances = project.contractor
-    ? project.contractor.advances.reduce((sum, a) => sum + a.amount, 0)
-    : 0;
+  // Dana ke Mandor sudah masuk projectCashAffectingExpense via Transaction
+  const contractorAdvances = 0;
   const cashBalance =
     project.openingBalance +
     incomeTotal -
-    projectCashAffectingExpense -
-    contractorAdvances;
+    projectCashAffectingExpense;
   const projectCash = cashBalance;
 
   const remainingPlannedFunds = projectFundKinds.reduce((sum, kind) => {

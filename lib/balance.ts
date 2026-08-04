@@ -24,24 +24,9 @@ export function calcStageStatus(
   return "LEBIH";
 }
 
+/** Termin digabung ke Dana ke Mandor — tidak ada lagi potongan advance terpisah. */
 async function getProjectAdvanceTotals() {
-  const [contractors, advanceGroups] = await Promise.all([
-    prisma.contractor.findMany({
-      select: { id: true, projectId: true },
-    }),
-    prisma.contractorAdvance.groupBy({
-      by: ["contractorId"],
-      _sum: { amount: true },
-    }),
-  ]);
-  const sumByContractor = new Map(
-    advanceGroups.map((g) => [g.contractorId, g._sum.amount ?? 0]),
-  );
-  const map = new Map<string, number>();
-  for (const c of contractors) {
-    map.set(c.projectId, (map.get(c.projectId) ?? 0) + (sumByContractor.get(c.id) ?? 0));
-  }
-  return map;
+  return new Map<string, number>();
 }
 
 export async function getProjectCashBalance(
@@ -63,16 +48,7 @@ export async function getProjectCashBalance(
           isMandorExpense: true,
         },
       },
-      contractor: {
-        include: {
-          advances: {
-            where: options?.excludeAdvanceId
-              ? { NOT: { id: options.excludeAdvanceId } }
-              : undefined,
-            select: { amount: true },
-          },
-        },
-      },
+      // Termin digabung ke Dana ke Mandor (Transaction isMandorDisbursement)
     },
   });
   if (!project) return 0;
@@ -84,10 +60,7 @@ export async function getProjectCashBalance(
     if (tx.isMandorExpense) return sum;
     return sum + signedAmount(tx.type, tx.amount);
   }, 0);
-  const advances = project.contractor
-    ? project.contractor.advances.reduce((sum, a) => sum + a.amount, 0)
-    : 0;
-  return project.openingBalance + movement - advances;
+  return project.openingBalance + movement;
 }
 
 export async function getProjectBalances() {
@@ -323,12 +296,7 @@ export async function getGlobalCashBreakdown(
     else cash += signed;
   }
 
-  for (const g of advanceGroups) {
-    const amount = g._sum.amount ?? 0;
-    const channel = sourceType.get(g.cashSourceId);
-    if (channel && isBankChannel(channel)) bank -= amount;
-    else cash -= amount;
-  }
+  // Termin digabung ke Dana ke Mandor (sudah masuk Transaction)
 
   // Transfer antar saluran: total tetap, Tunai/Bank berpindah
   for (const transfer of transfers) {
@@ -438,7 +406,8 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
     }
   }
 
-  const contractorAdvances = advanceSum._sum.amount ?? 0;
+  // Termin digabung ke Dana ke Mandor — biaya masuk via isMandorDisbursement
+  const contractorAdvances = 0;
 
   return {
     income,
@@ -451,7 +420,6 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
     net:
       income +
       ownerPersonalInjection -
-      cashAffectingExpense -
-      contractorAdvances,
+      cashAffectingExpense,
   };
 }

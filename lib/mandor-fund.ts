@@ -38,7 +38,7 @@ export async function getMandorFundSummariesFor(
   const projectIds = [...new Set(pairs.map((p) => p.projectId))];
   const mandorIds = [...new Set(pairs.map((p) => p.mandorId))];
 
-  const [disbursements, proofs, mandors, contractors] = await Promise.all([
+  const [disbursements, proofs] = await Promise.all([
     prisma.mandorDisbursement.findMany({
       where: { projectId: { in: projectIds }, mandorId: { in: mandorIds } },
       select: {
@@ -63,35 +63,14 @@ export async function getMandorFundSummariesFor(
         linkedContractorAdvanceId: true,
       },
     }),
-    prisma.user.findMany({
-      where: { id: { in: mandorIds } },
-      select: { id: true, name: true },
-    }),
-    prisma.contractor.findMany({
-      where: { projectId: { in: projectIds } },
-      select: {
-        projectId: true,
-        name: true,
-        advances: { select: { id: true, amount: true } },
-      },
-    }),
   ]);
 
-  const nameById = new Map(mandors.map((m) => [m.id, m.name]));
-
   for (const p of pairs) {
-    const mandorName = nameById.get(p.mandorId) ?? "";
-    const contractor = contractors.find(
-      (c) =>
-        c.projectId === p.projectId && namesMatch(c.name, mandorName),
-    );
-
     const summary = computeMandorFund({
       projectId: p.projectId,
       mandorId: p.mandorId,
       disbursements,
       proofs,
-      matchedAdvances: contractor?.advances,
     });
     map.set(pairKey(p.projectId, p.mandorId), summary);
   }

@@ -51,7 +51,7 @@ export default async function KasProyekPage({
   const params = await searchParams;
   const hasTypeFilter =
     params.type === "INCOME" || params.type === "EXPENSE";
-  const includeAdvances = params.type !== "INCOME";
+  const includeAdvances = false; // Termin digabung ke Dana ke Mandor
   const needsProject = !params.projectId;
 
   const where = {
