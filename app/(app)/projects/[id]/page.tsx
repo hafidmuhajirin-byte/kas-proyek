@@ -51,8 +51,8 @@ import {
   btnSecondaryClass,
   Card,
   EmptyState,
+  FinanceStrip,
   PageHeader,
-  StatCard,
 } from "@/components/ui";
 
 export default async function ProjectDetailPage({
@@ -398,12 +398,73 @@ export default async function ProjectDetailPage({
                 href={`/transactions/new?projectId=${project.id}&type=INCOME`}
                 className={btnSecondaryClass}
               >
-                {isPayAtEnd ? "+ Pembayaran" : "+ Pembayaran"}
+                + Pembayaran
               </Link>
             ) : null}
           </>
         }
       />
+
+      {isPayAtEnd ? (
+        <FinanceStrip
+          progressPercent={workPaidPercent}
+          items={[
+            {
+              label: "Pekerjaan selesai",
+              value: formatRupiah(workCompletedValue),
+              tone: "neutral",
+            },
+            {
+              label: "Sudah dibayar",
+              value: formatRupiah(clientIncomeTotal),
+              hint: `${workPaidPercent}%`,
+              tone: "income",
+            },
+            {
+              label: "Biaya kas besar",
+              value: formatRupiah(expenseTotal),
+              tone: "expense",
+            },
+            {
+              label: "Kas besar",
+              value: formatRupiah(kasBesar.total),
+              hint: `Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`,
+              tone: "balance",
+            },
+          ]}
+        />
+      ) : (
+        <FinanceStrip
+          progressPercent={contractPaidPercent}
+          items={[
+            {
+              label: "Nilai kontrak",
+              value: formatRupiah(project.contractValue),
+              tone: "neutral",
+            },
+            {
+              label: "Sudah dibayar",
+              value: formatRupiah(clientIncomeTotal),
+              hint: `${contractPaidPercent}%`,
+              tone: "income",
+            },
+            {
+              label: "Sisa belum terbayar",
+              value: formatRupiah(contractRemaining),
+              tone: "expense",
+            },
+            {
+              label: "Saldo kas proyek",
+              value: formatRupiah(cashBalance),
+              hint:
+                project.openingBalance > 0
+                  ? `Awal ${formatRupiah(project.openingBalance)}`
+                  : undefined,
+              tone: "balance",
+            },
+          ]}
+        />
+      )}
 
       <ContractorPanel
         projectId={project.id}
@@ -439,43 +500,11 @@ export default async function ProjectDetailPage({
 
       {isPayAtEnd ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Nilai pekerjaan selesai"
-              value={formatRupiah(workCompletedValue)}
-              tone="neutral"
-            />
-            <StatCard
-              label="Sudah dibayar"
-              value={formatRupiah(clientIncomeTotal)}
-              hint={`${workPaidPercent}%`}
-              tone="income"
-            />
-            <StatCard
-              label="Biaya dari kas besar"
-              value={formatRupiah(expenseTotal)}
-              tone="expense"
-            />
-            <StatCard
-              label="Kas besar tersedia"
-              value={formatRupiah(kasBesar.total)}
-              hint={`Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`}
-              tone="balance"
-            />
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-950/80">
+          <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-3 py-2 text-sm text-sky-950/80">
             Sisa tagihan: <strong>{formatRupiah(receivable)}</strong>
           </div>
 
-          <div className="mt-4 h-3 overflow-hidden rounded-full bg-teal-900/10">
-            <div
-              className="h-full rounded-full bg-teal-700 transition-all"
-              style={{ width: `${workPaidPercent}%` }}
-            />
-          </div>
-
-          <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="mt-2 grid gap-6 lg:grid-cols-[1fr_320px]">
             <Card>
               <h3 className="font-serif text-xl text-teal-950">
                 Pekerjaan yang sudah dikerjakan
@@ -622,70 +651,15 @@ export default async function ProjectDetailPage({
         </>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Nilai kontrak"
-              value={formatRupiah(project.contractValue)}
-              tone="neutral"
-            />
-            <StatCard
-              label="Sudah dibayar"
-              value={formatRupiah(clientIncomeTotal)}
-              hint={`${contractPaidPercent}%`}
-              tone="income"
-            />
-            <StatCard
-              label="Sisa belum terbayar"
-              value={formatRupiah(contractRemaining)}
-              tone="expense"
-            />
-            <StatCard
-              label="Saldo kas proyek"
-              value={formatRupiah(cashBalance)}
-              hint={
-                project.openingBalance > 0
-                  ? `Awal ${formatRupiah(project.openingBalance)}`
-                  : undefined
-              }
-              tone="balance"
-            />
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-teal-900/8 bg-white/80 p-4">
-            <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-              <p className="font-serif text-2xl text-teal-950">
-                {contractPaidPercent}%
-              </p>
-              <p className="text-sm text-teal-900/65">
-                {formatRupiah(clientIncomeTotal)} /{" "}
-                {formatRupiah(project.contractValue)}
-              </p>
-            </div>
-            <div className="h-3 overflow-hidden rounded-full bg-teal-900/10">
-              <div
-                className="h-full rounded-full bg-teal-700 transition-all"
-                style={{ width: `${contractPaidPercent}%` }}
-              />
-            </div>
-          </div>
-
           {showTermin ? (
-            <>
-              <div className="mt-4 h-3 overflow-hidden rounded-full bg-teal-900/10">
-                <div
-                  className="h-full rounded-full bg-teal-600/70 transition-all"
-                  style={{ width: `${fundingProgressPercent}%` }}
-                />
-              </div>
-              <p className="mt-2 text-sm text-teal-900/60">
-                Termin: {formatRupiah(receivedFunding)} /{" "}
-                {formatRupiah(fundingBase)} ({fundingProgressPercent}%)
-              </p>
-            </>
+            <p className="mb-4 text-sm text-teal-900/60">
+              Termin: {formatRupiah(receivedFunding)} /{" "}
+              {formatRupiah(fundingBase)} ({fundingProgressPercent}%)
+            </p>
           ) : null}
 
           <div
-            className={`mt-6 grid gap-6 ${
+            className={`mt-2 grid gap-6 ${
               admin && showTermin ? "lg:grid-cols-[1fr_320px]" : ""
             }`}
           >

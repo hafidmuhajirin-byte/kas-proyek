@@ -55,6 +55,7 @@ export function StatCard({
   hint,
   tone = "neutral",
   href,
+  compact = false,
 }: {
   label: string;
   value: string;
@@ -62,6 +63,8 @@ export function StatCard({
   tone?: "neutral" | "income" | "expense" | "balance";
   /** Jika diisi, kartu menjadi tautan (mis. rincian keuntungan) */
   href?: string;
+  /** Ringkas untuk strip ringkasan di atas halaman */
+  compact?: boolean;
 }) {
   const tones = {
     neutral: "text-[var(--ink)]",
@@ -70,24 +73,44 @@ export function StatCard({
     balance: "text-[var(--accent)]",
   };
 
-  const className =
-    "flex h-full min-w-0 flex-col rounded-xl border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-3 sm:px-5 sm:py-4" +
-    (href
-      ? " transition hover:border-[var(--accent)]/35 hover:bg-[var(--paper-tint)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/25"
-      : "");
+  const className = compact
+    ? "flex min-w-0 flex-col justify-center px-3 py-2.5 sm:px-4 sm:py-3" +
+      (href
+        ? " transition hover:bg-[var(--paper-tint)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/25"
+        : "")
+    : "flex h-full min-w-0 flex-col rounded-xl border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-3 sm:px-5 sm:py-4" +
+      (href
+        ? " transition hover:border-[var(--accent)]/35 hover:bg-[var(--paper-tint)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/25"
+        : "");
 
   const body = (
     <>
-      <p className="text-[10px] font-medium tracking-[0.08em] text-[var(--ink-faint)] uppercase sm:text-[11px]">
+      <p
+        className={
+          compact
+            ? "text-[10px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase"
+            : "text-[10px] font-medium tracking-[0.08em] text-[var(--ink-faint)] uppercase sm:text-[11px]"
+        }
+      >
         {label}
       </p>
       <p
-        className={`mt-1.5 min-w-0 break-words font-serif text-[1.05rem] leading-snug tabular-nums sm:text-[1.35rem] xl:text-xl ${tones[tone]}`}
+        className={
+          compact
+            ? `mt-0.5 min-w-0 break-words text-sm font-semibold leading-snug tabular-nums sm:text-[0.95rem] ${tones[tone]}`
+            : `mt-1.5 min-w-0 break-words font-serif text-[1.05rem] leading-snug tabular-nums sm:text-[1.35rem] xl:text-xl ${tones[tone]}`
+        }
       >
         {value}
       </p>
       {hint ? (
-        <p className="mt-auto pt-1.5 text-xs leading-snug text-[var(--ink-faint)]">
+        <p
+          className={
+            compact
+              ? "mt-0.5 text-[11px] leading-snug text-[var(--ink-faint)]"
+              : "mt-auto pt-1.5 text-xs leading-snug text-[var(--ink-faint)]"
+          }
+        >
           {hint}
         </p>
       ) : null}
@@ -103,6 +126,45 @@ export function StatCard({
   }
 
   return <div className={className}>{body}</div>;
+}
+
+/** Satu baris ringkasan keuangan — kecil, mudah dibaca, di atas halaman. */
+export function FinanceStrip({
+  items,
+  progressPercent,
+}: {
+  items: {
+    label: string;
+    value: string;
+    hint?: string;
+    tone?: "neutral" | "income" | "expense" | "balance";
+  }[];
+  progressPercent?: number;
+}) {
+  return (
+    <div className="mb-5 overflow-hidden rounded-xl border border-[var(--line-soft)] bg-[var(--surface)]">
+      <div className="grid grid-cols-2 divide-x divide-y divide-[var(--line-soft)] lg:grid-cols-4 lg:divide-y-0">
+        {items.map((item) => (
+          <StatCard
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            hint={item.hint}
+            tone={item.tone}
+            compact
+          />
+        ))}
+      </div>
+      {progressPercent != null ? (
+        <div className="h-1 bg-[var(--line-soft)]">
+          <div
+            className="h-full bg-[var(--accent)] transition-all"
+            style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function Field({
