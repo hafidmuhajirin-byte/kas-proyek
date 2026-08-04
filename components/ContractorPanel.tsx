@@ -1,15 +1,8 @@
-import { format } from "date-fns";
-import {
-  createContractorExpenseAction,
-  deleteContractorExpenseAction,
-  upsertContractorAction,
-} from "@/lib/actions/contractor";
 import {
   assessContractorBudget,
   calcContractorBudgetAmount,
   CONTRACTOR_MAX_SAFE_PERCENT,
   CONTRACTOR_TARGET_PERCENT,
-  contractorExpenseKindLabels,
   contractorStatusLabels,
   summarizeContractor,
 } from "@/lib/contractor";
@@ -17,13 +10,9 @@ import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
 import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
-import { ProofReviewLink } from "@/components/ProofReviewLink";
 import { RupiahInput } from "@/components/RupiahInput";
-import {
-  btnSecondaryClass,
-  Card,
-  EmptyState,
-} from "@/components/ui";
+import { btnSecondaryClass, Card } from "@/components/ui";
+import { upsertContractorAction } from "@/lib/actions/contractor";
 
 type SourceOption = { id: string; name: string };
 
@@ -123,7 +112,6 @@ function ContractorForm({
 
 /**
  * Panel pemborong + Dana ke Mandor (satu saluran pembayaran).
- * Termin terpisah dihapus agar tidak double-input.
  */
 export function ContractorPanel({
   projectId,
@@ -146,7 +134,7 @@ export function ContractorPanel({
     phone: string | null;
     notes: string | null;
     agreedAmount: number;
-    expenses: ExpenseRow[];
+    expenses?: ExpenseRow[];
   } | null;
   mandors?: MandorOption[];
   mandorDisbursements?: MandorDisbursementRow[];
@@ -237,8 +225,7 @@ export function ContractorPanel({
             </h3>
             <p className="mt-1 text-teal-900/65">
               Borongan {formatRupiah(summary.agreedAmount)} · Dana Mandor{" "}
-              {formatRupiah(mandorCairTotal)} · Bukti{" "}
-              {formatRupiah(summary.totalExpenses)} ·{" "}
+              {formatRupiah(mandorCairTotal)} ·{" "}
               {contractorStatusLabels[summary.status]}
               {contractor.phone ? ` · ${contractor.phone}` : ""}
             </p>
@@ -276,132 +263,7 @@ export function ContractorPanel({
         </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {mandorSection}
-
-        <Card>
-          <details>
-            <summary className="cursor-pointer list-none">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-medium text-teal-950">
-                    Bukti pengeluaran
-                  </h3>
-                  <p className="mt-0.5 text-sm text-teal-900/55">
-                    {contractor.expenses.length} catatan ·{" "}
-                    {formatRupiah(
-                      contractor.expenses.reduce((s, e) => s + e.amount, 0),
-                    )}
-                  </p>
-                </div>
-                <span className="text-sm text-teal-700">Buka</span>
-              </div>
-            </summary>
-
-            <div className="mt-3 border-t border-teal-900/10 pt-3">
-              {admin ? (
-                <details className="mt-0">
-                  <summary className="cursor-pointer text-sm text-teal-700 underline">
-                    + Catat bukti
-                  </summary>
-                  <div className="mt-3">
-                    <ActionForm
-                      action={createContractorExpenseAction}
-                      submitLabel="Catat bukti"
-                    >
-                      <input type="hidden" name="projectId" value={projectId} />
-                      <Field label="Tanggal">
-                        <input
-                          name="date"
-                          type="date"
-                          className={inputClass}
-                          defaultValue={format(new Date(), "yyyy-MM-dd")}
-                          required
-                        />
-                      </Field>
-                      <Field label="Jenis">
-                        <select
-                          name="kind"
-                          className={inputClass}
-                          defaultValue="MATERIAL"
-                          required
-                        >
-                          <option value="MATERIAL">
-                            {contractorExpenseKindLabels.MATERIAL}
-                          </option>
-                          <option value="WAGES">
-                            {contractorExpenseKindLabels.WAGES}
-                          </option>
-                          <option value="OTHER">
-                            {contractorExpenseKindLabels.OTHER}
-                          </option>
-                        </select>
-                      </Field>
-                      <Field label="Nominal">
-                        <RupiahInput name="amount" defaultValue={0} required />
-                      </Field>
-                      <Field label="Uraian">
-                        <input
-                          name="description"
-                          className={inputClass}
-                          required
-                        />
-                      </Field>
-                      <Field label="Bukti (opsional)">
-                        <input
-                          name="proof"
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,application/pdf"
-                          className={inputClass}
-                        />
-                      </Field>
-                    </ActionForm>
-                  </div>
-                </details>
-              ) : null}
-
-              <div className="mt-3 space-y-2 text-sm">
-                {contractor.expenses.length === 0 ? (
-                  <EmptyState message="Belum ada bukti." />
-                ) : (
-                  contractor.expenses.map((row) => (
-                    <div
-                      key={row.id}
-                      className="flex flex-wrap items-start justify-between gap-2 border-b border-teal-900/6 py-2 last:border-0"
-                    >
-                      <div>
-                        <p className="text-teal-950">
-                          {tidyCase(row.description)}
-                        </p>
-                        <p className="text-teal-900/55">
-                          {format(row.date, "dd/MM/yyyy")} ·{" "}
-                          {contractorExpenseKindLabels[row.kind] ?? row.kind}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="tabular-nums text-teal-950">
-                          {formatRupiah(row.amount)}
-                        </p>
-                        {admin ? (
-                          <form action={deleteContractorExpenseAction}>
-                            <input type="hidden" name="id" value={row.id} />
-                            <button
-                              type="submit"
-                              className="text-sm text-rose-700 underline"
-                            >
-                              Hapus
-                            </button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </details>
-        </Card>
-      </div>
+      {mandorSection}
     </div>
   );
 }
