@@ -40,6 +40,7 @@ import { calcFeeTransferQuota, calcProjectProfit } from "@/lib/project-profit";
 import { isOwnerPersonalDraw } from "@/lib/owner-personal";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
 import { ContractorPanel } from "@/components/ContractorPanel";
+import { PaymentSCurve } from "@/components/PaymentSCurve";
 import { ProjectBillingFields } from "@/components/ProjectBillingFields";
 import { ProjectCompletionPanel } from "@/components/ProjectCompletionPanel";
 import { ProjectFeeTransferPanel } from "@/components/ProjectFeeTransferPanel";
@@ -198,6 +199,9 @@ export default async function ProjectDetailPage({
   const clientIncomeTotal = project.transactions
     .filter((tx) => tx.type === "INCOME" && !tx.isOwnerPersonal)
     .reduce((sum, tx) => sum + tx.amount, 0);
+  const clientPayments = project.transactions
+    .filter((tx) => tx.type === "INCOME" && !tx.isOwnerPersonal)
+    .map((tx) => ({ date: tx.date, amount: tx.amount }));
   const ownerInjectionTotal = project.transactions
     .filter((tx) => tx.type === "INCOME" && tx.isOwnerPersonal)
     .reduce((sum, tx) => sum + tx.amount, 0);
@@ -407,7 +411,6 @@ export default async function ProjectDetailPage({
 
       {isPayAtEnd ? (
         <FinanceStrip
-          progressPercent={workPaidPercent}
           items={[
             {
               label: "Pekerjaan selesai",
@@ -435,7 +438,6 @@ export default async function ProjectDetailPage({
         />
       ) : (
         <FinanceStrip
-          progressPercent={contractPaidPercent}
           items={[
             {
               label: "Nilai kontrak",
@@ -465,6 +467,17 @@ export default async function ProjectDetailPage({
           ]}
         />
       )}
+
+      <PaymentSCurve
+        className="mb-5"
+        payments={clientPayments}
+        baseline={
+          isPayAtEnd
+            ? Math.max(workCompletedValue, clientIncomeTotal, 1)
+            : Math.max(project.contractValue, 1)
+        }
+        baselineLabel={isPayAtEnd ? "pekerjaan selesai" : "kontrak"}
+      />
 
       <ContractorPanel
         projectId={project.id}
