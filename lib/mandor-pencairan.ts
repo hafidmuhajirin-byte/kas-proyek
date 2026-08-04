@@ -25,6 +25,7 @@ export async function getPencairanOptionsForProject(
         date: true,
         label: true,
         amount: true,
+        transactionId: true,
         mandor: { select: { name: true } },
       },
     }),
@@ -75,7 +76,9 @@ export async function getPencairanOptionsForProject(
   }
 
   const options: PencairanOption[] = [
-    ...disbursements.map((d) => {
+    ...disbursements
+      .filter((d) => Boolean(d.transactionId))
+      .map((d) => {
       const used = usedByDisbursement.get(d.id) ?? 0;
       return {
         key: optionKey("disbursement", d.id),

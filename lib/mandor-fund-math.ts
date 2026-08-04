@@ -32,6 +32,8 @@ export type MandorFundDisbursement = {
   projectId: string;
   mandorId: string;
   amount: number;
+  /** Orphan tanpa transaksi Kas Besar tidak dihitung. */
+  transactionId?: string | null;
 };
 
 export type MandorFundProof = {
@@ -70,9 +72,12 @@ export function computeMandorFund(input: {
   matchedAdvances?: MandorFundAdvance[];
 }): MandorFundSummary {
   const { projectId, mandorId } = input;
-  const mine = input.disbursements.filter(
-    (d) => d.projectId === projectId && d.mandorId === mandorId,
-  );
+  const mine = input.disbursements.filter((d) => {
+    if (d.projectId !== projectId || d.mandorId !== mandorId) return false;
+    // null/"" = orphan tanpa Kas Besar (duplikat) — jangan dihitung
+    if (d.transactionId === null || d.transactionId === "") return false;
+    return true;
+  });
   const fromDisbursement = mine.reduce((s, d) => s + d.amount, 0);
   const myDisbursementIds = new Set(mine.map((d) => d.id));
 

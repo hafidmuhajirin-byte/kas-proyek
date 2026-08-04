@@ -41,7 +41,13 @@ export async function getMandorFundSummariesFor(
   const [disbursements, proofs, mandors, contractors] = await Promise.all([
     prisma.mandorDisbursement.findMany({
       where: { projectId: { in: projectIds }, mandorId: { in: mandorIds } },
-      select: { id: true, projectId: true, mandorId: true, amount: true },
+      select: {
+        id: true,
+        projectId: true,
+        mandorId: true,
+        amount: true,
+        transactionId: true,
+      },
     }),
     prisma.transaction.findMany({
       where: {

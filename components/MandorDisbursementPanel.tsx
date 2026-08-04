@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { createMandorDisbursementAction } from "@/lib/actions/disbursements";
+import {
+  createMandorDisbursementAction,
+  deleteMandorDisbursementAction,
+} from "@/lib/actions/disbursements";
 import { RupiahInput } from "@/components/RupiahInput";
 import { ProofReviewLink } from "@/components/ProofReviewLink";
 import {
@@ -21,6 +24,8 @@ type DisbursementRow = {
   amount: number;
   mandorName: string;
   proofUrl: string | null;
+  /** false = orphan tanpa transaksi Kas Besar */
+  hasKasBesar?: boolean;
 };
 
 export function MandorDisbursementPanel({
@@ -43,6 +48,7 @@ export function MandorDisbursementPanel({
     {},
   );
   const today = new Date().toISOString().slice(0, 10);
+  const nextLabel = `Termin ${rows.length + 1}`;
 
   return (
     <div className="space-y-4">
@@ -75,6 +81,11 @@ export function MandorDisbursementPanel({
               <div>
                 <p className="font-medium">
                   {r.label} · {r.mandorName}
+                  {r.hasKasBesar === false ? (
+                    <span className="ml-1.5 text-[11px] font-normal text-amber-800">
+                      (duplikat / belum ke Kas Besar)
+                    </span>
+                  ) : null}
                 </p>
                 <p className="text-xs text-[var(--ink-faint)]">{r.date}</p>
               </div>
@@ -88,6 +99,28 @@ export function MandorDisbursementPanel({
                   >
                     Bukti
                   </ProofReviewLink>
+                ) : null}
+                {canEdit ? (
+                  <form action={deleteMandorDisbursementAction}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <button
+                      type="submit"
+                      className="text-rose-700 underline"
+                      onClick={(e) => {
+                        if (
+                          !confirm(
+                            r.hasKasBesar === false
+                              ? "Hapus baris duplikat ini?"
+                              : "Hapus pencairan ini beserta transaksi Kas Besar?",
+                          )
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                    >
+                      Hapus
+                    </button>
+                  </form>
                 ) : null}
               </div>
             </li>
@@ -118,7 +151,7 @@ export function MandorDisbursementPanel({
                 name="label"
                 className={inputClass}
                 placeholder="Termin 1"
-                defaultValue={`Termin ${rows.length + 1}`}
+                defaultValue={nextLabel}
                 required
               />
             </Field>

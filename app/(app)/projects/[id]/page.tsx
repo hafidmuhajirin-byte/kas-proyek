@@ -432,6 +432,7 @@ export default async function ProjectDetailPage({
             amount: d.amount,
             mandorName: d.mandor.name,
             proofUrl: d.proofUrl,
+            hasKasBesar: Boolean(d.transactionId),
           }))}
           overspend={overspend}
         />

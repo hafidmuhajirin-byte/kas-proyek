@@ -10,14 +10,26 @@ function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(msg);
 }
 
-// Bug Wonorejo: 2×50 pencairan + 50 termin nama sama ≠ 150
+  // Bug Wonorejo: 2×50 pencairan + 50 termin nama sama ≠ 150
 {
   const s = computeMandorFund({
     projectId: "p1",
     mandorId: "m1",
     disbursements: [
-      { id: "d1", projectId: "p1", mandorId: "m1", amount: 50_000_000 },
-      { id: "d2", projectId: "p1", mandorId: "m1", amount: 50_000_000 },
+      {
+        id: "d1",
+        projectId: "p1",
+        mandorId: "m1",
+        amount: 50_000_000,
+        transactionId: "tx1",
+      },
+      {
+        id: "d2",
+        projectId: "p1",
+        mandorId: "m1",
+        amount: 50_000_000,
+        transactionId: "tx2",
+      },
     ],
     proofs: [
       {
@@ -33,6 +45,33 @@ function assert(cond: boolean, msg: string) {
   assert(s.totalCair === 100_000_000, `cair expected 100jt got ${s.totalCair}`);
   assert(s.totalBukti === 46_900_000, `bukti expected 46.9jt got ${s.totalBukti}`);
   assert(s.sisa === 53_100_000, `sisa expected 53.1jt got ${s.sisa}`);
+}
+
+// Orphan tanpa transaksi Kas Besar diabaikan
+{
+  const s = computeMandorFund({
+    projectId: "p1",
+    mandorId: "m1",
+    disbursements: [
+      {
+        id: "orphan",
+        projectId: "p1",
+        mandorId: "m1",
+        amount: 50_000_000,
+        transactionId: null,
+      },
+      {
+        id: "real",
+        projectId: "p1",
+        mandorId: "m1",
+        amount: 50_000_000,
+        transactionId: "tx-real",
+      },
+    ],
+    proofs: [],
+    matchedAdvances: [],
+  });
+  assert(s.totalCair === 50_000_000, `orphan ignored got ${s.totalCair}`);
 }
 
 // Legacy: hanya termin, tanpa pencairan Mandor
