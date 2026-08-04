@@ -20,9 +20,7 @@ import {
 } from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
 import { getMandorFundSummariesFor } from "@/lib/mandor-fund";
-import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
-import { MandorExpensePanel } from "@/components/MandorExpensePanel";
-import {
+import { MandorExpensePanel } from "@/components/MandorExpensePanel";import {
   billingModeHints,
   billingModeLabels,
   fundingStatusLabels,
@@ -416,29 +414,30 @@ export default async function ProjectDetailPage({
         }
       />
 
-      <Card className="mb-6">
-        <MandorDisbursementPanel
-          projectId={project.id}
-          canEdit={admin}
-          mandors={assignedMandors.map((a) => ({
-            id: a.user.id,
-            name: a.user.name,
-          }))}
-          sources={sources.map((s) => ({ id: s.id, name: s.name }))}
-          rows={disbursements.map((d) => ({
-            id: d.id,
-            date: format(d.date, "dd/MM/yyyy"),
-            label: d.label,
-            amount: d.amount,
-            mandorName: d.mandor.name,
-            proofUrl: d.proofUrl,
-            hasKasBesar: Boolean(d.transactionId),
-          }))}
-          overspend={overspend}
-        />
-      </Card>
+      <ContractorPanel
+        projectId={project.id}
+        admin={admin}
+        projectCash={projectCash}
+        contractValue={project.contractValue}
+        sources={sources}
+        contractor={project.contractor}
+        mandors={assignedMandors.map((a) => ({
+          id: a.user.id,
+          name: a.user.name,
+        }))}
+        mandorDisbursements={disbursements.map((d) => ({
+          id: d.id,
+          date: format(d.date, "dd/MM/yyyy"),
+          label: d.label,
+          amount: d.amount,
+          mandorName: d.mandor.name,
+          proofUrl: d.proofUrl,
+          hasKasBesar: Boolean(d.transactionId),
+        }))}
+        mandorOverspend={overspend}
+      />
 
-      <Card className="mb-6">
+      <Card className="mb-6 mt-4">
         <MandorExpensePanel
           rows={mandorExpenseRows}
           fundBriefs={fundBriefs}
@@ -465,16 +464,6 @@ export default async function ProjectDetailPage({
       <p className="mb-4 text-sm text-teal-900/65">
         {billingModeHints[project.billingMode]}
       </p>
-
-      <ContractorPanel
-        projectId={project.id}
-        admin={admin}
-        projectCash={projectCash}
-        contractValue={project.contractValue}
-        sources={sources}
-        contractor={project.contractor}
-      />
-
       {isPayAtEnd ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

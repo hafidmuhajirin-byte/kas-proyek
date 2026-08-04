@@ -18,6 +18,7 @@ import {
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
+import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
 import { ProofReviewLink } from "@/components/ProofReviewLink";
 import { RupiahInput } from "@/components/RupiahInput";
 import {
@@ -47,6 +48,18 @@ type ExpenseRow = {
   description: string;
   proofUrl: string | null;
 };
+
+type MandorDisbursementRow = {
+  id: string;
+  date: string;
+  label: string;
+  amount: number;
+  mandorName: string;
+  proofUrl: string | null;
+  hasKasBesar?: boolean;
+};
+
+type MandorOption = { id: string; name: string };
 
 function ContractorForm({
   projectId,
@@ -128,6 +141,9 @@ export function ContractorPanel({
   contractValue,
   sources,
   contractor,
+  mandors = [],
+  mandorDisbursements = [],
+  mandorOverspend,
 }: {
   projectId: string;
   admin: boolean;
@@ -145,6 +161,9 @@ export function ContractorPanel({
     advances: AdvanceRow[];
     expenses: ExpenseRow[];
   } | null;
+  mandors?: MandorOption[];
+  mandorDisbursements?: MandorDisbursementRow[];
+  mandorOverspend?: { mandorName: string; amount: number }[];
 }) {
   const summary = summarizeContractor({
     agreedAmount: contractor?.agreedAmount ?? 0,
@@ -164,36 +183,59 @@ export function ContractorPanel({
           ? "text-rose-700"
           : "text-teal-900/55";
 
+  const mandorCairTotal = mandorDisbursements
+    .filter((r) => r.hasKasBesar !== false)
+    .reduce((s, r) => s + r.amount, 0);
+
+  const showMandorBlock = mandors.length > 0 || mandorDisbursements.length > 0;
+
+  const mandorSection = showMandorBlock ? (
+    <Card>
+      <MandorDisbursementPanel
+        projectId={projectId}
+        canEdit={admin}
+        mandors={mandors}
+        sources={sources}
+        rows={mandorDisbursements}
+        overspend={mandorOverspend}
+        compact
+      />
+    </Card>
+  ) : null;
+
   if (!contractor) {
     return (
-      <Card className="mt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-medium text-teal-950">Pemborong</h3>
-            <p className="mt-0.5 text-sm text-teal-900/55">
-              Belum ada data. Target borongan {CONTRACTOR_TARGET_PERCENT}%
-              kontrak (aman {CONTRACTOR_TARGET_PERCENT}–
-              {CONTRACTOR_MAX_SAFE_PERCENT}%).
-            </p>
+      <div className="mt-4 space-y-4">
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-medium text-teal-950">Pemborong</h3>
+              <p className="mt-0.5 text-sm text-teal-900/55">
+                Belum ada data. Target borongan {CONTRACTOR_TARGET_PERCENT}%
+                kontrak (aman {CONTRACTOR_TARGET_PERCENT}–
+                {CONTRACTOR_MAX_SAFE_PERCENT}%).
+              </p>
+            </div>
+            {admin ? (
+              <details className="w-full max-w-md sm:w-auto">
+                <summary
+                  className={`${btnSecondaryClass} cursor-pointer list-none`}
+                >
+                  + Tambah pemborong
+                </summary>
+                <div className="mt-3">
+                  <ContractorForm
+                    projectId={projectId}
+                    contractValue={contractValue}
+                    submitLabel="Simpan pemborong"
+                  />
+                </div>
+              </details>
+            ) : null}
           </div>
-          {admin ? (
-            <details className="w-full max-w-md sm:w-auto">
-              <summary
-                className={`${btnSecondaryClass} cursor-pointer list-none`}
-              >
-                + Tambah pemborong
-              </summary>
-              <div className="mt-3">
-                <ContractorForm
-                  projectId={projectId}
-                  contractValue={contractValue}
-                  submitLabel="Simpan pemborong"
-                />
-              </div>
-            </details>
-          ) : null}
-        </div>
-      </Card>
+        </Card>
+        {mandorSection}
+      </div>
     );
   }
 
@@ -207,8 +249,11 @@ export function ContractorPanel({
             </h3>
             <p className="mt-1 text-teal-900/65">
               Borongan {formatRupiah(summary.agreedAmount)} · Termin{" "}
-              {formatRupiah(summary.totalAdvances)} · Bukti{" "}
-              {formatRupiah(summary.totalExpenses)} ·{" "}
+              {formatRupiah(summary.totalAdvances)}
+              {mandorCairTotal > 0
+                ? ` · Dana Mandor ${formatRupiah(mandorCairTotal)}`
+                : ""}{" "}
+              · Bukti {formatRupiah(summary.totalExpenses)} ·{" "}
               {contractorStatusLabels[summary.status]}
               {contractor.phone ? ` · ${contractor.phone}` : ""}
             </p>
@@ -246,9 +291,12 @@ export function ContractorPanel({
         </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <Card>
           <h3 className="text-base font-medium text-teal-950">Termin</h3>
+          <p className="mt-0.5 text-sm text-teal-900/55">
+            Pembayaran borongan · {formatRupiah(summary.totalAdvances)}
+          </p>
           {admin ? (
             <details className="mt-2">
               <summary className="cursor-pointer text-sm text-teal-700 underline">
@@ -348,7 +396,9 @@ export function ContractorPanel({
           </div>
         </Card>
 
-        <Card>
+        {mandorSection}
+
+        <Card className={showMandorBlock ? "" : "lg:col-span-1 xl:col-span-2"}>
           <details>
             <summary className="cursor-pointer list-none">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -474,3 +524,4 @@ export function ContractorPanel({
     </div>
   );
 }
+

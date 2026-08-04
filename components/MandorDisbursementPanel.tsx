@@ -35,6 +35,7 @@ export function MandorDisbursementPanel({
   rows,
   canEdit,
   overspend,
+  compact = false,
 }: {
   projectId: string;
   mandors: MandorOption[];
@@ -42,22 +43,36 @@ export function MandorDisbursementPanel({
   rows: DisbursementRow[];
   canEdit: boolean;
   overspend?: { mandorName: string; amount: number }[];
+  /** true = tanpa judul besar (sudah di dalam panel pemborong) */
+  compact?: boolean;
 }) {
   const [state, action, pending] = useActionState(
     createMandorDisbursementAction,
     {},
   );
   const today = new Date().toISOString().slice(0, 10);
-  const nextLabel = `Termin ${rows.length + 1}`;
+  const nextLabel = `Termin ${rows.filter((r) => r.hasKasBesar !== false).length + 1}`;
+  const totalCair = rows
+    .filter((r) => r.hasKasBesar !== false)
+    .reduce((s, r) => s + r.amount, 0);
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="font-medium text-[var(--ink)]">Dana ke Mandor</h3>
-        <p className="text-xs text-[var(--ink-faint)]">
-          Pencairan Owner → Mandor (bukan pembayaran klien).
-        </p>
-      </div>
+      {!compact ? (
+        <div>
+          <h3 className="font-medium text-[var(--ink)]">Dana ke Mandor</h3>
+          <p className="text-xs text-[var(--ink-faint)]">
+            Pencairan Owner → Mandor (bukan pembayaran klien).
+          </p>
+        </div>
+      ) : (
+        <div>
+          <h3 className="text-base font-medium text-teal-950">Dana ke Mandor</h3>
+          <p className="mt-0.5 text-sm text-teal-900/55">
+            {rows.length} pencairan · {formatRupiah(totalCair)}
+          </p>
+        </div>
+      )}
 
       {overspend && overspend.length > 0 ? (
         <div className="space-y-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-3 text-sm text-rose-950">
