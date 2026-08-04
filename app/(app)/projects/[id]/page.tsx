@@ -19,7 +19,9 @@ import {
 } from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
 import { getMandorFundSummariesFor } from "@/lib/mandor-fund";
-import { MandorExpensePanel } from "@/components/MandorExpensePanel";import {
+import { MandorExpensePanel } from "@/components/MandorExpensePanel";
+import { ProjectCashBookPanel } from "@/components/ProjectCashBookPanel";
+import {
   billingModeLabels,
   fundingStatusLabels,
   projectStatusLabels,
@@ -64,6 +66,7 @@ export default async function ProjectDetailPage({
   const user = await requireSession();
   const admin = isOwner(user);
   const canBreakDown = canBreakDownMandorExpense(user);
+  const canRecordManagement = canBreakDown;
   const { id } = await params;
 
   const [project, sources, kasBesar, assignedMandors, disbursements] =
@@ -629,10 +632,10 @@ export default async function ProjectDetailPage({
 
                 <Card>
                   <details>
-                    <summary className="cursor-pointer text-base font-medium text-teal-950">
-                      Pengaturan proyek
+                    <summary className="cursor-pointer text-sm font-medium text-teal-950">
+                      Pengaturan
                     </summary>
-                    <div className="mt-4">
+                    <div className="mt-3">
                       <ActionForm
                         action={updateProjectAction}
                         submitLabel="Simpan"
@@ -821,10 +824,10 @@ export default async function ProjectDetailPage({
 
                 <Card>
                   <details>
-                    <summary className="cursor-pointer text-base font-medium text-teal-950">
-                      Pengaturan proyek
+                    <summary className="cursor-pointer text-sm font-medium text-teal-950">
+                      Pengaturan
                     </summary>
-                    <div className="mt-4">
+                    <div className="mt-3">
                       <ActionForm
                         action={updateProjectAction}
                         submitLabel="Simpan"
@@ -860,16 +863,36 @@ export default async function ProjectDetailPage({
         </>
       )}
 
-      <div className="mt-6 border-t border-teal-900/10 pt-2">
-        <p className="mb-1 text-xs font-medium tracking-wide text-teal-900/45 uppercase">
-          Lainnya (jarang dipakai)
+      <div className="mt-6 border-t border-[var(--line-soft)] pt-3">
+        <p className="mb-2 text-[10px] font-medium tracking-[0.08em] text-[var(--ink-faint)] uppercase">
+          Proyek
         </p>
+        <ProjectCashBookPanel
+          projectId={project.id}
+          rowCount={project.transactions.length}
+          cashBalance={projectCash}
+        />
         <ProjectFundsPanel
           projectId={project.id}
           admin={admin}
+          canRecordManagement={canRecordManagement}
           contractValue={project.contractValue}
           funds={project.funds}
           spentByKind={spentByKind}
+          managementExpenses={project.transactions
+            .filter(
+              (tx) =>
+                tx.type === "EXPENSE" &&
+                !tx.isMandorExpense &&
+                tx.category.name === "Dana Pengelolaan",
+            )
+            .sort((a, b) => b.date.getTime() - a.date.getTime())
+            .map((tx) => ({
+              id: tx.id,
+              date: tx.date,
+              amount: tx.amount,
+              description: tx.description,
+            }))}
         />
         <ProjectProfitPanel
           input={{

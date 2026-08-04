@@ -54,24 +54,24 @@ export function ProjectProfitPanel({
           : "Belum ada acuan kontrak";
 
   return (
-    <Card id="keuntungan" className="mt-5 scroll-mt-24 sm:mt-6">
+    <Card id="keuntungan" className="mt-2 scroll-mt-24">
       <details
         open={open}
         onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
       >
         <summary className="cursor-pointer list-none">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-medium text-[var(--ink)]">
+              <h3 className="text-sm font-medium text-[var(--ink)]">
                 Estimasi keuntungan
               </h3>
-              <p className="mt-0.5 text-sm text-[var(--ink-muted)]">
-                Estimasi {formatRupiah(profit.feeTargetProfit)} · Realisasi{" "}
+              <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">
+                {formatRupiah(profit.feeTargetProfit)} · realisasi{" "}
                 {formatRupiah(profit.realizedProfit)}
               </p>
             </div>
-            <span className="text-sm text-[var(--accent)]">
-              {open ? "Tutup rincian" : "Buka rincian"}
+            <span className="text-xs text-[var(--accent)]">
+              {open ? "Tutup" : "Buka"}
             </span>
           </div>
         </summary>
