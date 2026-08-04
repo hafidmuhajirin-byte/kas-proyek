@@ -71,13 +71,14 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/api/");
     const blockedWrite =
       pathname.startsWith("/transactions/new") ||
-      pathname.includes("/edit") ||
+      (pathname.includes("/edit") && !pathname.startsWith("/projects")) ||
       pathname.startsWith("/users") ||
       pathname.startsWith("/sources") ||
       pathname.startsWith("/transfers") ||
       pathname.startsWith("/categories") ||
       pathname.startsWith("/reports") ||
       pathname.startsWith("/mandor");
+    // Admin boleh baca Kas Proyek + pecah nota via server action di /projects & /transactions/project
     if (blockedWrite || !allowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";

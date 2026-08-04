@@ -204,7 +204,7 @@ export default async function DashboardPage() {
           tone="balance"
         />
         <StatCard
-          label={`Target fee ${PROJECT_FEE_PERCENT}%`}
+          label={`Estimasi ${PROJECT_FEE_PERCENT}%`}
           value={formatRupiah(profitTotals.feeTargetProfit)}
           tone="neutral"
         />
@@ -212,6 +212,8 @@ export default async function DashboardPage() {
           label="Keuntungan realisasi"
           value={formatRupiah(profitTotals.realizedProfit)}
           tone={profitTotals.realizedProfit >= 0 ? "income" : "expense"}
+          href="/dashboard/keuntungan"
+          hint="Ketuk untuk sistem hitung"
         />
         <StatCard
           label="Biaya bulan ini"
