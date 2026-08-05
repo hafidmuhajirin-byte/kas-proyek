@@ -140,9 +140,7 @@ function emptySideRow(): BkuSideRow {
 
 function BkuEmptyCell({ className = "" }: { className?: string }) {
   return (
-    <td
-      className={`border border-stone-400 bg-[linear-gradient(to_bottom_right,transparent_calc(50%-0.4px),#a8a29e_calc(50%-0.4px),#a8a29e_calc(50%+0.4px),transparent_calc(50%+0.4px))] ${className}`}
-    />
+    <td className={`border border-stone-400 ${className}`} />
   );
 }
 
