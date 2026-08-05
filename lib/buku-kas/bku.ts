@@ -5,7 +5,8 @@
  */
 
 import type { BankMonthBlock } from "@/lib/buku-kas/bank";
-import { computeLineTax } from "@/lib/lpj/tax-compliance";
+import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
+import type { TaxLineResult } from "@/lib/lpj/tax-compliance";
 
 /** Kode Jenis Biaya di kolom pengeluaran BKU. */
 export type BkuCostType = "A" | "B" | "C" | "D" | "";
@@ -144,8 +145,68 @@ function bankBalanceAtMonth(
 type PendingTax = {
   date: Date;
   buktiNo: string;
-  tax: ReturnType<typeof computeLineTax>;
+  tax: TaxLineResult;
 };
+
+function appendTaxRows(
+  p: PendingTax,
+  incomes: BkuSideRow[],
+  expenses: BkuSideRow[],
+  totals: { totalIncome: number; totalExpense: number; monthCashDelta: number },
+) {
+  if (p.tax.kind === "PPH_FINAL") {
+    incomes.push({
+      date: p.date,
+      description: `Terima PPh Pasal 4 ayat 2 (3,5 %) ${p.buktiNo}`,
+      amount: p.tax.pph,
+      isTaxRow: true,
+    });
+    totals.totalIncome += p.tax.pph;
+    totals.monthCashDelta += p.tax.pph;
+
+    expenses.push({
+      date: p.date,
+      description: `Bayar PPh Pasal 4 ayat 2 (3,5%) ${p.buktiNo}`,
+      amount: p.tax.pph,
+      proofNo: "",
+      costType: "",
+      status: "",
+      isTaxRow: true,
+    });
+    totals.totalExpense += p.tax.pph;
+    totals.monthCashDelta -= p.tax.pph;
+    return;
+  }
+
+  if (p.tax.kind === "PPN_PPH") {
+    if (p.tax.ppn > 0) {
+      expenses.push({
+        date: p.date,
+        description: `Bayar Pajak PPN (11%) ${p.buktiNo}`,
+        amount: p.tax.ppn,
+        proofNo: "",
+        costType: "",
+        status: "",
+        isTaxRow: true,
+      });
+      totals.totalExpense += p.tax.ppn;
+      totals.monthCashDelta -= p.tax.ppn;
+    }
+    if (p.tax.pph > 0) {
+      expenses.push({
+        date: p.date,
+        description: `Bayar Pajak PPH (1,5%) ${p.buktiNo}`,
+        amount: p.tax.pph,
+        proofNo: "",
+        costType: "",
+        status: "",
+        isTaxRow: true,
+      });
+      totals.totalExpense += p.tax.pph;
+      totals.monthCashDelta -= p.tax.pph;
+    }
+  }
+}
 
 /**
  * Susun BKU per bulan dari transaksi ledger + saldo bank (opsional).
@@ -198,7 +259,6 @@ export function buildBkuMonthBlocks(
 
     const incomes: BkuSideRow[] = [];
     const expenses: BkuSideRow[] = [];
-    const pendingTax: PendingTax[] = [];
 
     if (blocks.length > 0 || cashCarry !== 0) {
       incomes.push({
@@ -208,9 +268,11 @@ export function buildBkuMonthBlocks(
       });
     }
 
-    let monthCashDelta = 0;
-    let totalIncome = incomes.reduce((s, r) => s + r.amount, 0);
-    let totalExpense = 0;
+    const totals = {
+      totalIncome: incomes.reduce((s, r) => s + r.amount, 0),
+      totalExpense: 0,
+      monthCashDelta: 0,
+    };
 
     for (const tx of list) {
       const amount = Math.round(tx.amount);
@@ -221,12 +283,11 @@ export function buildBkuMonthBlocks(
           description: tx.description || "Penerimaan",
           amount,
         });
-        totalIncome += amount;
-        monthCashDelta += amount;
+        totals.totalIncome += amount;
+        totals.monthCashDelta += amount;
         continue;
       }
 
-      // EXPENSE → satu nomor BKK per voucher (bisa banyak baris item)
       bkkSeq += 1;
       const buktiNo = `BKK.${bkkSeq}`;
       const lines =
@@ -247,11 +308,13 @@ export function buildBkuMonthBlocks(
             quantity: line.quantity ?? null,
             unit: line.unit ?? (line.kind === "LABOR" ? "hari" : null),
           });
-          totalExpense += lineAmt;
-          monthCashDelta -= lineAmt;
+          totals.totalExpense += lineAmt;
+          totals.monthCashDelta -= lineAmt;
         });
       } else {
-        const kindHint = /upah|pekerja|gaji/i.test(tx.description)
+        const kindHint = /upah|pekerja|gaji/i.test(
+          `${tx.categoryName} ${tx.description}`,
+        )
           ? "LABOR"
           : undefined;
         expenses.push({
@@ -264,79 +327,29 @@ export function buildBkuMonthBlocks(
           quantity: null,
           unit: null,
         });
-        totalExpense += amount;
-        monthCashDelta -= amount;
+        totals.totalExpense += amount;
+        totals.monthCashDelta -= amount;
       }
 
-      const taxBase = lines
-        ? lines.reduce((s, l) => s + Math.round(l.amount), 0)
-        : amount;
-      const tax = computeLineTax({
-        amount: taxBase,
+      // Pajak dibayar setelah nota (material / perencanaan / pengawasan)
+      const tax = computeVoucherTax({
+        amount,
         description: tx.description,
-        isMaterialAlam:
-          tx.isMaterialAlam ||
-          Boolean(lines?.every((l) => l.isMaterialAlam)),
+        categoryName: tx.categoryName,
+        isMaterialAlam: tx.isMaterialAlam,
+        lines,
       });
       if (tax.totalTax > 0) {
-        pendingTax.push({ date: tx.date, buktiNo, tax });
+        appendTaxRows(
+          { date: tx.date, buktiNo, tax },
+          incomes,
+          expenses,
+          totals,
+        );
       }
     }
 
-    // Baris pajak di akhir bulan (sesuai contoh Excel)
-    for (const p of pendingTax) {
-      if (p.tax.kind === "PPH_FINAL") {
-        incomes.push({
-          date: p.date,
-          description: `Terima PPh Pasal 4 ayat 2 (3,5 %) ${p.buktiNo}`,
-          amount: p.tax.pph,
-          isTaxRow: true,
-        });
-        totalIncome += p.tax.pph;
-        monthCashDelta += p.tax.pph;
-
-        expenses.push({
-          date: p.date,
-          description: `Bayar PPh Pasal 4 ayat 2 (3,5%) ${p.buktiNo}`,
-          amount: p.tax.pph,
-          proofNo: "",
-          costType: "",
-          status: "",
-          isTaxRow: true,
-        });
-        totalExpense += p.tax.pph;
-        monthCashDelta -= p.tax.pph;
-      } else if (p.tax.kind === "PPN_PPH") {
-        if (p.tax.ppn > 0) {
-          expenses.push({
-            date: p.date,
-            description: `Bayar Pajak PPN (11%) ${p.buktiNo}`,
-            amount: p.tax.ppn,
-            proofNo: "",
-            costType: "",
-            status: "",
-            isTaxRow: true,
-          });
-          totalExpense += p.tax.ppn;
-          monthCashDelta -= p.tax.ppn;
-        }
-        if (p.tax.pph > 0) {
-          expenses.push({
-            date: p.date,
-            description: `Bayar Pajak PPH (1,5%) ${p.buktiNo}`,
-            amount: p.tax.pph,
-            proofNo: "",
-            costType: "",
-            status: "",
-            isTaxRow: true,
-          });
-          totalExpense += p.tax.pph;
-          monthCashDelta -= p.tax.pph;
-        }
-      }
-    }
-
-    const cashBalance = cashCarry + monthCashDelta;
+    const cashBalance = cashCarry + totals.monthCashDelta;
     const bankBalance = bankBalanceAtMonth(bankBlocks, year, month);
 
     blocks.push({
@@ -348,8 +361,8 @@ export function buildBkuMonthBlocks(
       periodEnd,
       incomes,
       expenses,
-      totalIncome,
-      totalExpense,
+      totalIncome: totals.totalIncome,
+      totalExpense: totals.totalExpense,
       bankBalance,
       cashBalance,
       totalBalance: bankBalance + cashBalance,

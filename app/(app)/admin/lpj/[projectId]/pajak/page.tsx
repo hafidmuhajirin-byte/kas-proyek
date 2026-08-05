@@ -6,7 +6,7 @@ import { tidyCase } from "@/lib/text";
 import { formatRupiah } from "@/lib/money";
 import { Card, PageHeader } from "@/components/ui";
 import {
-  aggregateLineTaxes,
+  computeVoucherTax,
   getTaxCeilingStatus,
 } from "@/lib/lpj/tax-compliance";
 import { TaxCeilingBar } from "@/components/lpj/TaxCeilingBar";
@@ -44,18 +44,37 @@ export default async function AdminLpjPajakPage({
       description: true,
       isMaterialAlam: true,
       date: true,
+      category: { select: { name: true } },
+      expenseLines: {
+        select: {
+          amount: true,
+          description: true,
+          kind: true,
+          isMaterialAlam: true,
+        },
+      },
     },
     orderBy: { date: "desc" },
     take: 300,
   });
 
-  const { results, totalTax, totalPpn, totalPph } = aggregateLineTaxes(
-    expenses.map((e) => ({
+  const results = expenses.map((e) =>
+    computeVoucherTax({
       amount: e.amount,
       description: e.description,
+      categoryName: e.category.name,
       isMaterialAlam: e.isMaterialAlam,
-    })),
+      lines: e.expenseLines,
+    }),
   );
+  let totalTax = 0;
+  let totalPpn = 0;
+  let totalPph = 0;
+  for (const r of results) {
+    totalTax += r.totalTax;
+    totalPpn += r.ppn;
+    totalPph += r.pph;
+  }
   const ceiling = getTaxCeilingStatus(totalTax, project.contractValue);
 
   const rows = expenses.map((e, i) => ({

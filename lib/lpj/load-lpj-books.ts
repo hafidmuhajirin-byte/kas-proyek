@@ -12,7 +12,7 @@ import {
   type CashBookLine,
 } from "@/lib/project-cash-book";
 import {
-  computeLineTax,
+  computeVoucherTax,
   getTaxCeilingStatus,
   type TaxCeilingStatus,
   type TaxLineResult,
@@ -215,10 +215,17 @@ export async function loadLpjBooks(
     description: tx.description,
     amount: tx.amount,
     isMaterialAlam: tx.isMaterialAlam,
-    tax: computeLineTax({
+    tax: computeVoucherTax({
       amount: tx.amount,
       description: tx.description,
+      categoryName: tx.category.name,
       isMaterialAlam: tx.isMaterialAlam,
+      lines: tx.expenseLines.map((l) => ({
+        amount: l.amount,
+        description: l.description,
+        kind: l.kind,
+        isMaterialAlam: l.isMaterialAlam,
+      })),
     }),
   }));
 

@@ -53,25 +53,48 @@ function assert(cond: boolean, msg: string) {
   assert(r.pph === 39_945, `PPh 1.5% = 39945 got ${r.pph}`);
 }
 
-// Tax — Bayar → Final 3.5%
+// Tax — perencanaan / pengawasan → Final 3.5%
 {
   const r = computeLineTax({
     amount: 2_761_410,
     description: "Bayar Dana Perencanaan",
+    categoryName: "Dana Perencanaan",
   });
-  assert(r.kind === "PPH_FINAL", "Bayar → PPH_FINAL");
+  assert(r.kind === "PPH_FINAL", "perencanaan → PPH_FINAL");
   assert(r.pph === 96_649, `3.5% = 96649 got ${r.pph}`);
   assert(r.ppn === 0, "Final tanpa PPN");
+
+  const r2 = computeLineTax({
+    amount: 3_404_630,
+    description: "Bayar Dana Pengawasan",
+    categoryName: "Dana Pengawasan",
+  });
+  assert(r2.kind === "PPH_FINAL", "pengawasan → PPH_FINAL");
+  assert(r2.pph === Math.round(3_404_630 * 0.035), "pengawasan 3.5%");
 }
 
-// Tax — GaJ exempt
+// Tax — gaji pekerja bebas (bukan perencanaan)
 {
   const r = computeLineTax({
+    amount: 5_110_000,
+    description: "Pembayaran Pekerja Minggu Ke 7",
+    categoryName: "Upah",
+  });
+  assert(r.totalTax === 0 && r.kind === "EXEMPT_LABOR", "gaji pekerja bebas");
+
+  const r2 = computeLineTax({
+    amount: 5_225_000,
+    description: "Bayar Ongkos pekerja",
+    lineKind: "LABOR",
+  });
+  assert(r2.totalTax === 0 && r2.kind === "EXEMPT_LABOR", "LABOR kind bebas");
+
+  const r3 = computeLineTax({
     amount: 5_110_000,
     description: "Pembayaran Pekerja",
     code: "Gaj1",
   });
-  assert(r.totalTax === 0 && r.kind === "EXEMPT_CODE", "GaJ exempt");
+  assert(r3.totalTax === 0 && r3.kind === "EXEMPT_LABOR", "kode GaJ bebas");
 }
 
 // Ceiling
@@ -208,19 +231,21 @@ function assert(cond: boolean, msg: string) {
   );
 
   assert(bku.length === 1, "bku satu bulan");
-  // 2 material lines + 1 pengawasan + tax rows for both vouchers
   assert(bku[0].expenses[0].proofNo === "BKK.1", "bukti BKK.1");
   assert(bku[0].expenses[0].status === "Beli", "status Beli");
   assert(bku[0].expenses[1].proofNo === "", "baris lanjut tanpa nomor");
-  assert(bku[0].expenses[2].proofNo === "BKK.2", "bukti BKK.2");
+  assert(
+    bku[0].expenses.some((e) => e.proofNo === "BKK.2"),
+    "bukti BKK.2",
+  );
   assert(bku[0].expenses[0].costType === "B", "semen = B");
 
   const taxPay = bku[0].expenses.filter((e) => e.isTaxRow);
   const taxRecv = bku[0].incomes.filter((e) => e.isTaxRow);
-  assert(taxPay.length >= 2, "ada baris bayar pajak");
+  assert(taxPay.length >= 2, "ada baris bayar pajak material");
   assert(
     taxRecv.some((r) => /Terima PPh Pasal 4/i.test(r.description)),
-    "ada terima PPh Final",
+    "ada terima PPh Final pengawasan",
   );
   assert(
     taxPay.some((r) => /Bayar Pajak PPN/i.test(r.description)),
@@ -230,7 +255,38 @@ function assert(cond: boolean, msg: string) {
     !bku[0].expenses.some((e) => /Pencairan Mandor/i.test(e.description)),
     "pencairan mandor tidak masuk BKU",
   );
-  // kas: 40jt − 5jt material − pajak PPN/PPH material − 3jt pengawasan (− PPh final + terima = 0)
+
+  // gaji pekerja tidak kena pajak
+  const bkuWage = buildBkuMonthBlocks(
+    [
+      {
+        id: "w1",
+        date: new Date(2025, 9, 4),
+        description: "Pembayaran Pekerja Minggu Ke 5",
+        type: "EXPENSE",
+        amount: 5_225_000,
+        isMandorExpense: true,
+        categoryName: "Upah",
+        expenseLines: [
+          {
+            description: "Pembayaran Pekerja Minggu Ke 5",
+            quantity: 1,
+            unit: "Ls",
+            amount: 5_225_000,
+            kind: "LABOR",
+          },
+        ],
+      },
+    ],
+    { openingCashBalance: 10_000_000 },
+  );
+  assert(
+    !bkuWage[0].expenses.some((e) => e.isTaxRow),
+    "upah pekerja tanpa baris pajak",
+  );
+  assert(bkuWage[0].cashBalance === 10_000_000 - 5_225_000, "kas hanya potong upah");
+
+  // kas: 40jt − 5jt material − pajak PPN/PPH material − 3jt pengawasan (PPh final net 0)
   const materialTaxPpn = Math.round(5_000_000 * 0.11);
   const materialTaxPph = Math.round(5_000_000 * 0.015);
   const expectedCash =

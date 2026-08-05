@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { tidyCase } from "@/lib/text";
 import { formatRupiah } from "@/lib/money";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
-import { computeLineTax } from "@/lib/lpj/tax-compliance";
+import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 
 export default async function AdminLpjNotaPage({
   params,
@@ -38,6 +38,7 @@ export default async function AdminLpjNotaPage({
       breakdownStatus: true,
       isMaterialAlam: true,
       proofUrl: true,
+      category: { select: { name: true } },
       expenseLines: {
         select: {
           id: true,
@@ -70,10 +71,17 @@ export default async function AdminLpjNotaPage({
       ) : (
         <ul className="space-y-3">
           {notas.map((n) => {
-            const tax = computeLineTax({
+            const tax = computeVoucherTax({
               amount: n.amount,
               description: n.description,
+              categoryName: n.category.name,
               isMaterialAlam: n.isMaterialAlam,
+              lines: n.expenseLines.map((l) => ({
+                amount: l.amount,
+                description: l.description,
+                kind: l.kind,
+                isMaterialAlam: l.isMaterialAlam,
+              })),
             });
             return (
               <li key={n.id}>
