@@ -15,11 +15,16 @@ import {
   buildBankMutationsFromProject,
   plannedTranchesFromContract,
   validatePhase1Spend,
+  validatePengambilanAgainstBank,
 } from "../lib/buku-kas/bank";
 import {
   buildBkuMonthBlocks,
   mapExpenseCostType,
 } from "../lib/buku-kas/bku";
+import {
+  collectOwnerPengambilan,
+  isOwnerPengambilanFromUser,
+} from "../lib/lpj/owner-pengambilan";
 
 let failed = 0;
 
@@ -124,6 +129,52 @@ function assert(cond: boolean, msg: string) {
   assert(p.phase70 === 70_000_000 && p.phase30 === 30_000_000, "70/30 split");
   const v = validatePhase1Spend(70_000_000, 84_000_000);
   assert(!v.ok && v.overspend === 14_000_000, "phase1 overspend");
+  const vb = validatePengambilanAgainstBank(100_000_000, 84_000_000);
+  assert(vb.ok && vb.remaining === 16_000_000, "pengambilan vs total bank ok");
+
+  assert(
+    isOwnerPengambilanFromUser({
+      date: new Date(),
+      type: "INCOME",
+      amount: 70_000_000,
+      description: "PEMBAYARAN 1",
+      categoryName: "Pembayaran Kas (Permintaan)",
+    }),
+    "pembayaran user → pengambilan",
+  );
+  assert(
+    !isOwnerPengambilanFromUser({
+      date: new Date(),
+      type: "INCOME",
+      amount: 5_000_000,
+      description: "Setor",
+      isOwnerPersonal: true,
+      categoryName: "Setoran Dana Pribadi",
+    }),
+    "setoran pribadi bukan pengambilan",
+  );
+
+  const collected = collectOwnerPengambilan([
+    {
+      date: new Date(2025, 6, 25),
+      type: "INCOME",
+      amount: 70_000_000,
+      description: "PEMBAYARAN 1",
+      categoryName: "Pembayaran Kas (Permintaan)",
+    },
+    {
+      date: new Date(2025, 7, 3),
+      type: "INCOME",
+      amount: 70_000_000,
+      description: "Termin ke 2",
+      categoryName: "Termin / DP",
+    },
+  ]);
+  assert(collected.length === 2, "dua pengambilan");
+  assert(
+    collected[0].pengambilanLabel === "Pengambilan Ke-1 (PEMBAYARAN 1)",
+    "label pengambilan 1",
+  );
 
   const { mutations, totalPengambilan } = buildBankMutationsFromProject({
     tranches: [
@@ -144,6 +195,10 @@ function assert(cond: boolean, msg: string) {
   assert(totalPengambilan === 84_000_000, "total pengambilan dari receipt");
   assert(mutations.some((m) => m.credit === 84_000_000), "kredit pengambilan");
   assert(mutations.some((m) => m.debit === 84_748_671), "debet pencairan");
+  assert(
+    mutations.some((m) => /Pengambilan Ke-1/.test(m.description ?? "")),
+    "uraian kredit = Pengambilan",
+  );
   assert(mutations[0].proofNo === "01" && mutations[1].proofNo === "02", "no bukti berurutan 01,02");
 
   const blocks = buildBankMonthBlocks(mutations);

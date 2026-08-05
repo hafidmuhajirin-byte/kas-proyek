@@ -68,6 +68,13 @@ export async function updateBankTrancheAction(formData: FormData) {
     redirect("/admin/lpj");
   }
 
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, contractValue: true, status: true },
+  });
+  if (!project || project.status !== "ACTIVE") redirect("/admin/lpj");
+
+  const planned = plannedTranchesFromContract(project.contractValue);
   const receivedAmount = parseIntSafe(formData.get("receivedAmount"));
   const receivedAt = parseDate(formData.get("receivedAt"));
   const notes = String(formData.get("notes") || "").trim() || null;
@@ -83,7 +90,7 @@ export async function updateBankTrancheAction(formData: FormData) {
       projectId,
       phase: phase as "PHASE_70" | "PHASE_30",
       percent: phase === "PHASE_70" ? 70 : 30,
-      plannedAmount: 0,
+      plannedAmount: phase === "PHASE_70" ? planned.phase70 : planned.phase30,
       receivedAmount,
       receivedAt,
       notes,

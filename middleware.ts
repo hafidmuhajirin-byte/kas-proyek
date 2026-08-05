@@ -65,22 +65,9 @@ export async function middleware(request: NextRequest) {
 
   if (session?.role === "ADMIN") {
     const allowed =
-      pathname.startsWith("/admin") ||
-      pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/projects") ||
-      pathname.startsWith("/transactions") ||
-      pathname.startsWith("/api/");
-    const blockedWrite =
-      pathname.startsWith("/transactions/new") ||
-      (pathname.includes("/edit") && !pathname.startsWith("/projects")) ||
-      pathname.startsWith("/users") ||
-      pathname.startsWith("/sources") ||
-      pathname.startsWith("/transfers") ||
-      pathname.startsWith("/categories") ||
-      pathname.startsWith("/reports") ||
-      pathname.startsWith("/mandor");
-    // Admin: LPJ + baca proyek/kas; tanpa mutasi Owner
-    if (blockedWrite || !allowed) {
+      pathname.startsWith("/admin") || pathname.startsWith("/api/");
+    // Admin hanya modul LPJ (+ API); tanpa kas/mutasi Owner
+    if (!allowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin/lpj";
       return NextResponse.redirect(url);

@@ -4,7 +4,8 @@ import { requireRoleAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
-import { PageHeader } from "@/components/ui";
+import { Card, PageHeader } from "@/components/ui";
+import { collectOwnerPengambilan } from "@/lib/lpj/owner-pengambilan";
 
 const MENU = [
   {
@@ -14,13 +15,13 @@ const MENU = [
   },
   {
     href: "bank",
-    title: "Pencairan Bank",
-    desc: "Tahap 70% dan 30% + Buku Bank",
+    title: "Pencairan & Buku Bank",
+    desc: "Cair 70%/30% + pengambilan User→Owner (otomatis dari pemasukan Owner)",
   },
   {
     href: "nota",
     title: "Review Nota Mandor",
-    desc: "Approve / reject / pecah bahan–upah + material alam",
+    desc: "Lihat nota, pecahan bahan–upah, dan hitungan pajak",
   },
   {
     href: "absen",
@@ -55,9 +56,34 @@ export default async function AdminLpjProjectMenuPage({
       location: true,
       contractValue: true,
       status: true,
+      bankTranches: {
+        select: { phase: true, receivedAmount: true },
+      },
+      transactions: {
+        where: { type: "INCOME" },
+        select: {
+          date: true,
+          type: true,
+          amount: true,
+          description: true,
+          isOwnerPersonal: true,
+          isFeeTransfer: true,
+          category: { select: { name: true } },
+        },
+      },
     },
   });
   if (!project || project.status !== "ACTIVE") notFound();
+
+  const t70 = project.bankTranches.find((t) => t.phase === "PHASE_70");
+  const t30 = project.bankTranches.find((t) => t.phase === "PHASE_30");
+  const pengambilan = collectOwnerPengambilan(
+    project.transactions.map((tx) => ({
+      ...tx,
+      categoryName: tx.category.name,
+    })),
+  );
+  const totalPengambilan = pengambilan.reduce((s, t) => s + t.amount, 0);
 
   return (
     <div>
@@ -73,6 +99,32 @@ export default async function AdminLpjProjectMenuPage({
           </Link>
         }
       />
+
+      <Card className="mb-5 grid gap-3 text-sm sm:grid-cols-3">
+        <div>
+          <p className="text-[var(--ink-muted)]">Cair 70%</p>
+          <p className="mt-0.5 font-medium tabular-nums">
+            {formatRupiah(t70?.receivedAmount ?? 0)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[var(--ink-muted)]">Cair 30%</p>
+          <p className="mt-0.5 font-medium tabular-nums">
+            {formatRupiah(t30?.receivedAmount ?? 0)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[var(--ink-muted)]">
+            Pengambilan (User → Owner)
+          </p>
+          <p className="mt-0.5 font-medium tabular-nums">
+            {formatRupiah(totalPengambilan)}
+            <span className="ml-1 text-xs font-normal text-[var(--ink-muted)]">
+              · {pengambilan.length} kali
+            </span>
+          </p>
+        </div>
+      </Card>
 
       <nav aria-label="Menu LPJ proyek">
         <ul className="grid gap-3 sm:grid-cols-2">

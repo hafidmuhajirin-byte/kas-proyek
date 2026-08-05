@@ -10,6 +10,7 @@ import {
   buildBankMonthBlocks,
   buildBankMutationsFromProject,
   plannedTranchesFromContract,
+  validatePengambilanAgainstBank,
   validatePhase1Spend,
 } from "@/lib/buku-kas/bank";
 import {
@@ -17,6 +18,7 @@ import {
   updateBankTrancheAction,
 } from "@/lib/actions/lpj-bank";
 import { updateLpjSignatoriesAction } from "@/lib/actions/lpj-signatories";
+import { collectOwnerPengambilan } from "@/lib/lpj/owner-pengambilan";
 import { BankBookPreview } from "@/components/lpj/LpjBookPreviews";
 
 export default async function AdminLpjBankPage({
@@ -45,16 +47,16 @@ export default async function AdminLpjBankPage({
       lpjKabKota: true,
       lpjProvinsi: true,
       transactions: {
-        where: {
-          type: "INCOME",
-          isOwnerPersonal: false,
-          isFeeTransfer: false,
-        },
+        where: { type: "INCOME" },
         orderBy: [{ date: "asc" }, { createdAt: "asc" }],
         select: {
           date: true,
+          type: true,
           amount: true,
           description: true,
+          isOwnerPersonal: true,
+          isFeeTransfer: true,
+          category: { select: { name: true } },
         },
       },
     },
@@ -65,13 +67,20 @@ export default async function AdminLpjBankPage({
   const t70 = project.bankTranches.find((t) => t.phase === "PHASE_70");
   const t30 = project.bankTranches.find((t) => t.phase === "PHASE_30");
 
+  const pengambilan = collectOwnerPengambilan(
+    project.transactions.map((tx) => ({
+      ...tx,
+      categoryName: tx.category.name,
+    })),
+  );
+
   const { mutations, totalPengambilan } = buildBankMutationsFromProject({
     tranches: project.bankTranches.map((t) => ({
       phase: t.phase,
       receivedAmount: t.receivedAmount,
       receivedAt: t.receivedAt,
     })),
-    ownerReceipts: project.transactions.map((tx) => ({
+    ownerReceipts: pengambilan.map((tx) => ({
       date: tx.date,
       amount: tx.amount,
       description: tx.description,
@@ -79,15 +88,22 @@ export default async function AdminLpjBankPage({
   });
 
   const blocks = buildBankMonthBlocks(mutations);
-  const phaseCheck = validatePhase1Spend(
+  const bankReceived =
+    (t70?.receivedAmount ?? 0) + (t30?.receivedAmount ?? 0);
+  const bankCheck = validatePengambilanAgainstBank(
+    bankReceived,
+    totalPengambilan,
+  );
+  const phase1Check = validatePhase1Spend(
     t70?.receivedAmount ?? 0,
     totalPengambilan,
   );
+  const phase30Active = (t30?.receivedAmount ?? 0) > 0;
 
   return (
     <div>
       <PageHeader
-        title="Pencairan Bank"
+        title="Pencairan & Buku Bank"
         description={tidyCase(project.name)}
         actions={
           <Link
@@ -98,6 +114,14 @@ export default async function AdminLpjBankPage({
           </Link>
         }
       />
+
+      <Card className="mb-4 text-sm text-[var(--ink-muted)]">
+        Alur LPJ: dana cair dari pusat ke rekening User (Debet) → Owner menerima
+        dana dari User → dilaporkan sebagai{" "}
+        <strong className="text-[var(--ink)]">Pengambilan</strong> (Kredit Buku
+        Bank). Data pengambilan diambil otomatis dari pemasukan proyek yang
+        dicatat Owner (bukan setoran pribadi/fee).
+      </Card>
 
       {project.bankTranches.length === 0 ? (
         <Card className="mb-4">
@@ -126,13 +150,13 @@ export default async function AdminLpjBankPage({
           [
             {
               phase: "PHASE_70" as const,
-              label: "Tahap 1 — 70%",
+              label: "Tahap 1 — 70% (cair ke bank User)",
               planned: t70?.plannedAmount ?? planned.phase70,
               row: t70,
             },
             {
               phase: "PHASE_30" as const,
-              label: "Tahap 2 — 30%",
+              label: "Tahap 2 — 30% (cair ke bank User)",
               planned: t30?.plannedAmount ?? planned.phase30,
               row: t30,
             },
@@ -190,34 +214,56 @@ export default async function AdminLpjBankPage({
       </div>
 
       <Card className="mt-4">
-        <h3 className="font-medium">Validasi fase 1 (70%)</h3>
+        <h3 className="font-medium">
+          Pengambilan dana dari bank (User → Owner)
+        </h3>
         <p className="mt-2 text-sm">
-          Cair 70%: {formatRupiah(t70?.receivedAmount ?? 0)} · Pengambilan
-          (dana diterima Owner): {formatRupiah(totalPengambilan)} · Sisa
-          plafon: {formatRupiah(phaseCheck.remaining)}
+          Total cair bank: {formatRupiah(bankReceived)} · Total pengambilan:{" "}
+          {formatRupiah(totalPengambilan)} · Sisa di bank:{" "}
+          {formatRupiah(bankCheck.remaining)}
         </p>
-        {project.transactions.length > 0 ? (
-          <ul className="mt-2 space-y-1 text-sm text-[var(--ink-muted)]">
-            {project.transactions.map((tx, i) => (
-              <li key={`${tx.date.toISOString()}-${i}`}>
-                {format(tx.date, "dd/MM/yyyy")} ·{" "}
-                {tx.description || `Pengambilan Ke-${i + 1}`} ·{" "}
-                {formatRupiah(tx.amount)}
+        {pengambilan.length > 0 ? (
+          <ul className="mt-3 space-y-1.5 text-sm">
+            {pengambilan.map((tx) => (
+              <li
+                key={`${tx.date.toISOString()}-${tx.pengambilanIndex}`}
+                className="flex flex-wrap justify-between gap-2 border-b border-[var(--line-soft)]/60 py-1.5 last:border-0"
+              >
+                <span>
+                  <span className="font-medium text-[var(--ink)]">
+                    {tx.pengambilanLabel}
+                  </span>
+                  <span className="text-[var(--ink-muted)]">
+                    {" "}
+                    · {format(tx.date, "dd/MM/yyyy")} · {tx.categoryName}
+                  </span>
+                </span>
+                <span className="tabular-nums font-medium">
+                  {formatRupiah(tx.amount)}
+                </span>
               </li>
             ))}
           </ul>
         ) : (
           <p className="mt-2 text-sm text-[var(--ink-muted)]">
-            Belum ada pemasukan proyek (dana diterima Owner dari User).
+            Belum ada pemasukan proyek dari Owner. Minta Owner mencatat
+            penerimaan dana dari User di Kas Proyek — otomatis muncul di sini
+            sebagai pengambilan.
           </p>
         )}
-        {!phaseCheck.ok ? (
+        {!bankCheck.ok ? (
           <p className="mt-2 text-sm text-[var(--rose-ink)]">
-            Melebihi pencairan 70% sebesar {formatRupiah(phaseCheck.overspend)}.
+            Pengambilan melebihi total pencairan bank sebesar{" "}
+            {formatRupiah(bankCheck.overspend)}.
+          </p>
+        ) : !phase30Active && !phase1Check.ok ? (
+          <p className="mt-2 text-sm text-[var(--rose-ink)]">
+            Pengambilan melebihi pencairan 70% sebesar{" "}
+            {formatRupiah(phase1Check.overspend)} (tahap 30% belum cair).
           </p>
         ) : (
           <p className="mt-2 text-sm text-[var(--emerald-ink)]">
-            Pengambilan masih dalam plafon 70%.
+            Pengambilan masih dalam plafon dana bank yang sudah cair.
           </p>
         )}
       </Card>
@@ -227,7 +273,10 @@ export default async function AdminLpjBankPage({
         <p className="mt-1 text-sm text-[var(--ink-muted)]">
           Kepala Sekolah, Ketua P2SP, dan Bendahara P2SP (sesuai template LPJ).
         </p>
-        <form action={updateLpjSignatoriesAction} className="mt-3 grid gap-3 sm:grid-cols-2">
+        <form
+          action={updateLpjSignatoriesAction}
+          className="mt-3 grid gap-3 sm:grid-cols-2"
+        >
           <input type="hidden" name="projectId" value={project.id} />
           <label className="block text-sm">
             <span className="text-[var(--ink-muted)]">Kepala Sekolah — nama</span>
@@ -238,7 +287,9 @@ export default async function AdminLpjBankPage({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-[var(--ink-muted)]">Kepala Sekolah — NIP (opsional)</span>
+            <span className="text-[var(--ink-muted)]">
+              Kepala Sekolah — NIP (opsional)
+            </span>
             <input
               name="lpjKepalaNip"
               defaultValue={project.lpjKepalaNip ?? ""}
@@ -270,7 +321,9 @@ export default async function AdminLpjBankPage({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-[var(--ink-muted)]">Bendahara P2SP — NIP (opsional)</span>
+            <span className="text-[var(--ink-muted)]">
+              Bendahara P2SP — NIP (opsional)
+            </span>
             <input
               name="lpjBendaharaNip"
               defaultValue={project.lpjBendaharaNip ?? ""}

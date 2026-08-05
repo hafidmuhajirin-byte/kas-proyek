@@ -17,6 +17,7 @@ import {
   type TaxCeilingStatus,
   type TaxLineResult,
 } from "@/lib/lpj/tax-compliance";
+import { collectOwnerPengambilan } from "@/lib/lpj/owner-pengambilan";
 import { prisma } from "@/lib/prisma";
 
 export type LpjTaxRow = {
@@ -122,19 +123,13 @@ export async function loadLpjBooks(
   const t70 = project.bankTranches.find((t) => t.phase === "PHASE_70");
   const t30 = project.bankTranches.find((t) => t.phase === "PHASE_30");
 
-  // Pengambilan = dana yang diterima Owner dari User (INCOME proyek, bukan pribadi/fee)
-  const ownerReceipts = project.transactions
-    .filter(
-      (tx) =>
-        tx.type === "INCOME" &&
-        !tx.isOwnerPersonal &&
-        !tx.isFeeTransfer,
-    )
-    .map((tx) => ({
-      date: tx.date,
-      amount: tx.amount,
-      description: tx.description,
-    }));
+  // Pengambilan = dana User → Owner → Kredit Buku Bank + pemasukan BKU
+  const ownerPengambilan = collectOwnerPengambilan(
+    project.transactions.map((tx) => ({
+      ...tx,
+      categoryName: tx.category.name,
+    })),
+  );
 
   const { mutations, totalPengambilan } = buildBankMutationsFromProject({
     tranches: project.bankTranches.map((t) => ({
@@ -142,47 +137,61 @@ export async function loadLpjBooks(
       receivedAmount: t.receivedAmount,
       receivedAt: t.receivedAt,
     })),
-    ownerReceipts,
+    ownerReceipts: ownerPengambilan.map((tx) => ({
+      date: tx.date,
+      amount: tx.amount,
+      description: tx.description,
+    })),
   });
   const bankBlocks = buildBankMonthBlocks(mutations);
+
+  const pengambilanById = new Map(
+    ownerPengambilan.map((tx) => [tx.id, tx] as const),
+  );
 
   const ledgerTx = project.transactions.filter(
     (tx) => !tx.isOwnerPersonal && !tx.isFeeTransfer,
   );
 
   const bkuRows = buildCashBookRows(
-    ledgerTx.map((tx) => ({
-      date: tx.date,
-      description: tx.description,
-      type: tx.type,
-      amount: tx.amount,
-      isMandorExpense: tx.isMandorExpense,
-      categoryName: tx.category.name,
-      cashSourceName: tx.cashSource.name,
-    })),
+    ledgerTx.map((tx) => {
+      const p = pengambilanById.get(tx.id);
+      return {
+        date: tx.date,
+        description: p?.pengambilanLabel ?? tx.description,
+        type: tx.type,
+        amount: tx.amount,
+        isMandorExpense: tx.isMandorExpense,
+        categoryName: tx.category.name,
+        cashSourceName: tx.cashSource.name,
+      };
+    }),
     project.openingBalance,
   );
 
   const bkuBlocks = buildBkuMonthBlocks(
-    ledgerTx.map((tx) => ({
-      id: tx.id,
-      date: tx.date,
-      description: tx.description,
-      type: tx.type,
-      amount: tx.amount,
-      isMandorExpense: tx.isMandorExpense,
-      isMandorDisbursement: tx.isMandorDisbursement,
-      isMaterialAlam: tx.isMaterialAlam,
-      categoryName: tx.category.name,
-      expenseLines: tx.expenseLines.map((l) => ({
-        description: l.description,
-        quantity: l.quantity ?? l.workDays,
-        unit: l.unit ?? (l.kind === "LABOR" ? "hari" : null),
-        amount: l.amount,
-        kind: l.kind,
-        isMaterialAlam: l.isMaterialAlam,
-      })),
-    })),
+    ledgerTx.map((tx) => {
+      const p = pengambilanById.get(tx.id);
+      return {
+        id: tx.id,
+        date: tx.date,
+        description: p?.pengambilanLabel ?? tx.description,
+        type: tx.type,
+        amount: tx.amount,
+        isMandorExpense: tx.isMandorExpense,
+        isMandorDisbursement: tx.isMandorDisbursement,
+        isMaterialAlam: tx.isMaterialAlam,
+        categoryName: tx.category.name,
+        expenseLines: tx.expenseLines.map((l) => ({
+          description: l.description,
+          quantity: l.quantity ?? l.workDays,
+          unit: l.unit ?? (l.kind === "LABOR" ? "hari" : null),
+          amount: l.amount,
+          kind: l.kind,
+          isMaterialAlam: l.isMaterialAlam,
+        })),
+      };
+    }),
     {
       openingCashBalance: project.openingBalance,
       bankBlocks,

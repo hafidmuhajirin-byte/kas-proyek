@@ -57,6 +57,18 @@ export function validatePhase1Spend(
   return { ok: overspend === 0, remaining, overspend };
 }
 
+/** Validasi total pengambilan vs seluruh dana bank yang sudah cair (70%+30%). */
+export function validatePengambilanAgainstBank(
+  bankReceivedTotal: number,
+  totalPengambilan: number,
+): { ok: boolean; remaining: number; overspend: number } {
+  const received = Math.max(0, bankReceivedTotal);
+  const outflow = Math.max(0, totalPengambilan);
+  const remaining = Math.max(0, received - outflow);
+  const overspend = Math.max(0, outflow - received);
+  return { ok: overspend === 0, remaining, overspend };
+}
+
 export type BankTrancheInput = {
   phase: "PHASE_70" | "PHASE_30" | string;
   receivedAmount: number;
@@ -108,9 +120,14 @@ export function buildBankMutationsFromProject(input: {
   let totalPengambilan = 0;
   receipts.forEach((r, i) => {
     const n = i + 1;
+    const tip = r.description?.trim();
+    const label =
+      tip && !/^pengambilan\s*ke[-\s]?\d+/i.test(tip)
+        ? `Pengambilan Ke-${n} (${tip})`
+        : `Pengambilan Ke-${n}`;
     mutations.push({
       date: r.date,
-      description: `Pengambilan Ke-${n}`,
+      description: label,
       debit: 0,
       credit: Math.round(r.amount),
     });
