@@ -31,6 +31,14 @@ export type LpjBooksPayload = {
     location: string;
     contractValue: number;
     openingBalance: number;
+    lpjKepalaNama: string | null;
+    lpjKepalaNip: string | null;
+    lpjKetuaNama: string | null;
+    lpjKetuaNip: string | null;
+    lpjBendaharaNama: string | null;
+    lpjBendaharaNip: string | null;
+    lpjKabKota: string | null;
+    lpjProvinsi: string | null;
   };
   bankBlocks: BankMonthBlock[];
   bkuRows: CashBookLine[];
@@ -61,6 +69,14 @@ export async function loadLpjBooks(
       contractValue: true,
       openingBalance: true,
       status: true,
+      lpjKepalaNama: true,
+      lpjKepalaNip: true,
+      lpjKetuaNama: true,
+      lpjKetuaNip: true,
+      lpjBendaharaNama: true,
+      lpjBendaharaNip: true,
+      lpjKabKota: true,
+      lpjProvinsi: true,
       bankTranches: true,
       transactions: {
         orderBy: [{ date: "asc" }, { createdAt: "asc" }],
@@ -173,6 +189,14 @@ export async function loadLpjBooks(
       location: project.location,
       contractValue: project.contractValue,
       openingBalance: project.openingBalance,
+      lpjKepalaNama: project.lpjKepalaNama,
+      lpjKepalaNip: project.lpjKepalaNip,
+      lpjKetuaNama: project.lpjKetuaNama,
+      lpjKetuaNip: project.lpjKetuaNip,
+      lpjBendaharaNama: project.lpjBendaharaNama,
+      lpjBendaharaNip: project.lpjBendaharaNip,
+      lpjKabKota: project.lpjKabKota,
+      lpjProvinsi: project.lpjProvinsi,
     },
     bankBlocks,
     bkuRows,

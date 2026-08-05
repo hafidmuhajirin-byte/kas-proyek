@@ -72,6 +72,15 @@ model Project {
   checkReporting   Boolean      @default(false)
   checkContractor  Boolean      @default(false)
   checkNoRetention Boolean      @default(false)
+  /// Pejabat tanda tangan LPJ / Buku Bank
+  lpjKepalaNama     String?
+  lpjKepalaNip      String?
+  lpjKetuaNama      String?
+  lpjKetuaNip       String?
+  lpjBendaharaNama  String?
+  lpjBendaharaNip   String?
+  lpjKabKota        String?
+  lpjProvinsi       String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   transactions   Transaction[]

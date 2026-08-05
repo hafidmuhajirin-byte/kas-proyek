@@ -1,10 +1,34 @@
 import { format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 import { formatRupiah } from "@/lib/money";
+import { tidyCase } from "@/lib/text";
+import { parseProjectLocation } from "@/lib/project-bkk-report";
 import type { BankMonthBlock } from "@/lib/buku-kas/bank";
 import type { CashBookLine } from "@/lib/project-cash-book";
 import type { LpjTaxRow } from "@/lib/lpj/load-lpj-books";
 import type { TaxCeilingStatus } from "@/lib/lpj/tax-compliance";
 import { TaxCeilingBar } from "@/components/lpj/TaxCeilingBar";
+
+export type LpjHeaderMeta = {
+  schoolName: string;
+  location: string;
+  kabKota?: string | null;
+  provinsi?: string | null;
+  kepalaNama?: string | null;
+  kepalaNip?: string | null;
+  ketuaNama?: string | null;
+  ketuaNip?: string | null;
+  bendaharaNama?: string | null;
+  bendaharaNip?: string | null;
+};
+
+function formatRpPlain(n: number) {
+  if (!n) return "";
+  return new Intl.NumberFormat("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
 
 function LedgerTable({
   rows,
@@ -59,7 +83,45 @@ function LedgerTable({
   );
 }
 
-export function BankBookPreview({ blocks }: { blocks: BankMonthBlock[] }) {
+function SignatoryBlock({
+  title,
+  orgName,
+  name,
+  nip,
+}: {
+  title: string;
+  orgName: string;
+  name?: string | null;
+  nip?: string | null;
+}) {
+  return (
+    <div className="min-w-[140px] flex-1 text-center text-[11px] leading-snug sm:text-xs">
+      <p className="font-medium">{title}</p>
+      <p className="mt-0.5">{tidyCase(orgName)}</p>
+      <div className="mx-auto my-8 h-10 border-b border-transparent sm:my-10" />
+      <p className="font-semibold underline decoration-1 underline-offset-2">
+        {name?.trim() || "(nama)"}
+      </p>
+      {nip?.trim() ? <p className="mt-0.5">NIP. {nip.trim()}</p> : <p className="mt-0.5">&nbsp;</p>}
+    </div>
+  );
+}
+
+/** Blok Buku Bank mirip template Excel A4. */
+export function BankBookPreview({
+  blocks,
+  meta,
+  minRows = 9,
+}: {
+  blocks: BankMonthBlock[];
+  meta: LpjHeaderMeta;
+  minRows?: number;
+}) {
+  const loc = parseProjectLocation(meta.location);
+  const kab = meta.kabKota?.trim() || loc.kabupaten;
+  const prov = meta.provinsi?.trim() || loc.propinsi;
+  const school = tidyCase(meta.schoolName);
+
   if (blocks.length === 0) {
     return (
       <p className="text-sm text-[var(--ink-muted)]">
@@ -67,68 +129,173 @@ export function BankBookPreview({ blocks }: { blocks: BankMonthBlock[] }) {
       </p>
     );
   }
+
   return (
-    <div className="space-y-6">
-      {blocks.map((b) => (
-        <div key={`${b.year}-${b.month}`}>
-          <h4 className="mb-2 font-medium">{b.title}</h4>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-[var(--line-soft)] text-[var(--ink-muted)]">
-                  <th className="py-2 pr-2">No</th>
-                  <th className="py-2 pr-2">Tanggal</th>
-                  <th className="py-2 pr-2">Uraian</th>
-                  <th className="py-2 pr-2">Bukti</th>
-                  <th className="py-2 pr-2 text-right">Debet</th>
-                  <th className="py-2 pr-2 text-right">Kredit</th>
-                  <th className="py-2 text-right">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {b.rows.map((r) => (
-                  <tr
-                    key={r.no}
-                    className="border-b border-[var(--line-soft)]/50"
-                  >
-                    <td className="py-1.5 pr-2">{r.no}</td>
-                    <td className="whitespace-nowrap py-1.5 pr-2">
-                      {r.date ? format(r.date, "dd/MM/yyyy") : "—"}
+    <div className="space-y-10">
+      {blocks.map((b) => {
+        const padded = [...b.rows];
+        while (padded.length < minRows) {
+          padded.push({
+            no: padded.length + 1,
+            date: null,
+            description: "",
+            proofNo: "",
+            debit: 0,
+            credit: 0,
+            balance: 0,
+          });
+        }
+        const monthEnd = new Date(b.year, b.month, 0);
+        const placeDate = `${kab || "Malang"}, ${format(monthEnd, "d MMMM yyyy", { locale: localeId })}`;
+
+        return (
+          <article
+            key={`${b.year}-${b.month}`}
+            className="break-inside-avoid rounded-lg border border-stone-300 bg-white p-4 text-black sm:p-5 print:border-0 print:p-0"
+          >
+            <h3 className="text-center text-base font-bold tracking-wide sm:text-lg">
+              BUKU BANK
+            </h3>
+            <p className="mt-0.5 text-center text-sm font-medium">
+              Bulan {format(new Date(b.year, b.month - 1, 1), "MMMM yyyy", { locale: localeId })}
+            </p>
+
+            <div className="mt-4 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2 sm:text-sm">
+              <div className="space-y-0.5">
+                <p>
+                  <span className="inline-block w-24 text-stone-600">Sekolah</span>
+                  <span>: {school}</span>
+                </p>
+                <p>
+                  <span className="inline-block w-24 text-stone-600">Desa</span>
+                  <span>: {loc.alamat}</span>
+                </p>
+                <p>
+                  <span className="inline-block w-24 text-stone-600">Kecamatan</span>
+                  <span>: {loc.kecamatan}</span>
+                </p>
+              </div>
+              <div className="space-y-0.5 sm:text-right">
+                <p>
+                  <span className="text-stone-600">Kab/Kota : </span>
+                  {kab}
+                </p>
+                <p>
+                  <span className="text-stone-600">Provinsi : </span>
+                  {prov}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-[11px] sm:text-xs">
+                <thead>
+                  <tr className="bg-stone-100">
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">No.</th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">Tanggal</th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">Uraian</th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">No. Bukti</th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">
+                      Debet / Penerimaan (Rp.)
+                    </th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">
+                      Kredit / Pengeluaran (Rp.)
+                    </th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">
+                      Saldo (Rp.)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {padded.map((r) => {
+                    const empty =
+                      !r.description && !r.debit && !r.credit && !r.date;
+                    return (
+                      <tr key={r.no} className="h-7">
+                        <td className="border border-stone-400 px-1.5 text-center">
+                          {r.no}
+                        </td>
+                        <td className="border border-stone-400 px-1.5 text-center whitespace-nowrap">
+                          {r.date ? format(r.date, "dd/MM/yyyy") : ""}
+                        </td>
+                        <td className="border border-stone-400 px-1.5">
+                          {r.description}
+                        </td>
+                        <td className="border border-stone-400 px-1.5 text-center">
+                          {r.proofNo}
+                        </td>
+                        <td className="border border-stone-400 px-1.5 text-right tabular-nums">
+                          {empty ? "" : r.debit ? formatRpPlain(r.debit) : ""}
+                        </td>
+                        <td className="border border-stone-400 px-1.5 text-right tabular-nums">
+                          {empty ? "" : r.credit ? formatRpPlain(r.credit) : ""}
+                        </td>
+                        <td className="border border-stone-400 px-1.5 text-right tabular-nums">
+                          {empty && !r.balance
+                            ? ""
+                            : r.description || r.debit || r.credit
+                              ? formatRpPlain(r.balance)
+                              : ""}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-stone-50 font-semibold">
+                    <td
+                      colSpan={4}
+                      className="border border-stone-400 px-1.5 py-1.5 text-center"
+                    >
+                      JUMLAH
                     </td>
-                    <td className="py-1.5 pr-2">{r.description}</td>
-                    <td className="py-1.5 pr-2">{r.proofNo}</td>
-                    <td className="py-1.5 pr-2 text-right">
-                      {r.debit ? formatRupiah(r.debit) : ""}
+                    <td className="border border-stone-400 px-1.5 text-right tabular-nums">
+                      {formatRpPlain(b.totalDebit)}
                     </td>
-                    <td className="py-1.5 pr-2 text-right">
-                      {r.credit ? formatRupiah(r.credit) : ""}
+                    <td className="border border-stone-400 px-1.5 text-right tabular-nums">
+                      {b.totalCredit ? formatRpPlain(b.totalCredit) : "-"}
                     </td>
-                    <td className="py-1.5 text-right">
-                      {formatRupiah(r.balance)}
+                    <td className="border border-stone-400 px-1.5 text-right tabular-nums">
+                      {formatRpPlain(b.closingBalance)}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="font-medium">
-                  <td colSpan={4} className="py-2">
-                    JUMLAH
-                  </td>
-                  <td className="py-2 text-right">
-                    {formatRupiah(b.totalDebit)}
-                  </td>
-                  <td className="py-2 text-right">
-                    {formatRupiah(b.totalCredit)}
-                  </td>
-                  <td className="py-2 text-right">
-                    {formatRupiah(b.closingBalance)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-1 gap-2 sm:gap-4">
+                <div className="flex-1">
+                  <p className="mb-2 text-center text-[11px] sm:text-xs">
+                    Mengetahui :
+                  </p>
+                  <SignatoryBlock
+                    title="Kepala Sekolah"
+                    orgName={school}
+                    name={meta.kepalaNama}
+                    nip={meta.kepalaNip}
+                  />
+                </div>
+                <SignatoryBlock
+                  title="Ketua P2SP"
+                  orgName={school}
+                  name={meta.ketuaNama}
+                  nip={meta.ketuaNip}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="mb-2 text-center text-[11px] sm:text-xs">
+                  {placeDate}
+                </p>
+                <SignatoryBlock
+                  title="Bendahara P2SP"
+                  orgName={school}
+                  name={meta.bendaharaNama}
+                  nip={meta.bendaharaNip}
+                />
+              </div>
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }

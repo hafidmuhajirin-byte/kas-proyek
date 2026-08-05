@@ -46,7 +46,7 @@ export default async function AdminLpjExportPage({
               >
                 ← Menu proyek
               </Link>
-              <PrintButton />
+              <PrintButton label="Cetak / PDF" />
             </div>
           }
         />
@@ -86,7 +86,21 @@ export default async function AdminLpjExportPage({
           <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
             Buku Bank
           </h2>
-          <BankBookPreview blocks={books.bankBlocks} />
+          <BankBookPreview
+            blocks={books.bankBlocks}
+            meta={{
+              schoolName: project.name,
+              location: project.location,
+              kabKota: project.lpjKabKota,
+              provinsi: project.lpjProvinsi,
+              kepalaNama: project.lpjKepalaNama,
+              kepalaNip: project.lpjKepalaNip,
+              ketuaNama: project.lpjKetuaNama,
+              ketuaNip: project.lpjKetuaNip,
+              bendaharaNama: project.lpjBendaharaNama,
+              bendaharaNip: project.lpjBendaharaNip,
+            }}
+          />
         </Card>
       </section>
 
