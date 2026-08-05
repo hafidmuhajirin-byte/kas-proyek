@@ -233,6 +233,7 @@ export async function loadLpjBooks(
         amount: tx.amount,
         isMandorExpense: tx.isMandorExpense,
         isMandorDisbursement: tx.isMandorDisbursement,
+        isMaterialAlam: tx.isMaterialAlam,
         categoryName: tx.category.name,
         cashSourceType:
           tx.type === "INCOME" || tx.isMandorExpense

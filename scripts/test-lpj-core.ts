@@ -416,6 +416,128 @@ function assert(cond: boolean, msg: string) {
   assert(bkt[0].rows[0].income === 84_000_000, "bkt penerimaan pengambilan");
   assert(bkt[0].rows.some((r) => r.proofNo === "BKK.1"), "bkt BKK.1");
   assert(bkt[0].closingBalance === 84_000_000 - 500_000, "bkt closing");
+  assert(
+    !bkt[0].rows.some((r) => r.isTaxRow),
+    "bkt tanpa pajak jika belanja ≤2jt",
+  );
+}
+
+{
+  // BKT: bayar pajak setelah nota (material >2jt + pengawasan)
+  const material = 5_000_000;
+  const pengawasan = 3_000_000;
+  const ppn = Math.round(material * 0.11);
+  const pph = Math.round(material * 0.015);
+  const pphFinal = Math.round(pengawasan * 0.035);
+  const bktTax = buildBktMonthBlocks(
+    [
+      {
+        date: new Date(2025, 9, 1),
+        description: "Pengambilan Ke-1",
+        type: "INCOME",
+        amount: 40_000_000,
+        categoryName: "Transfer Owner",
+        cashSourceType: "CASH",
+      },
+      {
+        date: new Date(2025, 9, 5),
+        description: "Beli semen",
+        type: "EXPENSE",
+        amount: material,
+        isMandorExpense: true,
+        categoryName: "Belanja Mandor",
+        cashSourceType: "CASH",
+        expenseLines: [
+          {
+            description: "Semen Portland",
+            quantity: 100,
+            unit: "zak",
+            amount: material,
+            kind: "MATERIAL",
+          },
+        ],
+      },
+      {
+        date: new Date(2025, 9, 6),
+        description: "Jasa pengawasan",
+        type: "EXPENSE",
+        amount: pengawasan,
+        categoryName: "Dana Pengawasan",
+        cashSourceType: "CASH",
+      },
+      {
+        date: new Date(2025, 9, 7),
+        description: "Pembayaran Pekerja",
+        type: "EXPENSE",
+        amount: 2_000_000,
+        isMandorExpense: true,
+        categoryName: "Upah",
+        cashSourceType: "CASH",
+        expenseLines: [
+          {
+            description: "Upah pekerja minggu 1",
+            quantity: 10,
+            unit: "hari",
+            amount: 2_000_000,
+            kind: "LABOR",
+          },
+        ],
+      },
+    ],
+    { openingCashBalance: 0 },
+  );
+
+  assert(bktTax.length === 1, "bkt pajak satu bulan");
+  const taxRows = bktTax[0].rows.filter((r) => r.isTaxRow);
+  assert(
+    taxRows.some((r) => /Bayar Pajak PPN \(11%\) BKK\.1/i.test(r.description)),
+    "bkt ada bayar PPN setelah material",
+  );
+  assert(
+    taxRows.some((r) => /Bayar Pajak PPH \(1,5%\) BKK\.1/i.test(r.description)),
+    "bkt ada bayar PPH setelah material",
+  );
+  assert(
+    taxRows.some((r) =>
+      /Terima PPh Pasal 4 ayat 2.*BKK\.2/i.test(r.description),
+    ),
+    "bkt ada terima PPh Final pengawasan",
+  );
+  assert(
+    taxRows.some((r) =>
+      /Bayar PPh Pasal 4 ayat 2.*BKK\.2/i.test(r.description),
+    ),
+    "bkt ada bayar PPh Final pengawasan",
+  );
+  assert(
+    !taxRows.some((r) => /BKK\.3/i.test(r.description)),
+    "bkt upah pekerja tanpa pajak",
+  );
+
+  // Urutan: BKK.1 → bayar PPN/PPH → BKK.2 → terima+bayar PPh Final
+  const idxBkk1 = bktTax[0].rows.findIndex((r) => r.proofNo === "BKK.1");
+  const idxPpn = bktTax[0].rows.findIndex((r) =>
+    /Bayar Pajak PPN.*BKK\.1/i.test(r.description),
+  );
+  assert(idxBkk1 >= 0 && idxPpn === idxBkk1 + 1, "bkt PPN langsung setelah BKK.1");
+
+  // Kas: 40jt − 5jt − PPN − PPH − 3jt − (terima−bayar PPh final = 0) − 2jt upah
+  const expectedBkt =
+    40_000_000 - material - ppn - pph - pengawasan - 2_000_000;
+  assert(
+    bktTax[0].closingBalance === expectedBkt,
+    `bkt closing dengan pajak ${expectedBkt}`,
+  );
+  // Terima + bayar PPh Final netto 0
+  assert(pphFinal > 0, "pph final > 0");
+  const terima = taxRows.find((r) => /Terima PPh/i.test(r.description));
+  const bayarFinal = taxRows.find((r) =>
+    /Bayar PPh Pasal 4/i.test(r.description),
+  );
+  assert(
+    terima?.income === pphFinal && bayarFinal?.expense === pphFinal,
+    "bkt PPh Final terima=bayar",
+  );
 }
 
 if (failed > 0) {

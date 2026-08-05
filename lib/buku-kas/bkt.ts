@@ -2,10 +2,15 @@
  * Builder Buku Kas Tunai — format resmi (satu tabel ledger).
  * Kolom: Tanggal | No. Bukti | Uraian (Status/Qty/Sat/Keterangan/Harga) |
  * Jenis Transaksi (Penerimaan/Pengeluaran) | Saldo (Debet/Kredit)
+ *
+ * Pajak (sama aturan BKU): terima/bayar PPh Final & bayar PPN/PPH
+ * langsung setelah nota terkait.
  */
 
 import { formatBkuQty } from "@/lib/buku-kas/bku";
 import type { BkuExpenseLineInput } from "@/lib/buku-kas/bku";
+import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
+import type { TaxLineResult } from "@/lib/lpj/tax-compliance";
 
 export type BktLedgerTx = {
   id?: string;
@@ -15,6 +20,7 @@ export type BktLedgerTx = {
   amount: number;
   isMandorExpense?: boolean;
   isMandorDisbursement?: boolean;
+  isMaterialAlam?: boolean;
   categoryName: string;
   /** Sumber kas CASH — BKT hanya mutasi tunai. */
   cashSourceType?: string;
@@ -34,6 +40,8 @@ export type BktRow = {
   expense: number;
   saldoDebet: number;
   saldoKredit: number;
+  /** Baris pajak — bukan item belanja. */
+  isTaxRow?: boolean;
 };
 
 export type BktMonthBlock = {
@@ -75,9 +83,101 @@ function pushBalance(balance: number): Pick<BktRow, "saldoDebet" | "saldoKredit"
   };
 }
 
+type BktTotals = {
+  balance: number;
+  totalIncome: number;
+  totalExpense: number;
+};
+
+function pushTaxReceiveRow(
+  rows: BktRow[],
+  totals: BktTotals,
+  p: { date: Date; buktiNo: string; tax: TaxLineResult },
+) {
+  if (p.tax.kind !== "PPH_FINAL" || p.tax.pph <= 0) return;
+  totals.balance += p.tax.pph;
+  totals.totalIncome += p.tax.pph;
+  rows.push({
+    date: p.date,
+    proofNo: "",
+    status: "",
+    quantity: null,
+    unit: null,
+    description: `Terima PPh Pasal 4 ayat 2 (3,5 %) ${p.buktiNo}`,
+    unitPrice: null,
+    income: p.tax.pph,
+    expense: 0,
+    isTaxRow: true,
+    ...pushBalance(totals.balance),
+  });
+}
+
+function pushTaxPayRows(
+  rows: BktRow[],
+  totals: BktTotals,
+  p: { date: Date; buktiNo: string; tax: TaxLineResult },
+) {
+  if (p.tax.kind === "PPH_FINAL" && p.tax.pph > 0) {
+    totals.balance -= p.tax.pph;
+    totals.totalExpense += p.tax.pph;
+    rows.push({
+      date: p.date,
+      proofNo: "",
+      status: "Bayar",
+      quantity: null,
+      unit: null,
+      description: `Bayar PPh Pasal 4 ayat 2 (3,5%) ${p.buktiNo}`,
+      unitPrice: null,
+      income: 0,
+      expense: p.tax.pph,
+      isTaxRow: true,
+      ...pushBalance(totals.balance),
+    });
+    return;
+  }
+
+  if (p.tax.kind !== "PPN_PPH") return;
+
+  if (p.tax.ppn > 0) {
+    totals.balance -= p.tax.ppn;
+    totals.totalExpense += p.tax.ppn;
+    rows.push({
+      date: p.date,
+      proofNo: "",
+      status: "Bayar",
+      quantity: null,
+      unit: null,
+      description: `Bayar Pajak PPN (11%) ${p.buktiNo}`,
+      unitPrice: null,
+      income: 0,
+      expense: p.tax.ppn,
+      isTaxRow: true,
+      ...pushBalance(totals.balance),
+    });
+  }
+  if (p.tax.pph > 0) {
+    totals.balance -= p.tax.pph;
+    totals.totalExpense += p.tax.pph;
+    rows.push({
+      date: p.date,
+      proofNo: "",
+      status: "Bayar",
+      quantity: null,
+      unit: null,
+      description: `Bayar Pajak PPH (1,5%) ${p.buktiNo}`,
+      unitPrice: null,
+      income: 0,
+      expense: p.tax.pph,
+      isTaxRow: true,
+      ...pushBalance(totals.balance),
+    });
+  }
+}
+
 /**
  * Susun BKT per bulan dari mutasi tunai + pengambilan.
  * Pencairan Mandor tidak ditampilkan (hindari dobel dengan nota).
+ * Pajak potong kas tunai langsung setelah nota terkait.
  */
 export function buildBktMonthBlocks(
   txs: BktLedgerTx[],
@@ -121,9 +221,11 @@ export function buildBktMonthBlocks(
     const list = months.get(key) ?? [];
 
     const rows: BktRow[] = [];
-    let balance = cashCarry;
-    let totalIncome = 0;
-    let totalExpense = 0;
+    const totals: BktTotals = {
+      balance: cashCarry,
+      totalIncome: 0,
+      totalExpense: 0,
+    };
 
     if (blocks.length > 0 || cashCarry !== 0) {
       // Sisa kas bulan lalu sebagai penerimaan awal (opsional di template sering berupa pengambilan)
@@ -139,10 +241,10 @@ export function buildBktMonthBlocks(
           unitPrice: null,
           income: cashCarry > 0 ? cashCarry : 0,
           expense: cashCarry < 0 ? Math.abs(cashCarry) : 0,
-          ...pushBalance(balance),
+          ...pushBalance(totals.balance),
         });
-        if (cashCarry > 0) totalIncome += cashCarry;
-        else totalExpense += Math.abs(cashCarry);
+        if (cashCarry > 0) totals.totalIncome += cashCarry;
+        else totals.totalExpense += Math.abs(cashCarry);
       }
     }
 
@@ -150,8 +252,8 @@ export function buildBktMonthBlocks(
       const amount = Math.round(tx.amount);
 
       if (tx.type === "INCOME") {
-        balance += amount;
-        totalIncome += amount;
+        totals.balance += amount;
+        totals.totalIncome += amount;
         rows.push({
           date: tx.date,
           proofNo: "",
@@ -162,7 +264,7 @@ export function buildBktMonthBlocks(
           unitPrice: null,
           income: amount,
           expense: 0,
-          ...pushBalance(balance),
+          ...pushBalance(totals.balance),
         });
         continue;
       }
@@ -174,11 +276,19 @@ export function buildBktMonthBlocks(
           ? tx.expenseLines
           : null;
 
+      const tax = computeVoucherTax({
+        amount,
+        description: tx.description,
+        categoryName: tx.categoryName,
+        isMaterialAlam: tx.isMaterialAlam,
+        lines,
+      });
+
       if (lines) {
         lines.forEach((line, idx) => {
           const lineAmt = Math.round(line.amount);
-          balance -= lineAmt;
-          totalExpense += lineAmt;
+          totals.balance -= lineAmt;
+          totals.totalExpense += lineAmt;
           const qty = line.quantity ?? null;
           const unitPrice =
             qty && qty > 0 ? Math.round(lineAmt / qty) : null;
@@ -192,12 +302,12 @@ export function buildBktMonthBlocks(
             unitPrice,
             income: 0,
             expense: lineAmt,
-            ...pushBalance(balance),
+            ...pushBalance(totals.balance),
           });
         });
       } else {
-        balance -= amount;
-        totalExpense += amount;
+        totals.balance -= amount;
+        totals.totalExpense += amount;
         const kindHint = /upah|pekerja|gaji/i.test(
           `${tx.categoryName} ${tx.description}`,
         )
@@ -213,8 +323,14 @@ export function buildBktMonthBlocks(
           unitPrice: null,
           income: 0,
           expense: amount,
-          ...pushBalance(balance),
+          ...pushBalance(totals.balance),
         });
+      }
+
+      // Pajak langsung setelah nota: terima PPh Final (jika ada), lalu bayar
+      if (tax.totalTax > 0) {
+        pushTaxReceiveRow(rows, totals, { date: tx.date, buktiNo, tax });
+        pushTaxPayRows(rows, totals, { date: tx.date, buktiNo, tax });
       }
     }
 
@@ -226,11 +342,11 @@ export function buildBktMonthBlocks(
       periodStart,
       periodEnd,
       rows,
-      totalIncome,
-      totalExpense,
-      closingBalance: balance,
+      totalIncome: totals.totalIncome,
+      totalExpense: totals.totalExpense,
+      closingBalance: totals.balance,
     });
-    cashCarry = balance;
+    cashCarry = totals.balance;
   }
 
   return blocks;
