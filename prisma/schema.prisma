@@ -81,6 +81,12 @@ model Project {
   funds          ProjectFund[]
   assignments    ProjectAssignment[]
   mandorDisbursements MandorDisbursement[]
+  spkBudgetLines      SpkBudgetLine[]
+  bankTranches        BankTranche[]
+  workers             Worker[]
+  payrollHokLines     PayrollHokLine[]
+  taxWithholdingLines TaxWithholdingLine[]
+  lpjSnapshots        LpjSnapshot[]
 }
 
 model ProjectAssignment {
@@ -213,6 +219,9 @@ model MandorExpenseLine {
   workDays    Float?
   dailyRate   Int?
   amount      Int
+  isMaterialAlam Boolean           @default(false)
+  taxPpn      Int                  @default(0)
+  taxPph      Int                  @default(0)
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
@@ -220,9 +229,12 @@ model MandorExpenseLine {
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   createdById   String
   createdBy     User        @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  materialMasterId String?
+  materialMaster   MaterialMaster? @relation(fields: [materialMasterId], references: [id], onDelete: SetNull)
 
   @@index([transactionId])
   @@index([createdById])
+  @@index([materialMasterId])
 }
 
 model ContractorExpense {
@@ -336,6 +348,9 @@ model Transaction {
   isFeeTransfer   Boolean     @default(false)
   isMandorDisbursement Boolean @default(false)
   isMandorExpense      Boolean @default(false)
+  isMaterialAlam       Boolean @default(false)
+  taxExemptReason      String?
+  spkCategory          SpkCategory?
   breakdownVendor      String?
   breakdownStatus      MandorBreakdownStatus @default(PENDING)
   breakdownNote        String? @db.Text
@@ -360,6 +375,9 @@ model Transaction {
   linkedContractorAdvanceId String?
   linkedContractorAdvance   ContractorAdvance? @relation("ProofLinkedToAdvance", fields: [linkedContractorAdvanceId], references: [id], onDelete: SetNull)
   expenseLines MandorExpenseLine[]
+  materialMasterId String?
+  materialMaster   MaterialMaster? @relation(fields: [materialMasterId], references: [id], onDelete: SetNull)
+  taxWithholdingLines TaxWithholdingLine[]
 
   @@index([date])
   @@index([projectId])
@@ -371,6 +389,188 @@ model Transaction {
   @@index([isFeeTransfer])
   @@index([isMandorDisbursement])
   @@index([isMandorExpense])
+  @@index([isMaterialAlam])
   @@index([linkedMandorDisbursementId])
   @@index([linkedContractorAdvanceId])
+  @@index([materialMasterId])
+}
+
+/// Kategori pagu SPK (Admin LPJ Swakelola)
+enum SpkCategory {
+  PERENCANAAN
+  PENGAWASAN
+  PENGELOLAAN
+  REHAB_FISIK
+  REHAB_MEBELAIR
+  PEMBANGUNAN_BARU
+  MEBELAIR_BARU
+  PEMBANGUNAN_APE_LUAR
+  PENGELOLAAN_LINGKUNGAN
+  SANITASI
+}
+
+enum BankTranchePhase {
+  PHASE_70
+  PHASE_30
+}
+
+enum AttendanceSource {
+  MANDOR
+  ADMIN
+}
+
+enum TaxKind {
+  PPN_11
+  PPH_15
+  PPH_FINAL_35
+}
+
+/// Pecahan pagu SPK per kategori (Admin)
+model SpkBudgetLine {
+  id              String      @id @default(cuid())
+  category        SpkCategory
+  amount          Int         @default(0)
+  laborPercent    Int         @default(40)
+  materialPercent Int         @default(60)
+  isBeliBaru      Boolean     @default(false)
+  notes           String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, category])
+  @@index([projectId])
+}
+
+/// Pencairan bank pusat → rekening User (70% / 30%)
+model BankTranche {
+  id             String           @id @default(cuid())
+  phase          BankTranchePhase
+  percent        Int
+  plannedAmount  Int              @default(0)
+  receivedAmount Int              @default(0)
+  receivedAt     DateTime?
+  notes          String?          @db.Text
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, phase])
+  @@index([projectId])
+}
+
+/// Master material (flag material alam untuk pajak)
+model MaterialMaster {
+  id             String   @id @default(cuid())
+  name           String
+  unit           String?
+  isMaterialAlam Boolean  @default(false)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions Transaction[]
+  expenseLines MandorExpenseLine[]
+
+  @@index([isMaterialAlam])
+  @@index([name])
+}
+
+/// Daftar pekerja proyek
+model Worker {
+  id        String   @id @default(cuid())
+  name      String
+  role      String   @default("Pekerja")
+  dailyWage Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attendances WorkerAttendance[]
+  payrollLines PayrollHokLine[]
+
+  @@index([projectId])
+  @@index([active])
+}
+
+/// Absensi pekerja (foto & data Mandor; koreksi Admin dengan catatan)
+model WorkerAttendance {
+  id        String           @id @default(cuid())
+  date      DateTime
+  present   Boolean          @default(true)
+  photoUrl  String?          @db.Text
+  source    AttendanceSource @default(MANDOR)
+  auditNote String?          @db.Text
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([workerId, date])
+  @@index([workerId])
+  @@index([date])
+}
+
+/// Rekap gaji HOK (hadir × upah harian)
+model PayrollHokLine {
+  id         String   @id @default(cuid())
+  periodMonth String
+  days       Float    @default(0)
+  dailyWage  Int      @default(0)
+  amount     Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, workerId, periodMonth])
+  @@index([projectId])
+  @@index([workerId])
+  @@index([periodMonth])
+}
+
+/// Buku pembantu pajak (baris pemotongan)
+model TaxWithholdingLine {
+  id         String   @id @default(cuid())
+  kind       TaxKind
+  baseAmount Int
+  taxAmount  Int
+  label      String
+  monthKey   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  projectId     String
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([monthKey])
+  @@index([kind])
+  @@index([transactionId])
+}
+
+/// Snapshot hasil generate LPJ (cache)
+model LpjSnapshot {
+  id          String   @id @default(cuid())
+  periodMonth String
+  generatedAt DateTime @default(now())
+  jsonPayload String   @db.LongText
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([periodMonth])
 }

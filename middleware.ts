@@ -6,7 +6,7 @@ const publicPaths = ["/login"];
 
 function homeForRole(role: string) {
   if (role === "MANDOR") return "/mandor";
-  if (role === "ADMIN") return "/dashboard";
+  if (role === "ADMIN") return "/admin/lpj";
   return "/dashboard";
 }
 
@@ -65,6 +65,7 @@ export async function middleware(request: NextRequest) {
 
   if (session?.role === "ADMIN") {
     const allowed =
+      pathname.startsWith("/admin") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/projects") ||
       pathname.startsWith("/transactions") ||
@@ -78,10 +79,10 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/categories") ||
       pathname.startsWith("/reports") ||
       pathname.startsWith("/mandor");
-    // Admin boleh baca Kas Proyek + pecah nota via server action di /projects & /transactions/project
+    // Admin: LPJ + baca proyek/kas; tanpa mutasi Owner
     if (blockedWrite || !allowed) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/admin/lpj";
       return NextResponse.redirect(url);
     }
   }

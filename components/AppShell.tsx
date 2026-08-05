@@ -24,9 +24,7 @@ function navForRole(role: SessionUser["role"]): {
 } {
   if (role === "ADMIN") {
     const primary = [
-      { href: "/dashboard", label: "Dashboard", short: "Home" },
-      { href: "/projects", label: "Proyek", short: "Proyek" },
-      { href: "/transactions/project", label: "Kas Proyek", short: "Kas" },
+      { href: "/admin/lpj", label: "Proyek LPJ", short: "LPJ" },
     ];
     return { primary, secondary: [], mobile: primary, showAssistant: false };
   }

@@ -65,9 +65,18 @@ export async function requireOwner(): Promise<SessionUser> {
   return session;
 }
 
-/** @deprecated Gunakan requireOwner — mutasi penuh hanya Owner */
+/** @deprecated Alias historis — tetap berarti OWNER (mutasi kas). Jangan ubah. */
 export async function requireAdmin(): Promise<SessionUser> {
   return requireOwner();
+}
+
+/** Gate modul LPJ / Buku Kas — hanya role ADMIN. Tidak mengubah requireAdmin(). */
+export async function requireRoleAdmin(): Promise<SessionUser> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    redirect(homePathForRole(session.role));
+  }
+  return session;
 }
 
 export function isOwner(user: SessionUser): boolean {
@@ -109,7 +118,7 @@ export async function requireBreakdownAccess(): Promise<SessionUser> {
 
 export function homePathForRole(role: SessionRole): string {
   if (role === "MANDOR") return "/mandor";
-  if (role === "ADMIN") return "/dashboard";
+  if (role === "ADMIN") return "/admin/lpj";
   return "/dashboard";
 }
 
