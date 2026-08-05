@@ -148,22 +148,21 @@ type PendingTax = {
   tax: TaxLineResult;
 };
 
-function appendTaxRows(
+function emptyBkuRow(): BkuSideRow {
+  return { date: null, description: "", amount: 0 };
+}
+
+function padSide(rows: BkuSideRow[], len: number) {
+  while (rows.length < len) rows.push(emptyBkuRow());
+}
+
+/** Baris bayar pajak di sisi pengeluaran (setelah nota). */
+function pushTaxPayRows(
   p: PendingTax,
-  incomes: BkuSideRow[],
   expenses: BkuSideRow[],
-  totals: { totalIncome: number; totalExpense: number; monthCashDelta: number },
+  totals: { totalExpense: number; monthCashDelta: number },
 ) {
   if (p.tax.kind === "PPH_FINAL") {
-    incomes.push({
-      date: p.date,
-      description: `Terima PPh Pasal 4 ayat 2 (3,5 %) ${p.buktiNo}`,
-      amount: p.tax.pph,
-      isTaxRow: true,
-    });
-    totals.totalIncome += p.tax.pph;
-    totals.monthCashDelta += p.tax.pph;
-
     expenses.push({
       date: p.date,
       description: `Bayar PPh Pasal 4 ayat 2 (3,5%) ${p.buktiNo}`,
@@ -285,6 +284,7 @@ export function buildBkuMonthBlocks(
         });
         totals.totalIncome += amount;
         totals.monthCashDelta += amount;
+        padSide(expenses, incomes.length);
         continue;
       }
 
@@ -294,6 +294,29 @@ export function buildBkuMonthBlocks(
         tx.expenseLines && tx.expenseLines.length > 0
           ? tx.expenseLines
           : null;
+
+      const tax = computeVoucherTax({
+        amount,
+        description: tx.description,
+        categoryName: tx.categoryName,
+        isMaterialAlam: tx.isMaterialAlam,
+        lines,
+      });
+
+      // Samakan tinggi kolom agar "Terima PPh" sejajar dengan baris BKK
+      const bkkRowIndex = expenses.length;
+      padSide(incomes, bkkRowIndex);
+
+      if (tax.kind === "PPH_FINAL" && tax.pph > 0) {
+        incomes.push({
+          date: tx.date,
+          description: `Terima PPh Pasal 4 ayat 2 (3,5 %) ${buktiNo}`,
+          amount: tax.pph,
+          isTaxRow: true,
+        });
+        totals.totalIncome += tax.pph;
+        totals.monthCashDelta += tax.pph;
+      }
 
       if (lines) {
         lines.forEach((line, idx) => {
@@ -310,6 +333,7 @@ export function buildBkuMonthBlocks(
           });
           totals.totalExpense += lineAmt;
           totals.monthCashDelta -= lineAmt;
+          padSide(incomes, expenses.length);
         });
       } else {
         const kindHint = /upah|pekerja|gaji/i.test(
@@ -329,23 +353,17 @@ export function buildBkuMonthBlocks(
         });
         totals.totalExpense += amount;
         totals.monthCashDelta -= amount;
+        padSide(incomes, expenses.length);
       }
 
-      // Pajak dibayar setelah nota (material / perencanaan / pengawasan)
-      const tax = computeVoucherTax({
-        amount,
-        description: tx.description,
-        categoryName: tx.categoryName,
-        isMaterialAlam: tx.isMaterialAlam,
-        lines,
-      });
+      // Bayar pajak langsung setelah nota
       if (tax.totalTax > 0) {
-        appendTaxRows(
+        pushTaxPayRows(
           { date: tx.date, buktiNo, tax },
-          incomes,
           expenses,
           totals,
         );
+        padSide(incomes, expenses.length);
       }
     }
 

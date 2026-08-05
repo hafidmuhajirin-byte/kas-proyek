@@ -231,14 +231,19 @@ function assert(cond: boolean, msg: string) {
   );
 
   assert(bku.length === 1, "bku satu bulan");
-  assert(bku[0].expenses[0].proofNo === "BKK.1", "bukti BKK.1");
-  assert(bku[0].expenses[0].status === "Beli", "status Beli");
-  assert(bku[0].expenses[1].proofNo === "", "baris lanjut tanpa nomor");
+  const bkk1 = bku[0].expenses.find((e) => e.proofNo === "BKK.1");
+  assert(Boolean(bkk1), "bukti BKK.1");
+  assert(bkk1?.status === "Beli", "status Beli");
+  assert(bkk1?.costType === "B", "semen = B");
+  const bkk1Idx = bku[0].expenses.findIndex((e) => e.proofNo === "BKK.1");
+  assert(
+    bkk1Idx >= 0 && bku[0].expenses[bkk1Idx + 1]?.proofNo === "",
+    "baris lanjut tanpa nomor",
+  );
   assert(
     bku[0].expenses.some((e) => e.proofNo === "BKK.2"),
     "bukti BKK.2",
   );
-  assert(bku[0].expenses[0].costType === "B", "semen = B");
 
   const taxPay = bku[0].expenses.filter((e) => e.isTaxRow);
   const taxRecv = bku[0].incomes.filter((e) => e.isTaxRow);
@@ -247,6 +252,14 @@ function assert(cond: boolean, msg: string) {
     taxRecv.some((r) => /Terima PPh Pasal 4/i.test(r.description)),
     "ada terima PPh Final pengawasan",
   );
+  // Terima PPh harus sejajar (index sama) dengan baris BKK terkait
+  {
+    const expIdx = bku[0].expenses.findIndex((e) => e.proofNo === "BKK.2");
+    const incIdx = bku[0].incomes.findIndex((r) =>
+      /Terima PPh Pasal 4.*BKK\.2/i.test(r.description),
+    );
+    assert(expIdx >= 0 && incIdx === expIdx, "terima PPh sejajar dengan BKK.2");
+  }
   assert(
     taxPay.some((r) => /Bayar Pajak PPN/i.test(r.description)),
     "ada bayar PPN material >2jt",
