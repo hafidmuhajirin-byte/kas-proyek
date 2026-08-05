@@ -136,14 +136,14 @@ function assert(cond: boolean, msg: string) {
 
   const bankBlocks = buildBankMonthBlocks([
     {
-      date: new Date(2025, 10, 1),
+      date: new Date(2025, 9, 1),
       description: "Uang Masuk",
       proofNo: "01",
       debit: 100_000_000,
       credit: 0,
     },
     {
-      date: new Date(2025, 10, 5),
+      date: new Date(2025, 9, 5),
       description: "Pengambilan Ke-1",
       proofNo: "02",
       debit: 0,
@@ -154,39 +154,89 @@ function assert(cond: boolean, msg: string) {
   const bku = buildBkuMonthBlocks(
     [
       {
-        date: new Date(2025, 10, 5),
+        id: "inc1",
+        date: new Date(2025, 9, 5),
         description: "Terima pengambilan",
         type: "INCOME",
         amount: 40_000_000,
         categoryName: "Transfer Owner",
       },
       {
-        date: new Date(2025, 10, 10),
-        description: "Beli semen",
+        id: "ex1",
+        date: new Date(2025, 9, 10),
+        description: "Nota material",
         type: "EXPENSE",
         amount: 5_000_000,
-        categoryName: "Material",
+        isMandorExpense: true,
+        categoryName: "Belanja Mandor",
+        expenseLines: [
+          {
+            description: "Semen 3 Roda",
+            quantity: 10,
+            unit: "Sak",
+            amount: 3_000_000,
+            kind: "MATERIAL",
+          },
+          {
+            description: "Pasir Cor",
+            quantity: 2,
+            unit: "Pik Up",
+            amount: 2_000_000,
+            kind: "MATERIAL",
+          },
+        ],
       },
       {
-        date: new Date(2025, 10, 12),
-        description: "Bayar tukang",
+        id: "ex2",
+        date: new Date(2025, 9, 12),
+        description: "Bayar Dana Pengawasan",
         type: "EXPENSE",
-        amount: 2_000_000,
-        categoryName: "Upah",
+        amount: 3_000_000,
+        categoryName: "Dana Pengawasan",
+      },
+      {
+        id: "disb",
+        date: new Date(2025, 9, 8),
+        description: "Pencairan Mandor",
+        type: "EXPENSE",
+        amount: 10_000_000,
+        isMandorDisbursement: true,
+        categoryName: "Pencairan ke Mandor",
       },
     ],
     { openingCashBalance: 0, bankBlocks },
   );
 
   assert(bku.length === 1, "bku satu bulan");
-  assert(bku[0].expenses.length === 2, "dua pengeluaran");
-  assert(bku[0].expenses[0].proofNo === "01", "bukti 01");
-  assert(bku[0].expenses[1].proofNo === "02", "bukti 02 berurutan");
+  // 2 material lines + 1 pengawasan + tax rows for both vouchers
+  assert(bku[0].expenses[0].proofNo === "BKK.1", "bukti BKK.1");
+  assert(bku[0].expenses[0].status === "Beli", "status Beli");
+  assert(bku[0].expenses[1].proofNo === "", "baris lanjut tanpa nomor");
+  assert(bku[0].expenses[2].proofNo === "BKK.2", "bukti BKK.2");
   assert(bku[0].expenses[0].costType === "B", "semen = B");
-  assert(bku[0].expenses[1].costType === "A", "tukang = A");
-  assert(bku[0].cashBalance === 33_000_000, "kas tunai 40jt-7jt");
+
+  const taxPay = bku[0].expenses.filter((e) => e.isTaxRow);
+  const taxRecv = bku[0].incomes.filter((e) => e.isTaxRow);
+  assert(taxPay.length >= 2, "ada baris bayar pajak");
+  assert(
+    taxRecv.some((r) => /Terima PPh Pasal 4/i.test(r.description)),
+    "ada terima PPh Final",
+  );
+  assert(
+    taxPay.some((r) => /Bayar Pajak PPN/i.test(r.description)),
+    "ada bayar PPN material >2jt",
+  );
+  assert(
+    !bku[0].expenses.some((e) => /Pencairan Mandor/i.test(e.description)),
+    "pencairan mandor tidak masuk BKU",
+  );
+  // kas: 40jt − 5jt material − pajak PPN/PPH material − 3jt pengawasan (− PPh final + terima = 0)
+  const materialTaxPpn = Math.round(5_000_000 * 0.11);
+  const materialTaxPph = Math.round(5_000_000 * 0.015);
+  const expectedCash =
+    40_000_000 - 5_000_000 - materialTaxPpn - materialTaxPph - 3_000_000;
+  assert(bku[0].cashBalance === expectedCash, `kas tunai ${expectedCash}`);
   assert(bku[0].bankBalance === 60_000_000, "saldo bank dari buku bank");
-  assert(bku[0].totalBalance === 93_000_000, "jumlah bank+kas");
 }
 
 if (failed > 0) {

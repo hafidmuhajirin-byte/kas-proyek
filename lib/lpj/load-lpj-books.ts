@@ -100,6 +100,19 @@ export async function loadLpjBooks(
           isMaterialAlam: true,
           category: { select: { name: true } },
           cashSource: { select: { name: true, type: true } },
+          expenseLines: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              kind: true,
+              description: true,
+              quantity: true,
+              unit: true,
+              workDays: true,
+              amount: true,
+              isMaterialAlam: true,
+            },
+          },
         },
       },
     },
@@ -152,12 +165,23 @@ export async function loadLpjBooks(
 
   const bkuBlocks = buildBkuMonthBlocks(
     ledgerTx.map((tx) => ({
+      id: tx.id,
       date: tx.date,
       description: tx.description,
       type: tx.type,
       amount: tx.amount,
       isMandorExpense: tx.isMandorExpense,
+      isMandorDisbursement: tx.isMandorDisbursement,
+      isMaterialAlam: tx.isMaterialAlam,
       categoryName: tx.category.name,
+      expenseLines: tx.expenseLines.map((l) => ({
+        description: l.description,
+        quantity: l.quantity ?? l.workDays,
+        unit: l.unit ?? (l.kind === "LABOR" ? "hari" : null),
+        amount: l.amount,
+        kind: l.kind,
+        isMaterialAlam: l.isMaterialAlam,
+      })),
     })),
     {
       openingCashBalance: project.openingBalance,

@@ -6,6 +6,7 @@ import { parseProjectLocation } from "@/lib/project-bkk-report";
 import type { BankMonthBlock } from "@/lib/buku-kas/bank";
 import {
   BKU_COST_TYPE_NOTES,
+  formatBkuQty,
   type BkuMonthBlock,
   type BkuSideRow,
 } from "@/lib/buku-kas/bku";
@@ -475,7 +476,7 @@ export function BkuPreview({
             </div>
 
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[860px] border-collapse text-[10px] sm:text-[11px]">
+              <table className="w-full min-w-[980px] border-collapse text-[10px] sm:text-[11px]">
                 <thead>
                   <tr className="bg-stone-100">
                     <th
@@ -485,36 +486,74 @@ export function BkuPreview({
                       Pemasukan
                     </th>
                     <th
-                      colSpan={5}
+                      colSpan={8}
                       className="border border-stone-400 px-1 py-1.5 text-center font-semibold"
                     >
                       Pengeluaran
                     </th>
                   </tr>
                   <tr className="bg-stone-50">
-                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                    <th
+                      rowSpan={2}
+                      className="border border-stone-400 px-1 py-1 text-center font-medium"
+                    >
                       Tanggal
                     </th>
-                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                    <th
+                      rowSpan={2}
+                      className="border border-stone-400 px-1 py-1 text-center font-medium"
+                    >
                       Uraian
                     </th>
-                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                    <th
+                      rowSpan={2}
+                      className="border border-stone-400 px-1 py-1 text-center font-medium"
+                    >
                       Jumlah (Rp.)
                     </th>
-                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                    <th
+                      rowSpan={2}
+                      className="border border-stone-400 px-1 py-1 text-center font-medium"
+                    >
                       Tanggal
                     </th>
-                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                    <th
+                      colSpan={4}
+                      className="border border-stone-400 px-1 py-1 text-center font-medium"
+                    >
                       Uraian
                     </th>
-                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                    <th
+                      rowSpan={2}
+                      className="border border-stone-400 px-1 py-1 text-center font-medium"
+                    >
                       No. Bukti
                     </th>
-                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                    <th
+                      rowSpan={2}
+                      className="border border-stone-400 px-1 py-1 text-center font-medium"
+                    >
                       Jenis Biaya
                     </th>
-                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                    <th
+                      rowSpan={2}
+                      className="border border-stone-400 px-1 py-1 text-center font-medium"
+                    >
                       Jumlah (Rp.)
+                    </th>
+                  </tr>
+                  <tr className="bg-stone-50">
+                    <th className="border border-stone-400 px-1 py-1 text-center font-medium">
+                      Status
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1 text-center font-medium">
+                      Qty
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1 text-center font-medium">
+                      Sat
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1 text-center font-medium">
+                      Keterangan
                     </th>
                   </tr>
                 </thead>
@@ -550,9 +589,12 @@ export function BkuPreview({
                         {expEmpty ? (
                           <>
                             <BkuEmptyCell className="w-[4.5rem]" />
+                            <BkuEmptyCell className="w-16" />
+                            <BkuEmptyCell className="w-12" />
+                            <BkuEmptyCell className="w-10" />
                             <BkuEmptyCell />
                             <BkuEmptyCell className="w-14" />
-                            <BkuEmptyCell className="w-16" />
+                            <BkuEmptyCell className="w-12" />
                             <BkuEmptyCell className="w-[6.5rem]" />
                           </>
                         ) : (
@@ -560,10 +602,19 @@ export function BkuPreview({
                             <td className="border border-stone-400 px-1 text-center whitespace-nowrap">
                               {formatBkuDate(exp.date)}
                             </td>
+                            <td className="border border-stone-400 px-1 whitespace-nowrap">
+                              {exp.status || ""}
+                            </td>
+                            <td className="border border-stone-400 px-1 text-right tabular-nums whitespace-nowrap">
+                              {formatBkuQty(exp.quantity)}
+                            </td>
+                            <td className="border border-stone-400 px-1 text-center whitespace-nowrap">
+                              {exp.unit || ""}
+                            </td>
                             <td className="border border-stone-400 px-1">
                               {exp.description}
                             </td>
-                            <td className="border border-stone-400 px-1 text-center">
+                            <td className="border border-stone-400 px-1 text-center whitespace-nowrap">
                               {exp.proofNo || ""}
                             </td>
                             <td className="border border-stone-400 px-1 text-center">
@@ -588,7 +639,7 @@ export function BkuPreview({
                       {formatRpBku(b.totalIncome)}
                     </td>
                     <td
-                      colSpan={4}
+                      colSpan={7}
                       className="border border-stone-400 px-1 py-1.5"
                     >
                       Jumlah pengeluaran bulan ini
