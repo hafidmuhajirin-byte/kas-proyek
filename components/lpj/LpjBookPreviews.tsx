@@ -107,29 +107,42 @@ function LedgerTable({
 }
 
 function SignatoryBlock({
+  labels,
   title,
   orgName,
   name,
   nip,
 }: {
+  /** Baris atas (Mengetahui / Menyetujui / tanggal + Dibuat Oleh) — tinggi diseragamkan */
+  labels: string[];
   title: string;
-  orgName: string;
+  orgName?: string | null;
   name?: string | null;
   nip?: string | null;
 }) {
+  const nipText = nip?.trim() || "";
+  const org = orgName?.trim() || "";
+  // Dua baris label agar kolom kiri/tengah/kanan sejajar (tanggal + Dibuat Oleh)
+  const line1 = labels[0] ?? "";
+  const line2 = labels[1] ?? "";
+
   return (
-    <div className="w-full text-center text-[11px] leading-snug sm:text-xs">
+    <div className="flex h-full w-full flex-col text-center text-[11px] leading-snug sm:text-xs">
+      <div className="mb-2 min-h-[2.5rem] space-y-0.5">
+        <p className="min-h-[1.25rem]">{line1 || "\u00a0"}</p>
+        <p className="min-h-[1.25rem]">{line2 || "\u00a0"}</p>
+      </div>
       <p className="font-medium">{title}</p>
-      {orgName ? <p className="mt-0.5">{tidyCase(orgName)}</p> : null}
-      <div className="mx-auto my-10 h-12 sm:my-12" aria-hidden />
-      <p className="font-semibold underline decoration-1 underline-offset-2">
-        {name?.trim() || "(nama)"}
+      <p className="mt-0.5 min-h-[1.25rem]">
+        {org ? tidyCase(org) : "\u00a0"}
       </p>
-      {nip?.trim() ? (
-        <p className="mt-0.5">NIP. {nip.trim()}</p>
-      ) : (
-        <p className="mt-0.5">NIP. -</p>
-      )}
+      <div className="mx-auto my-10 h-12 shrink-0 sm:my-12" aria-hidden />
+      <div className="mt-auto">
+        <p className="font-semibold underline decoration-1 underline-offset-2">
+          {name?.trim() || "(nama)"}
+        </p>
+        {nipText ? <p className="mt-0.5">NIP. {nipText}</p> : null}
+      </div>
     </div>
   );
 }
@@ -313,40 +326,28 @@ export function BankBookPreview({
               </table>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:items-start sm:gap-3">
-              <div className="text-center">
-                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
-                  Mengetahui :
-                </p>
-                <SignatoryBlock
-                  title="Kepala Sekolah"
-                  orgName={school}
-                  name={meta.kepalaNama}
-                  nip={meta.kepalaNip}
-                />
-              </div>
-              <div className="text-center">
-                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
-                  &nbsp;
-                </p>
-                <SignatoryBlock
-                  title="Ketua P2SP"
-                  orgName={school}
-                  name={meta.ketuaNama}
-                  nip={meta.ketuaNip}
-                />
-              </div>
-              <div className="text-center">
-                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
-                  {placeDate}
-                </p>
-                <SignatoryBlock
-                  title="Bendahara P2SP"
-                  orgName={school}
-                  name={meta.bendaharaNama}
-                  nip={meta.bendaharaNip}
-                />
-              </div>
+            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:items-stretch sm:gap-3">
+              <SignatoryBlock
+                labels={["Mengetahui :", ""]}
+                title="Kepala Sekolah"
+                orgName={school}
+                name={meta.kepalaNama}
+                nip={meta.kepalaNip}
+              />
+              <SignatoryBlock
+                labels={["", ""]}
+                title="Ketua P2SP"
+                orgName={school}
+                name={meta.ketuaNama}
+                nip={meta.ketuaNip}
+              />
+              <SignatoryBlock
+                labels={[placeDate, ""]}
+                title="Bendahara P2SP"
+                orgName={school}
+                name={meta.bendaharaNama}
+                nip={meta.bendaharaNip}
+              />
             </div>
           </article>
         );
@@ -698,41 +699,28 @@ export function BkuPreview({
               </div>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:items-start sm:gap-3">
-              <div className="text-center">
-                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
-                  Mengetahui
-                </p>
-                <SignatoryBlock
-                  title="Kepala Sekolah"
-                  orgName={school}
-                  name={meta.kepalaNama}
-                  nip={meta.kepalaNip}
-                />
-              </div>
-              <div className="text-center">
-                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
-                  Menyetujui
-                </p>
-                <SignatoryBlock
-                  title="Ketua Tim Pelaksana"
-                  orgName=""
-                  name={meta.ketuaNama}
-                  nip={meta.ketuaNip}
-                />
-              </div>
-              <div className="text-center">
-                <p className="mb-1 min-h-[1.25rem] text-[11px] sm:text-xs">
-                  {placeDate}
-                </p>
-                <p className="mb-2 text-[11px] sm:text-xs">Dibuat Oleh</p>
-                <SignatoryBlock
-                  title="Bendahara Pembangunan"
-                  orgName=""
-                  name={meta.bendaharaNama}
-                  nip={meta.bendaharaNip}
-                />
-              </div>
+            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:items-stretch sm:gap-3">
+              <SignatoryBlock
+                labels={["Mengetahui", ""]}
+                title="Kepala Sekolah"
+                orgName={school}
+                name={meta.kepalaNama}
+                nip={meta.kepalaNip}
+              />
+              <SignatoryBlock
+                labels={["Menyetujui", ""]}
+                title="Ketua Tim Pelaksana"
+                orgName=""
+                name={meta.ketuaNama}
+                nip={meta.ketuaNip}
+              />
+              <SignatoryBlock
+                labels={[placeDate, "Dibuat Oleh"]}
+                title="Bendahara Pembangunan"
+                orgName=""
+                name={meta.bendaharaNama}
+                nip={meta.bendaharaNip}
+              />
             </div>
           </article>
         );
