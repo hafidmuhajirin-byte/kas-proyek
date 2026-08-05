@@ -117,6 +117,7 @@ function assert(cond: boolean, msg: string) {
   assert(totalPengambilan === 84_000_000, "total pengambilan dari receipt");
   assert(mutations.some((m) => m.credit === 84_000_000), "kredit pengambilan");
   assert(mutations.some((m) => m.debit === 84_748_671), "debet pencairan");
+  assert(mutations[0].proofNo === "01" && mutations[1].proofNo === "02", "no bukti berurutan 01,02");
 
   const blocks = buildBankMonthBlocks(mutations);
   assert(blocks.length === 2, "dua bulan");

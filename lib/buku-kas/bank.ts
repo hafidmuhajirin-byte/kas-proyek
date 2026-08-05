@@ -88,7 +88,6 @@ export function buildBankMutationsFromProject(input: {
     mutations.push({
       date: t70.receivedAt,
       description: "Uang Masuk Bank Mandiri",
-      proofNo: "01",
       debit: t70.receivedAmount,
       credit: 0,
     });
@@ -97,7 +96,6 @@ export function buildBankMutationsFromProject(input: {
     mutations.push({
       date: t30.receivedAt,
       description: "Pencairan tahap 2 (30%)",
-      proofNo: "02",
       debit: t30.receivedAmount,
       credit: 0,
     });
@@ -113,12 +111,18 @@ export function buildBankMutationsFromProject(input: {
     mutations.push({
       date: r.date,
       description: `Pengambilan Ke-${n}`,
-      proofNo: String(n + 2).padStart(2, "0"),
       debit: 0,
       credit: Math.round(r.amount),
     });
     totalPengambilan += Math.round(r.amount);
   });
+
+  // No. bukti berurutan menurut tanggal (01, 02, 03…), tanpa loncat.
+  mutations
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .forEach((m, i) => {
+      m.proofNo = String(i + 1).padStart(2, "0");
+    });
 
   return { mutations, totalPengambilan };
 }

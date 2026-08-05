@@ -95,14 +95,18 @@ function SignatoryBlock({
   nip?: string | null;
 }) {
   return (
-    <div className="min-w-[140px] flex-1 text-center text-[11px] leading-snug sm:text-xs">
+    <div className="w-full text-center text-[11px] leading-snug sm:text-xs">
       <p className="font-medium">{title}</p>
       <p className="mt-0.5">{tidyCase(orgName)}</p>
-      <div className="mx-auto my-8 h-10 border-b border-transparent sm:my-10" />
+      <div className="mx-auto my-10 h-12 sm:my-12" aria-hidden />
       <p className="font-semibold underline decoration-1 underline-offset-2">
         {name?.trim() || "(nama)"}
       </p>
-      {nip?.trim() ? <p className="mt-0.5">NIP. {nip.trim()}</p> : <p className="mt-0.5">&nbsp;</p>}
+      {nip?.trim() ? (
+        <p className="mt-0.5">NIP. {nip.trim()}</p>
+      ) : (
+        <p className="mt-0.5">&nbsp;</p>
+      )}
     </div>
   );
 }
@@ -261,19 +265,23 @@ export function BankBookPreview({
               </table>
             </div>
 
-            <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex flex-1 gap-2 sm:gap-4">
-                <div className="flex-1">
-                  <p className="mb-2 text-center text-[11px] sm:text-xs">
-                    Mengetahui :
-                  </p>
-                  <SignatoryBlock
-                    title="Kepala Sekolah"
-                    orgName={school}
-                    name={meta.kepalaNama}
-                    nip={meta.kepalaNip}
-                  />
-                </div>
+            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:items-start sm:gap-3">
+              <div className="text-center">
+                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
+                  Mengetahui :
+                </p>
+                <SignatoryBlock
+                  title="Kepala Sekolah"
+                  orgName={school}
+                  name={meta.kepalaNama}
+                  nip={meta.kepalaNip}
+                />
+              </div>
+              <div className="text-center">
+                {/* Spacer sama tinggi label kiri/kanan agar jabatan sejajar ke bawah */}
+                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
+                  &nbsp;
+                </p>
                 <SignatoryBlock
                   title="Ketua P2SP"
                   orgName={school}
@@ -281,8 +289,8 @@ export function BankBookPreview({
                   nip={meta.ketuaNip}
                 />
               </div>
-              <div className="flex-1">
-                <p className="mb-2 text-center text-[11px] sm:text-xs">
+              <div className="text-center">
+                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
                   {placeDate}
                 </p>
                 <SignatoryBlock
