@@ -110,6 +110,11 @@ export default async function AdminLpjExportPage({
           <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
             Buku Kas Umum (BKU)
           </h2>
+          <p className="mb-3 text-sm text-[var(--ink-muted)] print:hidden">
+            Pemasukan mencakup{" "}
+            <strong>Pengambilan Ke-N</strong> (dana User → Owner dari bank).
+            Pengeluaran dari nota/biaya proyek + pajak.
+          </p>
           <BkuPreview
             blocks={books.bkuBlocks}
             projectTitle={project.name}
