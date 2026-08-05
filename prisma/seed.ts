@@ -48,21 +48,32 @@ async function main() {
     });
   }
 
+  // Admin produksi = username adminok (bukan "admin")
+  await prisma.user.upsert({
+    where: { username: "adminok" },
+    update: { role: "ADMIN", name: "Admin Proyek" },
+    create: {
+      username: "adminok",
+      name: "Admin Proyek",
+      passwordHash: hashSync("admin123", 10),
+      role: "ADMIN",
+    },
+  });
+
+  // Akun seed lama "admin" — jika ada, arahkan ke ADMIN baca saja (dev)
   await prisma.user.upsert({
     where: { username: "admin" },
-    update: { role: "ADMIN", name: "Admin Pengawas" },
+    update: { role: "ADMIN", name: "Admin Pengawas (legacy)" },
     create: {
       username: "admin",
-      name: "Admin Pengawas",
+      name: "Admin Pengawas (legacy)",
       passwordHash: hashSync("admin123", 10),
       role: "ADMIN",
     },
   });
 
   // Jika admin di-update jadi ADMIN tapi kita butuh owner terpisah —
-  // pastikan user 'admin' adalah ADMIN baca-saja; owner pakai 'owner'
-  // Re-fix: setelah upsert di atas, admin = ADMIN. Legacy yang jadi OWNER sudah di-overwrite.
-  // Restore: jika hanya ada satu user yang tadinya owner via migrate, keep owner user.
+  // pastikan owner pakai 'owner'; admin produksi pakai 'adminok'
 
   const mandor = await prisma.user.upsert({
     where: { username: "mandor" },
@@ -135,10 +146,14 @@ async function main() {
     });
   }
 
-  // Pastikan admin role benar (baca-saja) setelah upsert
+  // Pastikan role adminok benar
+  await prisma.user.updateMany({
+    where: { username: "adminok" },
+    data: { role: "ADMIN", name: "Admin Proyek" },
+  });
   await prisma.user.updateMany({
     where: { username: "admin" },
-    data: { role: "ADMIN", name: "Admin Pengawas" },
+    data: { role: "ADMIN" },
   });
   await prisma.user.updateMany({
     where: { username: "owner" },
@@ -150,7 +165,8 @@ async function main() {
 
   console.log("Seed selesai.");
   console.log("  owner / owner123  (OWNER)");
-  console.log("  admin / admin123  (ADMIN baca)");
+  console.log("  adminok / admin123  (ADMIN — sama username produksi)");
+  console.log("  admin / admin123  (ADMIN legacy, opsional)");
   console.log("  mandor / mandor123 (MANDOR)");
 }
 

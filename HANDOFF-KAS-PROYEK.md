@@ -87,15 +87,27 @@ pm2 start kas-proyek
 
 ---
 
-## 5. Login seed (ganti setelah go-live)
+## 5. Login
+
+### Produksi (VPS — yang dipakai)
+
+| Role | Username | Password |
+|------|----------|----------|
+| OWNER | `owner` | password yang sudah dirotasi (bukan `owner123`) |
+| ADMIN | **`adminok`** | password yang sudah dirotasi |
+| MANDOR | akun Mandor di DB | password masing-masing |
+
+Username seed `admin` / `admin123` **tidak ada / tidak dipakai** di DB produksi. Pakai **`adminok`**.
+
+### Seed lokal (development saja)
 
 | Role | Username | Password |
 |------|----------|----------|
 | OWNER | `owner` | `owner123` |
-| ADMIN | `admin` | `admin123` |
+| ADMIN | `adminok` | `admin123` |
 | MANDOR | `mandor` | `mandor123` |
 
-**Ganti semua password** setelah live.
+**Ganti semua password** setelah go-live.
 
 ---
 

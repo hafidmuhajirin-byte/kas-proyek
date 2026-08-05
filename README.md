@@ -37,7 +37,8 @@ Buka [http://localhost:3000](http://localhost:3000)
 | Username | Password | Role |
 |---|---|---|
 | `owner` | `owner123` | Owner |
-| `admin` | `admin123` | Admin |
+| `adminok` | (password produksi) | Admin — **akun live** |
+| `admin` | `admin123` | Admin (seed lokal / legacy) |
 | `mandor` | `mandor123` | Mandor |
 
 Ganti password default setelah login pertama. Ubah juga `AUTH_SECRET` di file `.env`.

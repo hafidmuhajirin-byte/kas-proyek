@@ -2,11 +2,13 @@
 
 Modul **hanya untuk role ADMIN**. Login Owner dan Mandor tidak berubah.
 
-## Alur
+## Login Admin (produksi)
 
-1. Admin login → `/admin/lpj` (daftar proyek aktif)
-2. Klik proyek → menu: SPK, Bank, Nota, Absen, Pajak, Export
-3. Admin membaca data kas yang diisi Owner; tidak memutasi Kas Besar
+Username: **`adminok`** (bukan `admin`)  
+Password: yang sudah dipakai di VPS (bukan seed `admin123` jika sudah dirotasi).
+
+Setelah modul LPJ di-deploy: login → `/admin/lpj` (daftar proyek aktif).
+
 
 ## Fitur awal (fase ini)
 
