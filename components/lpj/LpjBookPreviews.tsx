@@ -4,6 +4,11 @@ import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { parseProjectLocation } from "@/lib/project-bkk-report";
 import type { BankMonthBlock } from "@/lib/buku-kas/bank";
+import {
+  BKU_COST_TYPE_NOTES,
+  type BkuMonthBlock,
+  type BkuSideRow,
+} from "@/lib/buku-kas/bku";
 import type { CashBookLine } from "@/lib/project-cash-book";
 import type { LpjTaxRow } from "@/lib/lpj/load-lpj-books";
 import type { TaxCeilingStatus } from "@/lib/lpj/tax-compliance";
@@ -28,6 +33,23 @@ function formatRpPlain(n: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n);
+}
+
+/** Format angka BKU; negatif → (xxx). */
+function formatRpBku(n: number, emptyZero = false) {
+  if (!n && emptyZero) return "";
+  if (!n) return "0,00";
+  const abs = Math.abs(n);
+  const text = new Intl.NumberFormat("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(abs);
+  return n < 0 ? `(${text})` : text;
+}
+
+function formatBkuDate(d: Date | null) {
+  if (!d) return "";
+  return format(d, "d-MMM-yy", { locale: localeId });
 }
 
 function LedgerTable({
@@ -97,7 +119,7 @@ function SignatoryBlock({
   return (
     <div className="w-full text-center text-[11px] leading-snug sm:text-xs">
       <p className="font-medium">{title}</p>
-      <p className="mt-0.5">{tidyCase(orgName)}</p>
+      {orgName ? <p className="mt-0.5">{tidyCase(orgName)}</p> : null}
       <div className="mx-auto my-10 h-12 sm:my-12" aria-hidden />
       <p className="font-semibold underline decoration-1 underline-offset-2">
         {name?.trim() || "(nama)"}
@@ -105,9 +127,21 @@ function SignatoryBlock({
       {nip?.trim() ? (
         <p className="mt-0.5">NIP. {nip.trim()}</p>
       ) : (
-        <p className="mt-0.5">&nbsp;</p>
+        <p className="mt-0.5">NIP. -</p>
       )}
     </div>
+  );
+}
+
+function emptySideRow(): BkuSideRow {
+  return { date: null, description: "", amount: 0 };
+}
+
+function BkuEmptyCell({ className = "" }: { className?: string }) {
+  return (
+    <td
+      className={`border border-stone-400 bg-[linear-gradient(to_bottom_right,transparent_calc(50%-0.4px),#a8a29e_calc(50%-0.4px),#a8a29e_calc(50%+0.4px),transparent_calc(50%+0.4px))] ${className}`}
+    />
   );
 }
 
@@ -161,13 +195,18 @@ export function BankBookPreview({
               BUKU BANK
             </h3>
             <p className="mt-0.5 text-center text-sm font-medium">
-              Bulan {format(new Date(b.year, b.month - 1, 1), "MMMM yyyy", { locale: localeId })}
+              Bulan{" "}
+              {format(new Date(b.year, b.month - 1, 1), "MMMM yyyy", {
+                locale: localeId,
+              })}
             </p>
 
             <div className="mt-4 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2 sm:text-sm">
               <div className="space-y-0.5">
                 <p>
-                  <span className="inline-block w-24 text-stone-600">Sekolah</span>
+                  <span className="inline-block w-24 text-stone-600">
+                    Sekolah
+                  </span>
                   <span>: {school}</span>
                 </p>
                 <p>
@@ -175,7 +214,9 @@ export function BankBookPreview({
                   <span>: {loc.alamat}</span>
                 </p>
                 <p>
-                  <span className="inline-block w-24 text-stone-600">Kecamatan</span>
+                  <span className="inline-block w-24 text-stone-600">
+                    Kecamatan
+                  </span>
                   <span>: {loc.kecamatan}</span>
                 </p>
               </div>
@@ -195,10 +236,18 @@ export function BankBookPreview({
               <table className="w-full min-w-[640px] border-collapse text-[11px] sm:text-xs">
                 <thead>
                   <tr className="bg-stone-100">
-                    <th className="border border-stone-400 px-1.5 py-2 text-center">No.</th>
-                    <th className="border border-stone-400 px-1.5 py-2 text-center">Tanggal</th>
-                    <th className="border border-stone-400 px-1.5 py-2 text-center">Uraian</th>
-                    <th className="border border-stone-400 px-1.5 py-2 text-center">No. Bukti</th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">
+                      No.
+                    </th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">
+                      Tanggal
+                    </th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">
+                      Uraian
+                    </th>
+                    <th className="border border-stone-400 px-1.5 py-2 text-center">
+                      No. Bukti
+                    </th>
                     <th className="border border-stone-400 px-1.5 py-2 text-center">
                       Debet / Penerimaan (Rp.)
                     </th>
@@ -278,7 +327,6 @@ export function BankBookPreview({
                 />
               </div>
               <div className="text-center">
-                {/* Spacer sama tinggi label kiri/kanan agar jabatan sejajar ke bawah */}
                 <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
                   &nbsp;
                 </p>
@@ -308,12 +356,339 @@ export function BankBookPreview({
   );
 }
 
-export function BkuPreview({ rows }: { rows: CashBookLine[] }) {
+/** Buku Kas Umum — format resmi (pemasukan | pengeluaran). */
+export function BkuPreview({
+  blocks,
+  meta,
+  projectTitle,
+  minRows = 10,
+}: {
+  blocks: BkuMonthBlock[];
+  meta: LpjHeaderMeta;
+  projectTitle?: string;
+  minRows?: number;
+}) {
+  const loc = parseProjectLocation(meta.location);
+  const kab = meta.kabKota?.trim() || loc.kabupaten;
+  const prov = meta.provinsi?.trim() || loc.propinsi;
+  const school = tidyCase(meta.schoolName);
+  const subtitle = tidyCase(projectTitle || meta.schoolName);
+
+  if (blocks.length === 0) {
+    return (
+      <p className="text-sm text-[var(--ink-muted)]">
+        Belum ada mutasi di Buku Kas Umum untuk proyek ini.
+      </p>
+    );
+  }
+
   return (
-    <LedgerTable
-      rows={rows}
-      empty="Belum ada mutasi di Buku Kas Umum untuk proyek ini."
-    />
+    <div className="space-y-10">
+      {blocks.map((b) => {
+        const incomes = [...b.incomes];
+        const expenses = [...b.expenses];
+        const rowCount = Math.max(incomes.length, expenses.length, minRows);
+        while (incomes.length < rowCount) incomes.push(emptySideRow());
+        while (expenses.length < rowCount) expenses.push(emptySideRow());
+
+        const dayName = format(b.periodEnd, "EEEE", { locale: localeId });
+        const endLong = format(b.periodEnd, "d MMMM yyyy", {
+          locale: localeId,
+        });
+        const placeDate = `${(loc.kecamatan !== "—" ? loc.kecamatan : kab) || "Malang"} ${endLong}`;
+
+        return (
+          <article
+            key={`${b.year}-${b.month}`}
+            className="break-inside-avoid rounded-lg border border-stone-300 bg-white p-4 text-black sm:p-5 print:border-0 print:p-0"
+          >
+            <h3 className="text-center text-base font-bold tracking-wide sm:text-lg">
+              BUKU KAS UMUM
+            </h3>
+            <p className="mt-0.5 text-center text-xs font-semibold uppercase tracking-wide sm:text-sm">
+              {subtitle}
+            </p>
+
+            <div className="mt-4 grid gap-x-4 gap-y-1 text-[11px] sm:grid-cols-3 sm:text-xs">
+              <div className="space-y-0.5">
+                <p>
+                  <span className="inline-block w-[7.5rem] text-stone-600">
+                    Bulan ke
+                  </span>
+                  <span>: {b.monthIndex}</span>
+                </p>
+                <p>
+                  <span className="inline-block w-[7.5rem] text-stone-600">
+                    Sekolah
+                  </span>
+                  <span>: {school}</span>
+                </p>
+                <p>
+                  <span className="inline-block w-[7.5rem] align-top text-stone-600">
+                    Alamat
+                  </span>
+                  <span className="inline">: {loc.alamat}</span>
+                </p>
+              </div>
+              <div className="space-y-0.5">
+                <p>
+                  <span className="inline-block w-24 text-stone-600">
+                    Kecamatan
+                  </span>
+                  <span>: {loc.kecamatan}</span>
+                </p>
+                <p>
+                  <span className="inline-block w-24 text-stone-600">
+                    Kabupaten
+                  </span>
+                  <span>: {kab}</span>
+                </p>
+                <p>
+                  <span className="inline-block w-24 text-stone-600">
+                    Propinsi
+                  </span>
+                  <span>: {prov}</span>
+                </p>
+              </div>
+              <div className="space-y-0.5">
+                <p>
+                  <span className="inline-block w-[8.5rem] text-stone-600">
+                    Awal Pembukuan
+                  </span>
+                  <span>
+                    :{" "}
+                    {format(b.periodStart, "dd MMMM yyyy", {
+                      locale: localeId,
+                    })}
+                  </span>
+                </p>
+                <p>
+                  <span className="inline-block w-[8.5rem] text-stone-600">
+                    Akhir Pembukuan
+                  </span>
+                  <span>
+                    :{" "}
+                    {format(b.periodEnd, "dd MMMM yyyy", { locale: localeId })}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[860px] border-collapse text-[10px] sm:text-[11px]">
+                <thead>
+                  <tr className="bg-stone-100">
+                    <th
+                      colSpan={3}
+                      className="border border-stone-400 px-1 py-1.5 text-center font-semibold"
+                    >
+                      Pemasukan
+                    </th>
+                    <th
+                      colSpan={5}
+                      className="border border-stone-400 px-1 py-1.5 text-center font-semibold"
+                    >
+                      Pengeluaran
+                    </th>
+                  </tr>
+                  <tr className="bg-stone-50">
+                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                      Tanggal
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                      Uraian
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                      Jumlah (Rp.)
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                      Tanggal
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                      Uraian
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                      No. Bukti
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                      Jenis Biaya
+                    </th>
+                    <th className="border border-stone-400 px-1 py-1.5 text-center font-medium">
+                      Jumlah (Rp.)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: rowCount }).map((_, i) => {
+                    const inc = incomes[i];
+                    const exp = expenses[i];
+                    const incEmpty =
+                      !inc.description && !inc.amount && !inc.date;
+                    const expEmpty =
+                      !exp.description && !exp.amount && !exp.date;
+                    return (
+                      <tr key={i} className="h-7">
+                        {incEmpty ? (
+                          <>
+                            <BkuEmptyCell className="w-[4.5rem]" />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell className="w-[6.5rem]" />
+                          </>
+                        ) : (
+                          <>
+                            <td className="border border-stone-400 px-1 text-center whitespace-nowrap">
+                              {formatBkuDate(inc.date)}
+                            </td>
+                            <td className="border border-stone-400 px-1">
+                              {inc.description}
+                            </td>
+                            <td className="border border-stone-400 px-1 text-right tabular-nums">
+                              {formatRpBku(inc.amount)}
+                            </td>
+                          </>
+                        )}
+                        {expEmpty ? (
+                          <>
+                            <BkuEmptyCell className="w-[4.5rem]" />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell className="w-14" />
+                            <BkuEmptyCell className="w-16" />
+                            <BkuEmptyCell className="w-[6.5rem]" />
+                          </>
+                        ) : (
+                          <>
+                            <td className="border border-stone-400 px-1 text-center whitespace-nowrap">
+                              {formatBkuDate(exp.date)}
+                            </td>
+                            <td className="border border-stone-400 px-1">
+                              {exp.description}
+                            </td>
+                            <td className="border border-stone-400 px-1 text-center">
+                              {exp.proofNo || ""}
+                            </td>
+                            <td className="border border-stone-400 px-1 text-center">
+                              {exp.costType || ""}
+                            </td>
+                            <td className="border border-stone-400 px-1 text-right tabular-nums">
+                              {formatRpBku(exp.amount, true)}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-stone-50 font-semibold">
+                    <td
+                      colSpan={2}
+                      className="border border-stone-400 px-1 py-1.5"
+                    >
+                      Jumlah penerimaan bulan ini
+                    </td>
+                    <td className="border border-stone-400 px-1 text-right tabular-nums">
+                      {formatRpBku(b.totalIncome)}
+                    </td>
+                    <td
+                      colSpan={4}
+                      className="border border-stone-400 px-1 py-1.5"
+                    >
+                      Jumlah pengeluaran bulan ini
+                    </td>
+                    <td className="border border-stone-400 px-1 text-right tabular-nums">
+                      {b.totalExpense ? formatRpBku(b.totalExpense) : ""}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
+              <div className="text-[11px] leading-relaxed sm:text-xs">
+                <p>
+                  Buku ini ditutup pada hari {dayName} tanggal {endLong} dengan
+                  posisi :
+                </p>
+                <p className="mt-2 font-semibold">Saldo Buku Kas Umum</p>
+                <table className="mt-1 text-[11px] sm:text-xs">
+                  <tbody>
+                    <tr>
+                      <td className="py-0.5 pr-6">Saldo Bank</td>
+                      <td className="pr-2">:</td>
+                      <td className="tabular-nums">
+                        Rp {formatRpBku(b.bankBalance)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-0.5 pr-6">Saldo Kas Tunai</td>
+                      <td className="pr-2">:</td>
+                      <td className="tabular-nums">
+                        Rp {formatRpBku(b.cashBalance)}
+                      </td>
+                    </tr>
+                    <tr className="font-semibold">
+                      <td className="py-0.5 pr-6">Jumlah</td>
+                      <td className="pr-2">:</td>
+                      <td className="tabular-nums">
+                        Rp {formatRpBku(b.totalBalance)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="border border-stone-400 p-2 text-[10px] leading-snug sm:min-w-[200px] sm:text-[11px]">
+                <p className="font-semibold">Catatan :</p>
+                <p className="mt-1">Jenis Biaya :</p>
+                <ul className="mt-0.5 space-y-0.5">
+                  {BKU_COST_TYPE_NOTES.map((n) => (
+                    <li key={n.code}>
+                      <span className="font-semibold">{n.code}</span> :{" "}
+                      {n.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:items-start sm:gap-3">
+              <div className="text-center">
+                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
+                  Mengetahui
+                </p>
+                <SignatoryBlock
+                  title="Kepala Sekolah"
+                  orgName={school}
+                  name={meta.kepalaNama}
+                  nip={meta.kepalaNip}
+                />
+              </div>
+              <div className="text-center">
+                <p className="mb-3 min-h-[1.25rem] text-[11px] sm:text-xs">
+                  Menyetujui
+                </p>
+                <SignatoryBlock
+                  title="Ketua Tim Pelaksana"
+                  orgName=""
+                  name={meta.ketuaNama}
+                  nip={meta.ketuaNip}
+                />
+              </div>
+              <div className="text-center">
+                <p className="mb-1 min-h-[1.25rem] text-[11px] sm:text-xs">
+                  {placeDate}
+                </p>
+                <p className="mb-2 text-[11px] sm:text-xs">Dibuat Oleh</p>
+                <SignatoryBlock
+                  title="Bendahara Pembangunan"
+                  orgName=""
+                  name={meta.bendaharaNama}
+                  nip={meta.bendaharaNip}
+                />
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 

@@ -16,6 +16,10 @@ import {
   plannedTranchesFromContract,
   validatePhase1Spend,
 } from "../lib/buku-kas/bank";
+import {
+  buildBkuMonthBlocks,
+  mapExpenseCostType,
+} from "../lib/buku-kas/bku";
 
 let failed = 0;
 
@@ -123,6 +127,66 @@ function assert(cond: boolean, msg: string) {
   assert(blocks.length === 2, "dua bulan");
   assert(blocks[0].closingBalance === 84_748_671, "agu closing");
   assert(blocks[1].closingBalance === 748_671, "sep closing after withdrawal");
+}
+
+{
+  assert(mapExpenseCostType("Upah") === "A", "jenis A upah");
+  assert(mapExpenseCostType("Material") === "B", "jenis B material");
+  assert(mapExpenseCostType("Operasional") === "D", "jenis D ops");
+
+  const bankBlocks = buildBankMonthBlocks([
+    {
+      date: new Date(2025, 10, 1),
+      description: "Uang Masuk",
+      proofNo: "01",
+      debit: 100_000_000,
+      credit: 0,
+    },
+    {
+      date: new Date(2025, 10, 5),
+      description: "Pengambilan Ke-1",
+      proofNo: "02",
+      debit: 0,
+      credit: 40_000_000,
+    },
+  ]);
+
+  const bku = buildBkuMonthBlocks(
+    [
+      {
+        date: new Date(2025, 10, 5),
+        description: "Terima pengambilan",
+        type: "INCOME",
+        amount: 40_000_000,
+        categoryName: "Transfer Owner",
+      },
+      {
+        date: new Date(2025, 10, 10),
+        description: "Beli semen",
+        type: "EXPENSE",
+        amount: 5_000_000,
+        categoryName: "Material",
+      },
+      {
+        date: new Date(2025, 10, 12),
+        description: "Bayar tukang",
+        type: "EXPENSE",
+        amount: 2_000_000,
+        categoryName: "Upah",
+      },
+    ],
+    { openingCashBalance: 0, bankBlocks },
+  );
+
+  assert(bku.length === 1, "bku satu bulan");
+  assert(bku[0].expenses.length === 2, "dua pengeluaran");
+  assert(bku[0].expenses[0].proofNo === "01", "bukti 01");
+  assert(bku[0].expenses[1].proofNo === "02", "bukti 02 berurutan");
+  assert(bku[0].expenses[0].costType === "B", "semen = B");
+  assert(bku[0].expenses[1].costType === "A", "tukang = A");
+  assert(bku[0].cashBalance === 33_000_000, "kas tunai 40jt-7jt");
+  assert(bku[0].bankBalance === 60_000_000, "saldo bank dari buku bank");
+  assert(bku[0].totalBalance === 93_000_000, "jumlah bank+kas");
 }
 
 if (failed > 0) {

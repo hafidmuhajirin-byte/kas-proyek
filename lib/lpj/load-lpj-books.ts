@@ -4,6 +4,10 @@ import {
   type BankMonthBlock,
 } from "@/lib/buku-kas/bank";
 import {
+  buildBkuMonthBlocks,
+  type BkuMonthBlock,
+} from "@/lib/buku-kas/bku";
+import {
   buildCashBookRows,
   type CashBookLine,
 } from "@/lib/project-cash-book";
@@ -41,6 +45,8 @@ export type LpjBooksPayload = {
     lpjProvinsi: string | null;
   };
   bankBlocks: BankMonthBlock[];
+  bkuBlocks: BkuMonthBlock[];
+  /** @deprecated pakai bkuBlocks; tetap diisi untuk kompatibilitas singkat */
   bkuRows: CashBookLine[];
   bktRows: CashBookLine[];
   taxRows: LpjTaxRow[];
@@ -144,6 +150,21 @@ export async function loadLpjBooks(
     project.openingBalance,
   );
 
+  const bkuBlocks = buildBkuMonthBlocks(
+    ledgerTx.map((tx) => ({
+      date: tx.date,
+      description: tx.description,
+      type: tx.type,
+      amount: tx.amount,
+      isMandorExpense: tx.isMandorExpense,
+      categoryName: tx.category.name,
+    })),
+    {
+      openingCashBalance: project.openingBalance,
+      bankBlocks,
+    },
+  );
+
   const cashTx = ledgerTx.filter((tx) => tx.cashSource.type === "CASH");
   const bktRows = buildCashBookRows(
     cashTx.map((tx) => ({
@@ -203,6 +224,7 @@ export async function loadLpjBooks(
       lpjProvinsi: project.lpjProvinsi,
     },
     bankBlocks,
+    bkuBlocks,
     bkuRows,
     bktRows,
     taxRows,

@@ -107,13 +107,25 @@ export default async function AdminLpjExportPage({
 
       <section id="bku" className="mb-8 scroll-mt-20">
         <Card>
-          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
             Buku Kas Umum (BKU)
           </h2>
-          <p className="mb-3 text-sm text-[var(--ink-muted)]">
-            Semua mutasi proyek (kecuali pribadi/fee).
-          </p>
-          <BkuPreview rows={books.bkuRows} />
+          <BkuPreview
+            blocks={books.bkuBlocks}
+            projectTitle={project.name}
+            meta={{
+              schoolName: project.name,
+              location: project.location,
+              kabKota: project.lpjKabKota,
+              provinsi: project.lpjProvinsi,
+              kepalaNama: project.lpjKepalaNama,
+              kepalaNip: project.lpjKepalaNip,
+              ketuaNama: project.lpjKetuaNama,
+              ketuaNip: project.lpjKetuaNip,
+              bendaharaNama: project.lpjBendaharaNama,
+              bendaharaNip: project.lpjBendaharaNip,
+            }}
+          />
         </Card>
       </section>
 
