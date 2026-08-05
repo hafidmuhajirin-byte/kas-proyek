@@ -8,9 +8,10 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { getGlobalCashBreakdown } from "@/lib/balance";
+import { buildProjectBkkRows } from "@/lib/build-project-bkk-rows";
 import {
   buildRunningBalance,
-  moneyCell,
+  sumCashMovements,
   type LedgerLine,
 } from "@/lib/report-ledger";
 import { formatRupiah } from "@/lib/money";
@@ -29,7 +30,13 @@ import {
   type ProjectFundKind,
 } from "@/lib/project-funds";
 import { isOwnerPersonalDraw } from "@/lib/owner-personal";
-import { PROJECT_FEE_PERCENT, calcFeeTransferQuota } from "@/lib/project-profit";
+import { PROJECT_FEE_PERCENT, calcFeeTransferQuota, calcOperationalFunds } from "@/lib/project-profit";
+import {
+  BookLedgerTable,
+  BookSummaryStrip,
+  type BookRow,
+} from "@/components/BookLedgerTable";
+import { ProjectBkkLedger } from "@/components/ProjectBkkLedger";
 
 export default async function ReportsPage({
   searchParams,
@@ -116,18 +123,34 @@ export default async function ReportsPage({
           project: true,
           cashSource: true,
           category: true,
+          expenseLines: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              kind: true,
+              description: true,
+              quantity: true,
+              unit: true,
+              unitPrice: true,
+              workDays: true,
+              dailyRate: true,
+              amount: true,
+            },
+          },
         },
       }),
-      hasCategoryFilter || params.type === "INCOME"
-        ? Promise.resolve([])
-        : prisma.contractorAdvance.findMany({
-            where: advanceWhere,
-            include: {
-              cashSource: true,
-              contractor: { include: { project: true } },
-            },
-            orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-          }),
+      Promise.resolve([] as Array<{
+        id: string;
+        date: Date;
+        amount: number;
+        description: string;
+        cashSource: { name: string };
+        contractor: {
+          projectId: string;
+          name: string;
+          project: { name: string; location: string };
+        };
+      }>),
       getGlobalCashBreakdown(),
     ]);
 
@@ -159,27 +182,19 @@ export default async function ReportsPage({
             : "Pemasukan"
           : tx.isFeeTransfer
             ? "Transfer fee"
-            : tx.isOwnerPersonal
-              ? "Ambil pribadi"
-              : tx.isFromGlobalCash
-                ? "Masuk kas besar"
-                : "Pengeluaran",
+            : tx.isMandorExpense
+              ? "Belanja Mandor (laporan)"
+              : tx.isOwnerPersonal
+                ? "Ambil pribadi"
+                : tx.isFromGlobalCash
+                  ? "Masuk kas besar"
+                  : "Pengeluaran",
       description: `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)}`,
       debit: tx.type === "INCOME" ? tx.amount : 0,
       credit: tx.type === "EXPENSE" ? tx.amount : 0,
-      skipBalance: tx.type === "EXPENSE" && tx.isFromGlobalCash,
-    })),
-    ...advances.map((a) => ({
-      id: `adv-${a.id}`,
-      date: a.date,
-      projectId: a.contractor.projectId,
-      projectName: tidyCase(a.contractor.project.name),
-      location: tidyCase(a.contractor.project.location),
-      sourceName: tidyCase(a.cashSource.name),
-      kind: "Termin pemborong",
-      description: `${tidyCase(a.contractor.name)} — ${tidyCase(a.description)}`,
-      debit: 0,
-      credit: a.amount,
+      skipBalance:
+        (tx.type === "EXPENSE" && tx.isFromGlobalCash) ||
+        Boolean(tx.isMandorExpense),
     })),
   ];
 
@@ -191,8 +206,26 @@ export default async function ReportsPage({
   const gabunganBook = buildRunningBalance(ledgerLines, openingGabungan, {
     honorSkipBalance: true,
   });
-  const income = ledgerLines.reduce((sum, l) => sum + l.debit, 0);
-  const expense = ledgerLines.reduce((sum, l) => sum + l.credit, 0);
+  const gabunganBookRows: BookRow[] = gabunganBook.map((row) => ({
+    id: row.id,
+    date: row.date,
+    projectLabel: `${row.projectName}`,
+    keterangan: (
+      <>
+        <span className="text-teal-900/55">{row.kind}</span>
+        {" · "}
+        {row.description}
+      </>
+    ),
+    meta: row.sourceName,
+    penerimaan: row.debit,
+    pengeluaran: row.credit,
+    saldo: row.balance,
+    skipBalance: row.skipBalance,
+  }));
+  const cashMoves = sumCashMovements(ledgerLines);
+  const income = cashMoves.debit;
+  const expense = cashMoves.credit;
   const posisiFilter =
     gabunganBook.length > 0
       ? gabunganBook[gabunganBook.length - 1].balance
@@ -221,9 +254,9 @@ export default async function ReportsPage({
       const injects = ownerInjectTxs.filter((tx) => tx.projectId === project.id);
       const drawSum = draws.reduce((s, tx) => s + tx.amount, 0);
       const injectSum = injects.reduce((s, tx) => s + tx.amount, 0);
-      const feeTarget = Math.round(
-        (Math.max(project.contractValue, 0) * PROJECT_FEE_PERCENT) / 100,
-      );
+      const opsFunds = calcOperationalFunds(project.funds);
+      const feeBase = Math.max(0, project.contractValue - opsFunds);
+      const feeTarget = Math.round((feeBase * PROJECT_FEE_PERCENT) / 100);
       const feeTransferred = transactions
         .filter(
           (tx) =>
@@ -340,8 +373,8 @@ export default async function ReportsPage({
               defaultValue={params.type ?? ""}
               className="rounded-xl border border-teal-900/15 bg-white px-3 py-2.5 text-sm"
             >
-              <option value="">Semua jenis</option>
-              <option value="INCOME">Pemasukan</option>
+              <option value="">Semua</option>
+              <option value="INCOME">Penerimaan</option>
               <option value="EXPENSE">Pengeluaran</option>
             </select>
             <input
@@ -406,25 +439,26 @@ export default async function ReportsPage({
           <p className="mt-1 text-xs text-teal-900/55">
             Sinkron dengan dashboard — Tunai + Bank semua proyek.
           </p>
-          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-            <div className="rounded-lg border border-teal-900/10 bg-white px-4 py-3">
-              <p className="text-teal-900/55">Total</p>
-              <p className="mt-1 whitespace-nowrap tabular-nums font-medium text-teal-950">
-                {formatRupiah(kasBesar.total)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-teal-900/10 bg-white px-4 py-3">
-              <p className="text-teal-900/55">Tunai</p>
-              <p className="mt-1 whitespace-nowrap tabular-nums font-medium text-teal-950">
-                {formatRupiah(kasBesar.cash)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-teal-900/10 bg-white px-4 py-3">
-              <p className="text-teal-900/55">Bank</p>
-              <p className="mt-1 whitespace-nowrap tabular-nums font-medium text-teal-950">
-                {formatRupiah(kasBesar.bank)}
-              </p>
-            </div>
+          <div className="mt-4">
+            <BookSummaryStrip
+              items={[
+                {
+                  label: "Total",
+                  value: formatRupiah(kasBesar.total),
+                  tone: "bal",
+                },
+                {
+                  label: "Tunai",
+                  value: formatRupiah(kasBesar.cash),
+                  tone: "bal",
+                },
+                {
+                  label: "Bank",
+                  value: formatRupiah(kasBesar.bank),
+                  tone: "bal",
+                },
+              ]}
+            />
           </div>
         </section>
 
@@ -434,33 +468,42 @@ export default async function ReportsPage({
             II. Pembukuan Gabungan
           </h2>
           <p className="mt-1 text-xs text-teal-900/55">
-            Arus kas semua proyek dalam filter. Debit = masuk, Kredit = keluar
-            (termasuk termin pemborong).
+            Penerimaan, pengeluaran, dan saldo berjalan (termasuk termin
+            pemborong).
           </p>
 
-          <div className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-            <SummaryPill label="Saldo awal" value={formatRupiah(openingGabungan)} />
-            <SummaryPill
-              label="Pemasukan"
-              value={formatRupiah(income)}
-              tone="in"
-            />
-            <SummaryPill
-              label="Pengeluaran"
-              value={formatRupiah(expense)}
-              tone="out"
-            />
-            <SummaryPill
-              label="Posisi (filter)"
-              value={formatRupiah(posisiFilter)}
-              tone="bal"
+          <div className="mt-4">
+            <BookSummaryStrip
+              items={[
+                {
+                  label: "Saldo awal",
+                  value: formatRupiah(openingGabungan),
+                  tone: "bal",
+                },
+                {
+                  label: "Penerimaan",
+                  value: formatRupiah(income),
+                  tone: "in",
+                },
+                {
+                  label: "Pengeluaran",
+                  value: formatRupiah(expense),
+                  tone: "out",
+                },
+                {
+                  label: "Saldo",
+                  value: formatRupiah(posisiFilter),
+                  tone: "bal",
+                },
+              ]}
             />
           </div>
 
-          <LedgerTable
-            rows={gabunganBook}
+          <BookLedgerTable
+            rows={gabunganBookRows}
             opening={openingGabungan}
             showProject
+            showActions={false}
             empty="Belum ada mutasi untuk filter ini."
           />
         </section>
@@ -471,7 +514,9 @@ export default async function ReportsPage({
             III. Pembukuan per Proyek
           </h2>
           <p className="mt-1 text-xs text-teal-900/55">
-            Buku kas masing-masing proyek — siap dilampirkan ke laporan lapangan.
+            Format BKK lapangan: Tanggal · No. Bukti · Uraian (Qty/Sat/Harga) ·
+            Penerimaan / Pengeluaran · Saldo. Bukti Mandor dipecah per item (*)
+            tanpa memotong kas dua kali.
           </p>
 
           {projectsInScope.length === 0 ? (
@@ -499,16 +544,18 @@ export default async function ReportsPage({
                 const book = buildRunningBalance(projectLines, opening, {
                   honorSkipBalance: true,
                 });
-                const masuk = projectLines.reduce((s, l) => s + l.debit, 0);
-                const keluar = projectLines
-                  .filter((l) => l.kind !== "Ambil pribadi")
-                  .reduce((s, l) => s + l.credit, 0);
+                const cash = sumCashMovements(projectLines);
+                const masuk = cash.debit;
+                const keluar = cash.credit;
                 const saldo =
                   book.length > 0 ? book[book.length - 1].balance : opening;
                 const contractor = project.contractor;
-                const termin = contractor
-                  ? contractor.advances.reduce((s, a) => s + a.amount, 0)
-                  : 0;
+                const projectTxs = transactions.filter(
+                  (tx) => tx.projectId === project.id,
+                );
+                const termin = projectTxs
+                  .filter((tx) => tx.isMandorDisbursement)
+                  .reduce((s, tx) => s + tx.amount, 0);
                 const bukti = contractor
                   ? contractor.expenses.reduce((s, e) => s + e.amount, 0)
                   : 0;
@@ -519,6 +566,7 @@ export default async function ReportsPage({
                   if (tx.projectId !== project.id || tx.type !== "EXPENSE") {
                     continue;
                   }
+                  if (tx.isMandorExpense) continue;
                   const kind = fundKindFromCategoryName(tx.category.name);
                   if (!kind) continue;
                   spentByKind[kind] = (spentByKind[kind] ?? 0) + tx.amount;
@@ -529,6 +577,34 @@ export default async function ReportsPage({
                 const hasFundPlan = projectFundKinds.some(
                   (k) => (fundByKind.get(k) ?? 0) > 0 || (spentByKind[k] ?? 0) > 0,
                 );
+
+                const projectAdvs: Array<{
+                  id: string;
+                  date: Date;
+                  amount: number;
+                  description: string;
+                  contractorName: string;
+                }> = [];
+                const bkkRows = buildProjectBkkRows(
+                  projectTxs.map((tx) => ({
+                    id: tx.id,
+                    date: tx.date,
+                    type: tx.type,
+                    amount: tx.amount,
+                    description: tx.description,
+                    isOwnerPersonal: tx.isOwnerPersonal,
+                    isFeeTransfer: tx.isFeeTransfer,
+                    isFromGlobalCash: tx.isFromGlobalCash,
+                    isMandorExpense: tx.isMandorExpense,
+                    isMandorDisbursement: tx.isMandorDisbursement,
+                    categoryName: tx.category.name,
+                    expenseLines: tx.expenseLines,
+                  })),
+                  projectAdvs,
+                );
+                const bulanKe = from
+                  ? from.getMonth() + 1
+                  : new Date().getMonth() + 1;
 
                 return (
                   <div
@@ -567,25 +643,30 @@ export default async function ReportsPage({
                       </div>
                     </div>
 
-                    <div className="grid gap-2 border-b border-teal-900/8 px-5 py-4 text-sm sm:grid-cols-4">
-                      <SummaryPill
-                        label="Saldo awal"
-                        value={formatRupiah(opening)}
-                      />
-                      <SummaryPill
-                        label="Masuk"
-                        value={formatRupiah(masuk)}
-                        tone="in"
-                      />
-                      <SummaryPill
-                        label="Keluar"
-                        value={formatRupiah(keluar)}
-                        tone="out"
-                      />
-                      <SummaryPill
-                        label="Saldo kas"
-                        value={formatRupiah(saldo)}
-                        tone="bal"
+                    <div className="border-b border-teal-900/8 px-5 py-4">
+                      <BookSummaryStrip
+                        items={[
+                          {
+                            label: "Saldo awal",
+                            value: formatRupiah(opening),
+                            tone: "bal",
+                          },
+                          {
+                            label: "Penerimaan",
+                            value: formatRupiah(masuk),
+                            tone: "in",
+                          },
+                          {
+                            label: "Pengeluaran",
+                            value: formatRupiah(keluar),
+                            tone: "out",
+                          },
+                          {
+                            label: "Saldo",
+                            value: formatRupiah(saldo),
+                            tone: "bal",
+                          },
+                        ]}
                       />
                     </div>
 
@@ -597,7 +678,7 @@ export default async function ReportsPage({
                         {" · "}
                         Borongan {formatRupiah(contractor.agreedAmount)}
                         {" · "}
-                        Termin {formatRupiah(termin)}
+                        Dana Mandor {formatRupiah(termin)}
                         {" · "}
                         Bukti {formatRupiah(bukti)}
                         {contractor.phone ? ` · ${contractor.phone}` : ""}
@@ -630,12 +711,13 @@ export default async function ReportsPage({
                       </div>
                     ) : null}
 
-                    <div className="px-2 py-2 sm:px-4">
-                      <LedgerTable
-                        rows={book}
+                    <div className="px-2 py-3 sm:px-4">
+                      <ProjectBkkLedger
+                        projectName={project.name}
+                        location={project.location}
+                        rows={bkkRows}
                         opening={opening}
-                        showProject={false}
-                        empty="Belum ada mutasi kas pada proyek ini."
+                        bulanKe={bulanKe}
                       />
                     </div>
                   </div>
@@ -655,21 +737,25 @@ export default async function ReportsPage({
             mengurangi kas besar dan sisa target fee proyek.
           </p>
 
-          <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-            <SummaryPill
-              label="Setoran pribadi"
-              value={formatRupiah(ownerInjectTotal)}
-              tone="in"
-            />
-            <SummaryPill
-              label="Ambil pribadi"
-              value={formatRupiah(ownerDrawTotal)}
-              tone="out"
-            />
-            <SummaryPill
-              label="Netto pribadi"
-              value={formatRupiah(ownerInjectTotal - ownerDrawTotal)}
-              tone="bal"
+          <div className="mt-4">
+            <BookSummaryStrip
+              items={[
+                {
+                  label: "Setoran pribadi",
+                  value: formatRupiah(ownerInjectTotal),
+                  tone: "in",
+                },
+                {
+                  label: "Ambil pribadi",
+                  value: formatRupiah(ownerDrawTotal),
+                  tone: "out",
+                },
+                {
+                  label: "Netto pribadi",
+                  value: formatRupiah(ownerInjectTotal - ownerDrawTotal),
+                  tone: "bal",
+                },
+              ]}
             />
           </div>
 
@@ -766,150 +852,6 @@ export default async function ReportsPage({
           </p>
         </footer>
       </article>
-    </div>
-  );
-}
-
-function SummaryPill({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "in" | "out" | "bal";
-}) {
-  const color =
-    tone === "in"
-      ? "text-emerald-800"
-      : tone === "out"
-        ? "text-rose-800"
-        : tone === "bal"
-          ? "text-teal-900"
-          : "text-teal-950";
-  return (
-    <div className="rounded-md border border-teal-900/10 bg-white px-3 py-2 text-sm">
-      <p className="text-teal-900/55">{label}</p>
-      <p className={`mt-0.5 whitespace-nowrap tabular-nums font-medium ${color}`}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function LedgerTable({
-  rows,
-  opening,
-  showProject,
-  empty,
-}: {
-  rows: ReturnType<typeof buildRunningBalance>;
-  opening: number;
-  showProject: boolean;
-  empty: string;
-}) {
-  if (rows.length === 0 && opening === 0) {
-    return (
-      <p className="mt-4 px-2 text-sm text-teal-900/55">{empty}</p>
-    );
-  }
-
-  return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-teal-900/15 text-sm text-teal-900/55">
-            <th className="py-2.5 pr-3 font-medium">Tanggal</th>
-            {showProject ? (
-              <th className="py-2.5 pr-3 font-medium">Proyek</th>
-            ) : null}
-            <th className="py-2.5 pr-3 font-medium">Uraian</th>
-            <th className="py-2.5 pr-3 font-medium">Sumber</th>
-            <th className="py-2.5 pr-2 text-right font-medium">Debit</th>
-            <th className="py-2.5 pr-2 text-right font-medium">Kredit</th>
-            <th className="py-2.5 text-right font-medium">Saldo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {opening > 0 ? (
-            <tr className="border-b border-teal-900/8 bg-teal-50/40">
-              <td className="py-2.5 pr-3 whitespace-nowrap text-teal-900/55">
-                —
-              </td>
-              {showProject ? (
-                <td className="py-2.5 pr-3 text-teal-900/55">—</td>
-              ) : null}
-              <td className="py-2.5 pr-3 text-teal-950">Saldo awal</td>
-              <td className="py-2.5 pr-3 text-teal-900/55">—</td>
-              <td className="py-2.5 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
-                {moneyCell(opening)}
-              </td>
-              <td className="py-2.5 pr-2 text-right text-teal-900/40">—</td>
-              <td className="py-2.5 text-right whitespace-nowrap tabular-nums text-teal-950">
-                {formatRupiah(opening)}
-              </td>
-            </tr>
-          ) : null}
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b border-teal-900/6">
-              <td className="py-2.5 pr-3 whitespace-nowrap text-teal-950">
-                {format(row.date, "dd/MM/yyyy")}
-              </td>
-              {showProject ? (
-                <td className="py-2.5 pr-3 text-teal-950">
-                  {row.projectName}
-                  <span className="text-teal-900/55"> · {row.location}</span>
-                </td>
-              ) : null}
-              <td className="max-w-md py-2.5 pr-3 text-teal-950">
-                <span className="text-teal-900/55">{row.kind}</span>
-                {" · "}
-                {row.description}
-              </td>
-              <td className="py-2.5 pr-3 whitespace-nowrap text-teal-950">
-                {row.sourceName}
-              </td>
-              <td className="py-2.5 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
-                {moneyCell(row.debit)}
-              </td>
-              <td className="py-2.5 pr-2 text-right whitespace-nowrap tabular-nums text-rose-800">
-                {moneyCell(row.credit)}
-              </td>
-              <td
-                className={`py-2.5 text-right whitespace-nowrap tabular-nums ${
-                  row.balance < 0 ? "text-rose-700" : "text-teal-950"
-                }`}
-              >
-                {formatRupiah(row.balance)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-teal-900/15 text-sm">
-            <td
-              colSpan={showProject ? 4 : 3}
-              className="py-3 pr-3 text-right font-medium text-teal-950"
-            >
-              Saldo akhir
-            </td>
-            <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-emerald-800">
-              {moneyCell(
-                rows.reduce((s, r) => s + r.debit, 0) +
-                  (opening > 0 ? opening : 0),
-              )}
-            </td>
-            <td className="py-3 pr-2 text-right whitespace-nowrap tabular-nums text-rose-800">
-              {moneyCell(rows.reduce((s, r) => s + r.credit, 0))}
-            </td>
-            <td className="py-3 text-right whitespace-nowrap tabular-nums font-medium text-teal-950">
-              {formatRupiah(
-                rows.length > 0 ? rows[rows.length - 1].balance : opening,
-              )}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
     </div>
   );
 }

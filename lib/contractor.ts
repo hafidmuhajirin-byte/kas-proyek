@@ -95,10 +95,11 @@ export type ContractorSummary = {
 
 export function summarizeContractor(input: {
   agreedAmount: number;
-  advances: { amount: number }[];
+  /** Pembayaran ke lapangan (Dana ke Mandor) — menggantikan termin lama */
+  payments: { amount: number }[];
   expenses: { amount: number }[];
 }): ContractorSummary {
-  const totalAdvances = input.advances.reduce((sum, a) => sum + a.amount, 0);
+  const totalAdvances = input.payments.reduce((sum, a) => sum + a.amount, 0);
   const totalExpenses = input.expenses.reduce((sum, e) => sum + e.amount, 0);
   const inHand = Math.max(0, totalAdvances - totalExpenses);
   const shortfall = Math.max(0, totalExpenses - totalAdvances);
@@ -168,8 +169,8 @@ export const contractorExpenseKindLabels: Record<string, string> = {
 };
 
 export const contractorStatusLabels: Record<ContractorStatus, string> = {
-  BELUM: "Belum ada termin",
+  BELUM: "Belum ada pencairan",
   BERJALAN: "Berjalan",
-  LUNAS: "Lunas (bukti = termin)",
-  KURANG_TERMIN: "Perlu termin berikutnya",
+  LUNAS: "Lunas (bukti = cair)",
+  KURANG_TERMIN: "Perlu pencairan berikutnya",
 };

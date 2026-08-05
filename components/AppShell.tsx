@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { logoutAction } from "@/lib/actions/auth";
 import type { SessionUser } from "@/lib/auth";
 import { roleLabels } from "@/lib/labels";
+import { ProofReviewHost } from "@/components/ProofReviewLink";
 
 const AssistantKas = dynamic(
   () => import("@/components/AssistantKas").then((m) => m.AssistantKas),
@@ -23,9 +24,7 @@ function navForRole(role: SessionUser["role"]): {
 } {
   if (role === "ADMIN") {
     const primary = [
-      { href: "/dashboard", label: "Dashboard", short: "Home" },
-      { href: "/projects", label: "Proyek", short: "Proyek" },
-      { href: "/transactions", label: "Buku Kas", short: "Kas" },
+      { href: "/admin/lpj", label: "Proyek LPJ", short: "LPJ" },
     ];
     return { primary, secondary: [], mobile: primary, showAssistant: false };
   }
@@ -37,7 +36,8 @@ function navForRole(role: SessionUser["role"]): {
   const primary = [
     { href: "/dashboard", label: "Dashboard", short: "Home" },
     { href: "/projects", label: "Proyek", short: "Proyek" },
-    { href: "/transactions", label: "Buku Kas", short: "Kas" },
+    { href: "/transactions", label: "Kas Besar", short: "Besar" },
+    { href: "/transactions/project", label: "Kas Proyek", short: "Proyek" },
     { href: "/reports", label: "Laporan", short: "Lapor" },
   ];
   const secondary = [
@@ -77,8 +77,15 @@ export function AppShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const nav = useMemo(() => navForRole(user.role), [user.role]);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = (href: string) => {
+    if (href === "/transactions") {
+      return pathname === "/transactions" || pathname.startsWith("/transactions/new") || /^\/transactions\/[^/]+\/edit/.test(pathname);
+    }
+    if (href === "/transactions/project") {
+      return pathname === "/transactions/project" || pathname.startsWith("/transactions/project/");
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   const secondaryActive = nav.secondary.some((item) => isActive(item.href));
   const [setupOpen, setSetupOpen] = useState(secondaryActive);
@@ -301,6 +308,7 @@ export function AppShell({
       ) : null}
 
       {nav.showAssistant ? <AssistantKas /> : null}
+      <ProofReviewHost />
     </div>
   );
 }
