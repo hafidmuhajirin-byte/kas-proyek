@@ -8,6 +8,10 @@ import {
   type BkuMonthBlock,
 } from "@/lib/buku-kas/bku";
 import {
+  buildBktMonthBlocks,
+  type BktMonthBlock,
+} from "@/lib/buku-kas/bkt";
+import {
   buildCashBookRows,
   type CashBookLine,
 } from "@/lib/project-cash-book";
@@ -47,8 +51,10 @@ export type LpjBooksPayload = {
   };
   bankBlocks: BankMonthBlock[];
   bkuBlocks: BkuMonthBlock[];
+  bktBlocks: BktMonthBlock[];
   /** @deprecated pakai bkuBlocks; tetap diisi untuk kompatibilitas singkat */
   bkuRows: CashBookLine[];
+  /** @deprecated pakai bktBlocks */
   bktRows: CashBookLine[];
   taxRows: LpjTaxRow[];
   taxTotals: {
@@ -200,16 +206,49 @@ export async function loadLpjBooks(
 
   const cashTx = ledgerTx.filter((tx) => tx.cashSource.type === "CASH");
   const bktRows = buildCashBookRows(
-    cashTx.map((tx) => ({
-      date: tx.date,
-      description: tx.description,
-      type: tx.type,
-      amount: tx.amount,
-      isMandorExpense: tx.isMandorExpense,
-      categoryName: tx.category.name,
-      cashSourceName: tx.cashSource.name,
-    })),
+    cashTx.map((tx) => {
+      const p = pengambilanById.get(tx.id);
+      return {
+        date: tx.date,
+        description: p?.pengambilanLabel ?? tx.description,
+        type: tx.type,
+        amount: tx.amount,
+        isMandorExpense: tx.isMandorExpense,
+        categoryName: tx.category.name,
+        cashSourceName: tx.cashSource.name,
+      };
+    }),
     project.openingBalance,
+  );
+
+  // BKT formal: pengambilan + pengeluaran (nota/tunai), format ledger tunggal
+  const bktBlocks = buildBktMonthBlocks(
+    ledgerTx.map((tx) => {
+      const p = pengambilanById.get(tx.id);
+      return {
+        id: tx.id,
+        date: tx.date,
+        description: p?.pengambilanLabel ?? tx.description,
+        type: tx.type,
+        amount: tx.amount,
+        isMandorExpense: tx.isMandorExpense,
+        isMandorDisbursement: tx.isMandorDisbursement,
+        categoryName: tx.category.name,
+        cashSourceType:
+          tx.type === "INCOME" || tx.isMandorExpense
+            ? "CASH"
+            : tx.cashSource.type,
+        expenseLines: tx.expenseLines.map((l) => ({
+          description: l.description,
+          quantity: l.quantity ?? l.workDays,
+          unit: l.unit ?? (l.kind === "LABOR" ? "hari" : null),
+          amount: l.amount,
+          kind: l.kind,
+          isMaterialAlam: l.isMaterialAlam,
+        })),
+      };
+    }),
+    { openingCashBalance: 0 },
   );
 
   const expenseForTax = ledgerTx.filter(
@@ -265,6 +304,7 @@ export async function loadLpjBooks(
     },
     bankBlocks,
     bkuBlocks,
+    bktBlocks,
     bkuRows,
     bktRows,
     taxRows,

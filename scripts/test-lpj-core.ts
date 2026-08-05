@@ -22,6 +22,9 @@ import {
   mapExpenseCostType,
 } from "../lib/buku-kas/bku";
 import {
+  buildBktMonthBlocks,
+} from "../lib/buku-kas/bkt";
+import {
   collectOwnerPengambilan,
   isOwnerPengambilanFromUser,
 } from "../lib/lpj/owner-pengambilan";
@@ -361,6 +364,58 @@ function assert(cond: boolean, msg: string) {
     40_000_000 - 5_000_000 - materialTaxPpn - materialTaxPph - 3_000_000;
   assert(bku[0].cashBalance === expectedCash, `kas tunai ${expectedCash}`);
   assert(bku[0].bankBalance === 60_000_000, "saldo bank dari buku bank");
+}
+
+{
+  const bkt = buildBktMonthBlocks(
+    [
+      {
+        date: new Date(2025, 8, 1),
+        description: "Pengambilan Ke-1",
+        type: "INCOME",
+        amount: 84_000_000,
+        categoryName: "Transfer Owner",
+        cashSourceType: "CASH",
+      },
+      {
+        date: new Date(2025, 8, 2),
+        description: "Nota bahan",
+        type: "EXPENSE",
+        amount: 500_000,
+        isMandorExpense: true,
+        categoryName: "Belanja Mandor",
+        cashSourceType: "CASH",
+        expenseLines: [
+          {
+            description: "Banner",
+            quantity: 10,
+            unit: "m",
+            amount: 170_000,
+            kind: "MATERIAL",
+          },
+          {
+            description: "Cetak A3",
+            quantity: 26,
+            unit: "Lbr",
+            amount: 91_000,
+            kind: "MATERIAL",
+          },
+          {
+            description: "Lainnya",
+            quantity: 1,
+            unit: "Ls",
+            amount: 239_000,
+            kind: "MATERIAL",
+          },
+        ],
+      },
+    ],
+    { openingCashBalance: 0 },
+  );
+  assert(bkt.length === 1, "bkt satu bulan");
+  assert(bkt[0].rows[0].income === 84_000_000, "bkt penerimaan pengambilan");
+  assert(bkt[0].rows.some((r) => r.proofNo === "BKK.1"), "bkt BKK.1");
+  assert(bkt[0].closingBalance === 84_000_000 - 500_000, "bkt closing");
 }
 
 if (failed > 0) {
