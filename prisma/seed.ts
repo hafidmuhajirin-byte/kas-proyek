@@ -37,17 +37,6 @@ async function main() {
     },
   });
 
-  // Migrasi akun lama admin → pastikan jadi OWNER jika masih ada
-  const legacyAdmin = await prisma.user.findUnique({
-    where: { username: "admin" },
-  });
-  if (legacyAdmin) {
-    await prisma.user.update({
-      where: { id: legacyAdmin.id },
-      data: { role: "OWNER", name: legacyAdmin.name || "Owner (admin)" },
-    });
-  }
-
   // Admin produksi = username adminok (bukan "admin")
   await prisma.user.upsert({
     where: { username: "adminok" },
@@ -60,7 +49,7 @@ async function main() {
     },
   });
 
-  // Akun seed lama "admin" — jika ada, arahkan ke ADMIN baca saja (dev)
+  // Akun seed lama "admin" (opsional, legacy lokal)
   await prisma.user.upsert({
     where: { username: "admin" },
     update: { role: "ADMIN", name: "Admin Pengawas (legacy)" },
@@ -72,8 +61,7 @@ async function main() {
     },
   });
 
-  // Jika admin di-update jadi ADMIN tapi kita butuh owner terpisah —
-  // pastikan owner pakai 'owner'; admin produksi pakai 'adminok'
+  // Owner terpisah: 'owner'; Admin produksi: 'adminok'
 
   const mandor = await prisma.user.upsert({
     where: { username: "mandor" },
