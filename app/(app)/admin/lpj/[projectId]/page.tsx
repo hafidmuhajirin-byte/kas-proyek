@@ -34,8 +34,8 @@ const MENU = [
   },
   {
     href: "export",
-    title: "Export LPJ",
-    desc: "Unduh Buku Bank / BKU / BKT / Rekap Pajak",
+    title: "Laporan LPJ",
+    desc: "Pratinjau Buku Bank, BKU, BKT, Rekap Pajak + cetak",
   },
 ] as const;
 
