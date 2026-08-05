@@ -215,7 +215,7 @@ export default async function AdminLpjBankPage({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-[var(--ink-muted)]">Kepala Sekolah — NIP</span>
+            <span className="text-[var(--ink-muted)]">Kepala Sekolah — NIP (opsional)</span>
             <input
               name="lpjKepalaNip"
               defaultValue={project.lpjKepalaNip ?? ""}
@@ -247,7 +247,7 @@ export default async function AdminLpjBankPage({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-[var(--ink-muted)]">Bendahara P2SP — NIP</span>
+            <span className="text-[var(--ink-muted)]">Bendahara P2SP — NIP (opsional)</span>
             <input
               name="lpjBendaharaNip"
               defaultValue={project.lpjBendaharaNip ?? ""}
