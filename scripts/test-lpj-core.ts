@@ -12,6 +12,7 @@ import {
 } from "../lib/lpj/smart-estimator";
 import {
   buildBankMonthBlocks,
+  buildBankMutationsFromProject,
   plannedTranchesFromContract,
   validatePhase1Spend,
 } from "../lib/buku-kas/bank";
@@ -90,27 +91,34 @@ function assert(cond: boolean, msg: string) {
   assert(t.totalMaterialTarget === 60_000_000, "material target 60jt");
 }
 
-// Bank 70/30 + saldo
+// Bank 70/30 + pengambilan dari penerimaan Owner
 {
   const p = plannedTranchesFromContract(100_000_000);
   assert(p.phase70 === 70_000_000 && p.phase30 === 30_000_000, "70/30 split");
   const v = validatePhase1Spend(70_000_000, 84_000_000);
   assert(!v.ok && v.overspend === 14_000_000, "phase1 overspend");
 
-  const blocks = buildBankMonthBlocks([
-    {
-      date: new Date(2025, 7, 13),
-      description: "Pencairan 70%",
-      debit: 84_748_671,
-      credit: 0,
-    },
-    {
-      date: new Date(2025, 8, 2),
-      description: "Pengambilan Ke-1",
-      debit: 0,
-      credit: 84_000_000,
-    },
-  ]);
+  const { mutations, totalPengambilan } = buildBankMutationsFromProject({
+    tranches: [
+      {
+        phase: "PHASE_70",
+        receivedAmount: 84_748_671,
+        receivedAt: new Date(2025, 7, 13),
+      },
+    ],
+    ownerReceipts: [
+      {
+        date: new Date(2025, 8, 2),
+        amount: 84_000_000,
+        description: "PEMBAYARAN 1",
+      },
+    ],
+  });
+  assert(totalPengambilan === 84_000_000, "total pengambilan dari receipt");
+  assert(mutations.some((m) => m.credit === 84_000_000), "kredit pengambilan");
+  assert(mutations.some((m) => m.debit === 84_748_671), "debet pencairan");
+
+  const blocks = buildBankMonthBlocks(mutations);
   assert(blocks.length === 2, "dua bulan");
   assert(blocks[0].closingBalance === 84_748_671, "agu closing");
   assert(blocks[1].closingBalance === 748_671, "sep closing after withdrawal");

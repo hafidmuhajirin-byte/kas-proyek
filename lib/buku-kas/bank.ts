@@ -57,6 +57,72 @@ export function validatePhase1Spend(
   return { ok: overspend === 0, remaining, overspend };
 }
 
+export type BankTrancheInput = {
+  phase: "PHASE_70" | "PHASE_30" | string;
+  receivedAmount: number;
+  receivedAt: Date | null;
+};
+
+/** Dana yang diterima Owner dari User → Kredit Buku Bank (pengambilan). */
+export type OwnerReceiptInput = {
+  date: Date;
+  amount: number;
+  description?: string | null;
+};
+
+/**
+ * Susun mutasi Buku Bank:
+ * - Debet: pencairan tranche 70%/30% ke bank User
+ * - Kredit: pengambilan = nominal+tanggal dana yang diterima Owner dari User
+ */
+export function buildBankMutationsFromProject(input: {
+  tranches: BankTrancheInput[];
+  ownerReceipts: OwnerReceiptInput[];
+}): { mutations: BankMutation[]; totalPengambilan: number } {
+  const mutations: BankMutation[] = [];
+
+  const t70 = input.tranches.find((t) => t.phase === "PHASE_70");
+  const t30 = input.tranches.find((t) => t.phase === "PHASE_30");
+
+  if (t70?.receivedAmount && t70.receivedAt) {
+    mutations.push({
+      date: t70.receivedAt,
+      description: "Uang Masuk Bank Mandiri",
+      proofNo: "01",
+      debit: t70.receivedAmount,
+      credit: 0,
+    });
+  }
+  if (t30?.receivedAmount && t30.receivedAt) {
+    mutations.push({
+      date: t30.receivedAt,
+      description: "Pencairan tahap 2 (30%)",
+      proofNo: "02",
+      debit: t30.receivedAmount,
+      credit: 0,
+    });
+  }
+
+  const receipts = [...input.ownerReceipts]
+    .filter((r) => r.amount > 0)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  let totalPengambilan = 0;
+  receipts.forEach((r, i) => {
+    const n = i + 1;
+    mutations.push({
+      date: r.date,
+      description: `Pengambilan Ke-${n}`,
+      proofNo: String(n + 2).padStart(2, "0"),
+      debit: 0,
+      credit: Math.round(r.amount),
+    });
+    totalPengambilan += Math.round(r.amount);
+  });
+
+  return { mutations, totalPengambilan };
+}
+
 function monthKey(d: Date) {
   return d.getFullYear() * 100 + (d.getMonth() + 1);
 }

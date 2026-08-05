@@ -8,9 +8,9 @@ import { formatRupiah } from "@/lib/money";
 import { Card, PageHeader } from "@/components/ui";
 import {
   buildBankMonthBlocks,
+  buildBankMutationsFromProject,
   plannedTranchesFromContract,
   validatePhase1Spend,
-  type BankMutation,
 } from "@/lib/buku-kas/bank";
 import {
   ensureBankTranchesAction,
@@ -44,6 +44,19 @@ export default async function AdminLpjBankPage({
       lpjBendaharaNip: true,
       lpjKabKota: true,
       lpjProvinsi: true,
+      transactions: {
+        where: {
+          type: "INCOME",
+          isOwnerPersonal: false,
+          isFeeTransfer: false,
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+        select: {
+          date: true,
+          amount: true,
+          description: true,
+        },
+      },
     },
   });
   if (!project || project.status !== "ACTIVE") notFound();
@@ -52,29 +65,24 @@ export default async function AdminLpjBankPage({
   const t70 = project.bankTranches.find((t) => t.phase === "PHASE_70");
   const t30 = project.bankTranches.find((t) => t.phase === "PHASE_30");
 
-  const mutations: BankMutation[] = [];
-  if (t70?.receivedAmount && t70.receivedAt) {
-    mutations.push({
-      date: t70.receivedAt,
-      description: "Uang Masuk Bank Mandiri",
-      proofNo: "01",
-      debit: t70.receivedAmount,
-      credit: 0,
-    });
-  }
-  if (t30?.receivedAmount && t30.receivedAt) {
-    mutations.push({
-      date: t30.receivedAt,
-      description: "Pencairan tahap 2 (30%)",
-      proofNo: "02",
-      debit: t30.receivedAmount,
-      credit: 0,
-    });
-  }
+  const { mutations, totalPengambilan } = buildBankMutationsFromProject({
+    tranches: project.bankTranches.map((t) => ({
+      phase: t.phase,
+      receivedAmount: t.receivedAmount,
+      receivedAt: t.receivedAt,
+    })),
+    ownerReceipts: project.transactions.map((tx) => ({
+      date: tx.date,
+      amount: tx.amount,
+      description: tx.description,
+    })),
+  });
 
-  const phase1Out = 0;
   const blocks = buildBankMonthBlocks(mutations);
-  const phaseCheck = validatePhase1Spend(t70?.receivedAmount ?? 0, phase1Out);
+  const phaseCheck = validatePhase1Spend(
+    t70?.receivedAmount ?? 0,
+    totalPengambilan,
+  );
 
   return (
     <div>
@@ -185,9 +193,24 @@ export default async function AdminLpjBankPage({
         <h3 className="font-medium">Validasi fase 1 (70%)</h3>
         <p className="mt-2 text-sm">
           Cair 70%: {formatRupiah(t70?.receivedAmount ?? 0)} · Pengambilan
-          tercatat: {formatRupiah(phase1Out)} · Sisa plafon:{" "}
-          {formatRupiah(phaseCheck.remaining)}
+          (dana diterima Owner): {formatRupiah(totalPengambilan)} · Sisa
+          plafon: {formatRupiah(phaseCheck.remaining)}
         </p>
+        {project.transactions.length > 0 ? (
+          <ul className="mt-2 space-y-1 text-sm text-[var(--ink-muted)]">
+            {project.transactions.map((tx, i) => (
+              <li key={`${tx.date.toISOString()}-${i}`}>
+                {format(tx.date, "dd/MM/yyyy")} ·{" "}
+                {tx.description || `Pengambilan Ke-${i + 1}`} ·{" "}
+                {formatRupiah(tx.amount)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-[var(--ink-muted)]">
+            Belum ada pemasukan proyek (dana diterima Owner dari User).
+          </p>
+        )}
         {!phaseCheck.ok ? (
           <p className="mt-2 text-sm text-[var(--rose-ink)]">
             Melebihi pencairan 70% sebesar {formatRupiah(phaseCheck.overspend)}.

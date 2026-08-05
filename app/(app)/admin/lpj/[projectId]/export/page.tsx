@@ -77,7 +77,8 @@ export default async function AdminLpjExportPage({
         <p className="text-sm text-stone-600">
           Nilai SPK {formatRupiah(project.contractValue)} · Cair 70%{" "}
           {formatRupiah(books.trancheSummary.phase70Received)} · Cair 30%{" "}
-          {formatRupiah(books.trancheSummary.phase30Received)}
+          {formatRupiah(books.trancheSummary.phase30Received)} · Pengambilan{" "}
+          {formatRupiah(books.trancheSummary.totalPengambilan)}
         </p>
       </header>
 

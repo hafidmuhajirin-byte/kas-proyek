@@ -1,6 +1,6 @@
 import {
   buildBankMonthBlocks,
-  type BankMutation,
+  buildBankMutationsFromProject,
   type BankMonthBlock,
 } from "@/lib/buku-kas/bank";
 import {
@@ -53,6 +53,7 @@ export type LpjBooksPayload = {
   trancheSummary: {
     phase70Received: number;
     phase30Received: number;
+    totalPengambilan: number;
   };
 };
 
@@ -102,25 +103,28 @@ export async function loadLpjBooks(
   const t70 = project.bankTranches.find((t) => t.phase === "PHASE_70");
   const t30 = project.bankTranches.find((t) => t.phase === "PHASE_30");
 
-  const mutations: BankMutation[] = [];
-  if (t70?.receivedAmount && t70.receivedAt) {
-    mutations.push({
-      date: t70.receivedAt,
-      description: "Pencairan tahap 1 (70%)",
-      proofNo: "T1",
-      debit: t70.receivedAmount,
-      credit: 0,
-    });
-  }
-  if (t30?.receivedAmount && t30.receivedAt) {
-    mutations.push({
-      date: t30.receivedAt,
-      description: "Pencairan tahap 2 (30%)",
-      proofNo: "T2",
-      debit: t30.receivedAmount,
-      credit: 0,
-    });
-  }
+  // Pengambilan = dana yang diterima Owner dari User (INCOME proyek, bukan pribadi/fee)
+  const ownerReceipts = project.transactions
+    .filter(
+      (tx) =>
+        tx.type === "INCOME" &&
+        !tx.isOwnerPersonal &&
+        !tx.isFeeTransfer,
+    )
+    .map((tx) => ({
+      date: tx.date,
+      amount: tx.amount,
+      description: tx.description,
+    }));
+
+  const { mutations, totalPengambilan } = buildBankMutationsFromProject({
+    tranches: project.bankTranches.map((t) => ({
+      phase: t.phase,
+      receivedAmount: t.receivedAmount,
+      receivedAt: t.receivedAt,
+    })),
+    ownerReceipts,
+  });
   const bankBlocks = buildBankMonthBlocks(mutations);
 
   const ledgerTx = project.transactions.filter(
@@ -207,6 +211,7 @@ export async function loadLpjBooks(
     trancheSummary: {
       phase70Received: t70?.receivedAmount ?? 0,
       phase30Received: t30?.receivedAmount ?? 0,
+      totalPengambilan,
     },
   };
 }
