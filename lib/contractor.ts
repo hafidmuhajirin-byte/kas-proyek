@@ -5,6 +5,24 @@ export const CONTRACTOR_TARGET_PERCENT = 70;
 /** Batas atas aman — di atas ini keuangan berisiko */
 export const CONTRACTOR_MAX_SAFE_PERCENT = 75;
 
+/**
+ * Estimasi maksimal pekerjaan untuk Mandor (informasi saja).
+ * Utama: nilai borongan yang disepakati; fallback: 70% nilai kontrak.
+ */
+export function mandorWorkEstimateMax(input: {
+  agreedAmount?: number | null;
+  contractValue?: number | null;
+}): { amount: number; source: "borongan" | "kontrak70" | "none" } {
+  const agreed = Math.max(0, Math.round(input.agreedAmount ?? 0));
+  if (agreed > 0) return { amount: agreed, source: "borongan" };
+  const fromContract = calcContractorBudgetAmount(
+    input.contractValue ?? 0,
+    CONTRACTOR_TARGET_PERCENT,
+  );
+  if (fromContract > 0) return { amount: fromContract, source: "kontrak70" };
+  return { amount: 0, source: "none" };
+}
+
 export type ContractorBudgetBand = "ideal" | "aman" | "berisiko" | "unknown";
 
 export function calcContractorBudgetAmount(

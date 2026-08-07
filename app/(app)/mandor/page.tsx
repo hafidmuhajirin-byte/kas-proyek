@@ -4,6 +4,7 @@ import {
   isMandor,
   requireSession,
 } from "@/lib/auth";
+import { mandorWorkEstimateMax } from "@/lib/contractor";
 import { getMandorFundSummariesFor } from "@/lib/mandor-fund";
 import { formatRupiah } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -41,7 +42,13 @@ export default async function MandorHomePage() {
     prisma.project.findMany({
       where: { id: { in: ids } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, location: true },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        contractValue: true,
+        contractor: { select: { agreedAmount: true } },
+      },
     }),
     prisma.transaction.findMany({
       where: {
@@ -108,6 +115,10 @@ export default async function MandorHomePage() {
             totalBukti: 0,
             sisa: 0,
           };
+          const estimate = mandorWorkEstimateMax({
+            agreedAmount: p.contractor?.agreedAmount,
+            contractValue: p.contractValue,
+          });
           const mapsUrl = googleMapsSearchUrl(p.name, p.location);
           return (
             <Card key={p.id} className="space-y-3">
@@ -124,6 +135,23 @@ export default async function MandorHomePage() {
                   </a>
                 ) : null}
               </div>
+
+              {estimate.amount > 0 ? (
+                <div className="rounded-lg border border-[var(--line)] bg-[var(--paper-tint)] px-3 py-3 text-center">
+                  <p className="text-xs text-[var(--ink-faint)]">
+                    Estimasi maksimal pekerjaan
+                  </p>
+                  <p className="mt-0.5 text-lg font-medium tabular-nums text-[var(--ink)]">
+                    {formatRupiah(estimate.amount)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--ink-faint)]">
+                    {estimate.source === "borongan"
+                      ? "Dari nilai borongan · estimasi saja, bukan dana cair"
+                      : "Perkiraan 70% kontrak · estimasi saja, bukan dana cair"}
+                  </p>
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <p className="text-[var(--ink-faint)]">Dana dari Owner</p>
