@@ -136,12 +136,6 @@ select,
   }
 }
 
-/* Header ulang cetak LPJ — hanya tampil saat print di halaman export */
-.lpj-print-running-header,
-.lpj-print-running-meta {
-  display: none;
-}
-
 @media print {
   @page {
     size: A4;
@@ -297,36 +291,30 @@ select,
     min-height: 0 !important;
   }
 
-  .lpj-export-print .lpj-print-running-header th {
-    border: none !important;
-    background: white !important;
-    font-weight: 700;
-    text-align: center;
-    padding: 1px 2px !important;
+  /* Header dokumen = layout layar (judul + meta 3 kolom), bukan baris ringkas */
+  .lpj-export-print .lpj-month-screen-header {
+    display: block !important;
+    margin-bottom: 0.35rem;
   }
 
-  .lpj-export-print .lpj-print-running-meta th {
-    border: none !important;
-    background: white !important;
-    font-weight: 400;
-    text-align: left;
-    font-size: 7.5px !important;
-    padding: 0 2px 3px !important;
+  .lpj-export-print .lpj-month-screen-header h3 {
+    font-size: 13px !important;
+    text-decoration: underline;
+  }
+
+  .lpj-export-print .lpj-month-screen-header p,
+  .lpj-export-print .lpj-month-screen-header span {
+    font-size: 9px !important;
+  }
+
+  .lpj-export-print .lpj-month-screen-header .mt-4 {
+    margin-top: 0.35rem !important;
   }
 
   .lpj-export-print .lpj-sign-block {
     break-inside: avoid;
     page-break-inside: avoid;
     margin-top: 0.75rem !important;
-  }
-
-  .lpj-export-print .lpj-month-screen-header {
-    display: none !important;
-  }
-
-  .lpj-export-print .lpj-print-running-header,
-  .lpj-export-print .lpj-print-running-meta {
-    display: table-row !important;
   }
 
   .lpj-export-print .rekap-pajak-doc {

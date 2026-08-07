@@ -253,15 +253,6 @@ export function BankBookPreview({
             <div className="mt-4 overflow-x-auto print:mt-0">
               <table className="lpj-book-table w-full min-w-[640px] border-collapse text-[11px] sm:text-xs">
                 <thead>
-                  <tr className="lpj-print-running-header">
-                    <th colSpan={7}>BUKU BANK — Bulan {monthLabel}</th>
-                  </tr>
-                  <tr className="lpj-print-running-meta">
-                    <th colSpan={7}>
-                      Sekolah: {school} · Desa: {loc.alamat} · Kec:{" "}
-                      {loc.kecamatan} · Kab: {kab} · Prov: {prov}
-                    </th>
-                  </tr>
                   <tr className="bg-stone-100">
                     <th className="border border-stone-400 px-1.5 py-2 text-center">
                       No.
@@ -492,18 +483,6 @@ export function BkuPreview({
             <div className="mt-4 overflow-x-auto print:mt-0">
               <table className="lpj-book-table w-full min-w-[980px] border-collapse text-[10px] sm:text-[11px]">
                 <thead>
-                  <tr className="lpj-print-running-header">
-                    <th colSpan={11}>
-                      BUKU KAS UMUM — {subtitle} (Bulan ke-{b.monthIndex})
-                    </th>
-                  </tr>
-                  <tr className="lpj-print-running-meta">
-                    <th colSpan={11}>
-                      Sekolah: {school} · {loc.alamat} · Kec: {loc.kecamatan} ·
-                      Kab: {kab} · Prov: {prov} · {periodStartLabel} s/d{" "}
-                      {periodEndLabel}
-                    </th>
-                  </tr>
                   <tr className="bg-stone-100">
                     <th
                       colSpan={3}
@@ -865,17 +844,6 @@ export function BktPreview({
             <div className="mt-4 overflow-x-auto print:mt-0">
               <table className="lpj-book-table w-full min-w-[960px] border-collapse text-[10px] sm:text-[11px]">
                 <thead>
-                  <tr className="lpj-print-running-header">
-                    <th colSpan={11}>
-                      BUKU KAS TUNAI — {subtitle} (Bulan ke-{b.monthIndex})
-                    </th>
-                  </tr>
-                  <tr className="lpj-print-running-meta">
-                    <th colSpan={11}>
-                      Sekolah: {school} · {loc.alamat} · Kec: {loc.kecamatan} ·
-                      Kab: {kab} · Prov: {prov}
-                    </th>
-                  </tr>
                   <tr className="bg-stone-100">
                     <th
                       rowSpan={2}

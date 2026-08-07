@@ -125,10 +125,10 @@ export default async function AdminLpjExportPage({
         </nav>
 
         <Card className="mb-4 text-sm text-[var(--ink-muted)]">
-          Cetak/PDF memakai kertas <strong>A4 landscape</strong>. Tiap bulan
-          Buku Bank / BKU / BKT diusahakan 1 halaman; jika melebihi, header
-          dokumen + kolom tabel diulang di halaman berikutnya. Gunakan{" "}
-          <strong>Cetak → Save as PDF</strong>.
+          Cetak/PDF memakai kertas <strong>A4 landscape</strong>. Layout header
+          sama seperti pratinjau layar. Tiap bulan Bank / BKU / BKT diusahakan 1
+          halaman; jika melebihi, header kolom tabel diulang di halaman
+          berikutnya. Gunakan <strong>Cetak → Save as PDF</strong>.
         </Card>
       </div>
 
