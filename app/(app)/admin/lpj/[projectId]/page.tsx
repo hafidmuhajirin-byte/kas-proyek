@@ -114,9 +114,7 @@ export default async function AdminLpjProjectMenuPage({
           </p>
         </div>
         <div>
-          <p className="text-[var(--ink-muted)]">
-            Pengambilan (User → Owner)
-          </p>
+          <p className="text-[var(--ink-muted)]">Pencairan Dana Bank</p>
           <p className="mt-0.5 font-medium tabular-nums">
             {formatRupiah(totalPengambilan)}
             <span className="ml-1 text-xs font-normal text-[var(--ink-muted)]">
