@@ -10,6 +10,7 @@ import {
   type ProjectFundKind,
 } from "@/lib/project-funds";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
+import { ManagementFundBreakdown } from "@/components/ManagementFundBreakdown";
 import { RupiahInput } from "@/components/RupiahInput";
 import { Card } from "@/components/ui";
 
@@ -19,18 +20,30 @@ type FundRow = {
   notes: string | null;
 };
 
+type MgmtExpense = {
+  id: string;
+  date: Date;
+  amount: number;
+  description: string;
+};
+
 export function ProjectFundsPanel({
   projectId,
   admin,
+  canRecordManagement = false,
   contractValue,
   funds,
   spentByKind,
+  managementExpenses = [],
 }: {
   projectId: string;
   admin: boolean;
+  /** Owner atau Admin — catat breakdown pengelolaan ke Kas Tunai */
+  canRecordManagement?: boolean;
   contractValue: number;
   funds: FundRow[];
   spentByKind: Partial<Record<ProjectFundKind, number>>;
+  managementExpenses?: MgmtExpense[];
 }) {
   const byKind = new Map(funds.map((f) => [f.kind, f]));
   const suggestedSave = calcProjectSaveAmount(contractValue);
@@ -48,46 +61,35 @@ export function ProjectFundsPanel({
     (sum, kind) => sum + (spentByKind[kind] ?? 0),
     0,
   );
-  const savePlanned = plannedOf("SAVE");
-  const saveSpent = spentByKind.SAVE ?? 0;
-  const saveRemaining = savePlanned - saveSpent;
 
   return (
-    <Card className="mt-4">
+    <Card className="mt-2">
       <details>
         <summary className="cursor-pointer list-none">
-          <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-medium text-teal-950">
+              <h3 className="text-sm font-medium text-[var(--ink)]">
                 Dana operasional
               </h3>
-              <p className="mt-0.5 text-sm text-teal-900/55">
+              <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">
                 Rencana {formatRupiah(totalPlanned)} · Terpakai{" "}
                 {formatRupiah(totalSpent)} · Sisa{" "}
                 {formatRupiah(totalPlanned - totalSpent)}
-                {saveRemaining > 0
-                  ? ` · save ${formatRupiah(saveRemaining)}`
-                  : ""}
               </p>
             </div>
-            <span className="text-sm text-teal-700">Buka</span>
+            <span className="text-xs text-[var(--accent)]">Buka</span>
           </div>
         </summary>
 
-        <div className="mt-3 border-t border-teal-900/10 pt-3">
-          <p className="text-sm text-teal-900/55">
-            Termasuk dana save {PROJECT_SAVE_PERCENT}%. Pengeluaran lewat Buku
-            Kas dengan kategori yang sesuai.
-          </p>
-
-          <div className="mt-3 overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-teal-900/10 text-teal-900/55">
+        <div className="mt-2 space-y-3 border-t border-[var(--line-soft)] pt-2">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-xs">
+              <thead className="border-b border-[var(--line-soft)] text-[var(--ink-faint)]">
                 <tr>
-                  <th className="pb-2 pr-3 font-medium">Pos</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Rencana</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Terpakai</th>
-                  <th className="pb-2 text-right font-medium">Sisa</th>
+                  <th className="pb-1.5 pr-2 font-medium">Pos</th>
+                  <th className="pb-1.5 pr-2 text-right font-medium">Rencana</th>
+                  <th className="pb-1.5 pr-2 text-right font-medium">Pakai</th>
+                  <th className="pb-1.5 text-right font-medium">Sisa</th>
                 </tr>
               </thead>
               <tbody>
@@ -96,25 +98,27 @@ export function ProjectFundsPanel({
                   const spent = spentByKind[kind] ?? 0;
                   const remaining = planned - spent;
                   return (
-                    <tr key={kind} className="border-b border-teal-900/6">
-                      <td className="py-2 pr-3 text-teal-950">
+                    <tr key={kind} className="border-b border-[var(--line-soft)]">
+                      <td className="py-1.5 pr-2 text-[var(--ink)]">
                         {projectFundLabels[kind]}
                         {kind === "SAVE" ? (
-                          <span className="text-teal-900/55">
+                          <span className="text-[var(--ink-faint)]">
                             {" "}
                             · {PROJECT_SAVE_PERCENT}%
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2 pr-3 text-right tabular-nums whitespace-nowrap">
+                      <td className="py-1.5 pr-2 text-right tabular-nums whitespace-nowrap">
                         {formatRupiah(planned)}
                       </td>
-                      <td className="py-2 pr-3 text-right tabular-nums whitespace-nowrap text-rose-700">
+                      <td className="py-1.5 pr-2 text-right tabular-nums whitespace-nowrap text-[var(--rose-ink)]">
                         {formatRupiah(spent)}
                       </td>
                       <td
-                        className={`py-2 text-right tabular-nums whitespace-nowrap ${
-                          remaining < 0 ? "text-rose-700" : "text-teal-950"
+                        className={`py-1.5 text-right tabular-nums whitespace-nowrap ${
+                          remaining < 0
+                            ? "text-[var(--rose-ink)]"
+                            : "text-[var(--ink)]"
                         }`}
                       >
                         {formatRupiah(remaining)}
@@ -123,31 +127,23 @@ export function ProjectFundsPanel({
                   );
                 })}
               </tbody>
-              <tfoot>
-                <tr className="border-t border-teal-900/15">
-                  <td className="py-2.5 pr-3 font-medium text-teal-950">
-                    Total
-                  </td>
-                  <td className="py-2.5 pr-3 text-right font-medium tabular-nums whitespace-nowrap">
-                    {formatRupiah(totalPlanned)}
-                  </td>
-                  <td className="py-2.5 pr-3 text-right font-medium tabular-nums whitespace-nowrap text-rose-700">
-                    {formatRupiah(totalSpent)}
-                  </td>
-                  <td className="py-2.5 text-right font-medium tabular-nums whitespace-nowrap text-teal-950">
-                    {formatRupiah(totalPlanned - totalSpent)}
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
 
+          <ManagementFundBreakdown
+            projectId={projectId}
+            planned={plannedOf("MANAGEMENT")}
+            spent={spentByKind.MANAGEMENT ?? 0}
+            rows={managementExpenses}
+            canEdit={canRecordManagement}
+          />
+
           {admin ? (
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm text-teal-700 underline">
-                Atur rencana dana
+            <details>
+              <summary className="cursor-pointer text-xs text-[var(--accent)] underline">
+                Atur rencana
               </summary>
-              <div className="mt-3 max-w-xl">
+              <div className="mt-2 max-w-xl">
                 <ActionForm
                   action={upsertProjectFundsAction}
                   submitLabel="Simpan rencana"
@@ -159,15 +155,9 @@ export function ProjectFundsPanel({
                       row?.plannedAmount ??
                       (kind === "SAVE" ? suggestedSave : 0);
                     return (
-                      <div key={kind} className="mb-3 space-y-2">
-                        <p className="text-sm font-medium text-teal-950">
+                      <div key={kind} className="mb-2 space-y-1.5">
+                        <p className="text-xs font-medium text-[var(--ink)]">
                           {projectFundLabels[kind]}
-                          {kind === "SAVE" && contractValue > 0 ? (
-                            <span className="font-normal text-teal-900/55">
-                              {" "}
-                              (saran {formatRupiah(suggestedSave)})
-                            </span>
-                          ) : null}
                         </p>
                         <Field label="Rencana">
                           <RupiahInput

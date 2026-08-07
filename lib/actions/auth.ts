@@ -19,7 +19,9 @@ export async function loginAction(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  const username = String(formData.get("username") ?? "").trim();
+  const username = String(formData.get("username") ?? "")
+    .trim()
+    .toLowerCase();
   const password = String(formData.get("password") ?? "");
 
   if (!username || !password) {
