@@ -131,17 +131,17 @@ function SignatoryBlock({
   return (
     <div className="flex w-full flex-col text-center text-[11px] leading-snug sm:text-xs">
       {/* Label atas — rapat ke jabatan; tinggi seragam agar 3 kolom sejajar */}
-      <div className="mb-1 flex h-[2.1rem] flex-col justify-end leading-tight">
-        <p className="min-h-[0.95rem]">{line1 || "\u00a0"}</p>
-        <p className="min-h-[0.95rem]">{line2 || "\u00a0"}</p>
+      <div className="mb-0 flex min-h-[1.7rem] flex-col justify-end leading-tight">
+        <p className="min-h-[0.85rem]">{line1 || "\u00a0"}</p>
+        <p className="min-h-[0.85rem]">{line2 || "\u00a0"}</p>
       </div>
+      {/* Ruang paraf singkat antara label dan jabatan */}
+      <div className="mx-auto my-1.5 h-5 shrink-0 sm:my-2 sm:h-6" aria-hidden />
       <p className="font-medium">{title}</p>
       <p className="mt-0.5 min-h-[1rem]">
         {org ? tidyCase(org) : "\u00a0"}
       </p>
-      {/* Ruang paraf singkat */}
-      <div className="mx-auto my-3 h-8 shrink-0 sm:my-3.5 sm:h-9" aria-hidden />
-      <div>
+      <div className="mt-1">
         <p className="font-semibold underline decoration-1 underline-offset-2">
           {name?.trim() || "(nama)"}
         </p>
