@@ -11,10 +11,7 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseRupiahInput } from "@/lib/money";
-import {
-  getPencairanOptionsForProject,
-  parsePencairanKey,
-} from "@/lib/mandor-pencairan";
+import { getPencairanOptionsForProject } from "@/lib/mandor-pencairan";
 import type { FormState } from "@/lib/actions/projects";
 
 async function saveProof(file: File | null): Promise<string | null> {
@@ -44,7 +41,10 @@ async function saveProof(file: File | null): Promise<string | null> {
   return `/uploads/${filename}`;
 }
 
-/** Upload pengeluaran Mandor — wajib bukti + acuan pencairan; tidak menyentuh kas besar. */
+/**
+ * Upload pengeluaran Mandor — wajib bukti.
+ * Acuan pencairan dipilih otomatis (FIFO sisa dana milik Mandor ini).
+ */
 export async function createMandorExpenseAction(
   _prev: FormState,
   formData: FormData,
@@ -58,15 +58,9 @@ export async function createMandorExpenseAction(
   const description = String(formData.get("description") ?? "").trim();
   const dateRaw = String(formData.get("date") ?? "");
   const amount = parseRupiahInput(String(formData.get("amount") ?? "0"));
-  const pencairanRaw = String(formData.get("pencairanKey") ?? "");
 
   if (!projectId || !description || !dateRaw || amount <= 0) {
     return { error: "Proyek, tanggal, nominal, dan keterangan wajib diisi." };
-  }
-
-  const pencairan = parsePencairanKey(pencairanRaw);
-  if (!pencairan || pencairan.kind !== "disbursement") {
-    return { error: "Pilih pencairan Dana ke Mandor yang menjadi acuan bukti." };
   }
 
   await requireProjectAccess(user, projectId);
@@ -74,16 +68,30 @@ export async function createMandorExpenseAction(
   const date = new Date(dateRaw);
   if (Number.isNaN(date.getTime())) return { error: "Tanggal tidak valid." };
 
-  const options = await getPencairanOptionsForProject(projectId);
-  const selected = options.find(
-    (o) => o.kind === pencairan.kind && o.id === pencairan.id,
-  );
-  if (!selected) {
-    return { error: "Pencairan tidak valid untuk proyek ini." };
+  const options = await getPencairanOptionsForProject(projectId, {
+    mandorId: user.id,
+  });
+  if (options.length === 0) {
+    return {
+      error: "Belum ada dana cair dari Owner untuk Anda di proyek ini.",
+    };
+  }
+
+  // FIFO: pencairan paling lama yang sisanya cukup; fallback sisa terbesar > 0
+  const selected =
+    options.find((o) => o.remaining >= amount) ??
+    options
+      .filter((o) => o.remaining > 0)
+      .sort((a, b) => b.remaining - a.remaining)[0];
+
+  if (!selected || selected.remaining <= 0) {
+    return {
+      error: "Sisa dana cair sudah habis. Minta pencairan berikutnya ke Owner.",
+    };
   }
   if (amount > selected.remaining) {
     return {
-      error: `Nominal melebihi sisa pencairan (${selected.remaining.toLocaleString("id-ID")}).`,
+      error: `Nominal melebihi sisa dana cair (${selected.remaining.toLocaleString("id-ID")}).`,
     };
   }
 
@@ -124,7 +132,7 @@ export async function createMandorExpenseAction(
       createdById: user.id,
       isMandorExpense: true,
       isFromGlobalCash: false,
-      linkedMandorDisbursementId: pencairan.id,
+      linkedMandorDisbursementId: selected.id,
       linkedContractorAdvanceId: null,
     },
   });

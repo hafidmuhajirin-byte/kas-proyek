@@ -6,10 +6,7 @@ import {
 } from "@/lib/auth";
 import { getPencairanOptionsForProject } from "@/lib/mandor-pencairan";
 import { prisma } from "@/lib/prisma";
-import {
-  MandorUploadForm,
-  type PencairanOptionClient,
-} from "@/components/MandorUploadForm";
+import { MandorUploadForm } from "@/components/MandorUploadForm";
 import { Card } from "@/components/ui";
 
 export default async function MandorUploadPage({
@@ -41,16 +38,15 @@ export default async function MandorUploadPage({
       ? params.projectId
       : projects[0]?.id;
 
-  const pencairanByProject: Record<string, PencairanOptionClient[]> = {};
-  await Promise.all(
+  const pencairanChecks = await Promise.all(
     projects.map(async (p) => {
-      const opts = await getPencairanOptionsForProject(p.id);
-      pencairanByProject[p.id] = opts.map((o) => ({
-        ...o,
-        date: o.date.toISOString(),
-      }));
+      const opts = await getPencairanOptionsForProject(p.id, {
+        mandorId: user.id,
+      });
+      return opts.some((o) => o.remaining > 0);
     }),
   );
+  const hasPencairan = pencairanChecks.some(Boolean);
 
   return (
     <div className="space-y-4">
@@ -58,13 +54,13 @@ export default async function MandorUploadPage({
         Upload bukti
       </h1>
       <p className="text-center text-sm text-[var(--ink-muted)]">
-        Pilih pencairan/termin, foto nota, isi nominal, lalu simpan.
+        Foto nota, isi nominal dan keterangan, lalu simpan.
       </p>
       <Card>
         <MandorUploadForm
           projects={projects}
           defaultProjectId={defaultProjectId}
-          pencairanByProject={pencairanByProject}
+          hasPencairan={hasPencairan}
         />
       </Card>
     </div>

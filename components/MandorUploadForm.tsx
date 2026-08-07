@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useState } from "react";
 import { createMandorExpenseAction } from "@/lib/actions/mandor-expense";
 import { ProofCapture } from "@/components/ProofCapture";
 import { RupiahInput } from "@/components/RupiahInput";
@@ -11,27 +11,19 @@ import {
   inputClass,
 } from "@/components/ui";
 import type { ReceiptOcrSuggestion } from "@/lib/receipt-ocr";
-import { formatNumberId, formatRupiah } from "@/lib/money";
-import {
-  formatPencairanLabel,
-  type PencairanOption,
-} from "@/lib/mandor-pencairan-shared";
+import { formatNumberId } from "@/lib/money";
 
 type ProjectOption = { id: string; name: string };
-
-/** Serializable pencairan for client (dates as ISO). */
-export type PencairanOptionClient = Omit<PencairanOption, "date"> & {
-  date: string;
-};
 
 export function MandorUploadForm({
   projects,
   defaultProjectId,
-  pencairanByProject,
+  hasPencairan = true,
 }: {
   projects: ProjectOption[];
   defaultProjectId?: string;
-  pencairanByProject: Record<string, PencairanOptionClient[]>;
+  /** Ada dana cair Mandor di proyek default / setidaknya satu proyek. */
+  hasPencairan?: boolean;
 }) {
   const [state, action, pending] = useActionState(createMandorExpenseAction, {});
   const [amountKey, setAmountKey] = useState(0);
@@ -40,11 +32,6 @@ export function MandorUploadForm({
   const [descDefault, setDescDefault] = useState("");
   const [projectId, setProjectId] = useState(
     defaultProjectId ?? projects[0]?.id ?? "",
-  );
-
-  const pencairanOptions = useMemo(
-    () => pencairanByProject[projectId] ?? [],
-    [pencairanByProject, projectId],
   );
 
   function applyOcr(s: ReceiptOcrSuggestion) {
@@ -79,35 +66,6 @@ export function MandorUploadForm({
             </option>
           ))}
         </select>
-      </Field>
-
-      <Field label="Acuan pencairan Mandor" htmlFor="pencairanKey">
-        <select
-          id="pencairanKey"
-          name="pencairanKey"
-          className={inputClass}
-          required
-          defaultValue=""
-          key={projectId}
-        >
-          <option value="" disabled>
-            {pencairanOptions.length === 0
-              ? "Belum ada pencairan di proyek ini"
-              : "Pilih pencairan…"}
-          </option>
-          {pencairanOptions.map((o) => (
-            <option key={o.key} value={o.key} disabled={o.remaining <= 0}>
-              {formatPencairanLabel({
-                label: o.label,
-                amount: o.amount,
-                remaining: o.remaining,
-              })}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-xs text-[var(--ink-faint)]">
-          Bukti memotong sisa pencairan, bukan kas besar.
-        </p>
       </Field>
 
       <Field label="Tanggal" htmlFor="date">
@@ -149,19 +107,16 @@ export function MandorUploadForm({
         <ProofCapture onApplySuggestion={applyOcr} />
       </Field>
 
-      {pencairanOptions.length > 0 ? (
-        <p className="text-xs text-[var(--ink-faint)]">
-          Total sisa pencairan:{" "}
-          {formatRupiah(
-            pencairanOptions.reduce((s, o) => s + Math.max(0, o.remaining), 0),
-          )}
+      {!hasPencairan ? (
+        <p className="text-sm text-amber-900">
+          Belum ada dana cair dari Owner untuk proyek Anda. Hubungi Owner dulu.
         </p>
       ) : null}
 
       <button
         type="submit"
         className={`${btnPrimaryClass} w-full min-h-14 text-base`}
-        disabled={pending || pencairanOptions.length === 0}
+        disabled={pending || !hasPencairan}
       >
         {pending ? "Mengirim..." : "Simpan bukti belanja"}
       </button>

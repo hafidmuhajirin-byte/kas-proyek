@@ -14,11 +14,15 @@ export {
 /** Daftar pencairan Mandor yang bisa ditautkan bukti (tanpa termin terpisah). */
 export async function getPencairanOptionsForProject(
   projectId: string,
-  opts?: { excludeProofId?: string },
+  opts?: { excludeProofId?: string; mandorId?: string },
 ): Promise<PencairanOption[]> {
   const [disbursements, proofs] = await Promise.all([
     prisma.mandorDisbursement.findMany({
-      where: { projectId, transactionId: { not: null } },
+      where: {
+        projectId,
+        transactionId: { not: null },
+        ...(opts?.mandorId ? { mandorId: opts.mandorId } : {}),
+      },
       orderBy: [{ date: "asc" }, { sequence: "asc" }],
       select: {
         id: true,
@@ -33,6 +37,8 @@ export async function getPencairanOptionsForProject(
         projectId,
         isMandorExpense: true,
         linkedMandorDisbursementId: { not: null },
+        // Child BKK split tidak dihitung ulang (parent/shell sudah mewakili)
+        splitParentId: null,
         ...(opts?.excludeProofId ? { id: { not: opts.excludeProofId } } : {}),
       },
       select: {
