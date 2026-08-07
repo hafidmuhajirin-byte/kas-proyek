@@ -36,7 +36,7 @@ const MENU = [
   {
     href: "export",
     title: "Laporan LPJ",
-    desc: "Pratinjau Buku Bank, BKU, BKT, Rekap Pajak + cetak",
+    desc: "Pratinjau + cetak terpisah Buku Bank, BKU, BKT",
   },
 ] as const;
 

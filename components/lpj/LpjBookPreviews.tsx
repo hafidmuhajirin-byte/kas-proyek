@@ -165,7 +165,7 @@ function BkuEmptyCell({ className = "" }: { className?: string }) {
 export function BankBookPreview({
   blocks,
   meta,
-  minRows = 9,
+  minRows = 18,
 }: {
   blocks: BankMonthBlock[];
   meta: LpjHeaderMeta;
@@ -250,7 +250,8 @@ export function BankBookPreview({
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto print:mt-0">
+            <div className="lpj-book-body mt-4 flex flex-1 flex-col">
+            <div className="overflow-x-auto print:mt-0">
               <table className="lpj-book-table w-full min-w-[640px] border-collapse text-[11px] sm:text-xs">
                 <thead>
                   <tr className="bg-stone-100">
@@ -331,6 +332,7 @@ export function BankBookPreview({
                 </tbody>
               </table>
             </div>
+            </div>
 
             <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
@@ -367,7 +369,7 @@ export function BkuPreview({
   blocks,
   meta,
   projectTitle,
-  minRows = 10,
+  minRows = 16,
 }: {
   blocks: BkuMonthBlock[];
   meta: LpjHeaderMeta;
@@ -480,7 +482,8 @@ export function BkuPreview({
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto print:mt-0">
+            <div className="lpj-book-body mt-4 flex flex-1 flex-col">
+            <div className="overflow-x-auto print:mt-0">
               <table className="lpj-book-table w-full min-w-[980px] border-collapse text-[10px] sm:text-[11px]">
                 <thead>
                   <tr className="bg-stone-100">
@@ -704,6 +707,7 @@ export function BkuPreview({
                 </ul>
               </div>
             </div>
+            </div>
 
             <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
@@ -739,7 +743,7 @@ export function BktPreview({
   blocks,
   meta,
   projectTitle,
-  minRows = 12,
+  minRows = 18,
 }: {
   blocks: BktMonthBlock[];
   meta: LpjHeaderMeta;
@@ -841,7 +845,8 @@ export function BktPreview({
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto print:mt-0">
+            <div className="lpj-book-body mt-4 flex flex-1 flex-col">
+            <div className="overflow-x-auto print:mt-0">
               <table className="lpj-book-table w-full min-w-[960px] border-collapse text-[10px] sm:text-[11px]">
                 <thead>
                   <tr className="bg-stone-100">
@@ -997,6 +1002,7 @@ export function BktPreview({
                   </tr>
                 </tbody>
               </table>
+            </div>
             </div>
 
             <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">

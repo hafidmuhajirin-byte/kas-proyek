@@ -367,7 +367,15 @@ export default async function AdminLpjBankPage({
       </Card>
 
       <div className="mt-6">
-        <h3 className="mb-3 font-serif text-xl">Pratinjau Buku Bank</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 print:hidden">
+          <h3 className="font-serif text-xl">Pratinjau Buku Bank</h3>
+          <Link
+            href={`/admin/lpj/${project.id}/cetak/bank`}
+            className="rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--paper-tint)]"
+          >
+            Cetak Buku Bank →
+          </Link>
+        </div>
         <BankBookPreview
           blocks={blocks}
           meta={{

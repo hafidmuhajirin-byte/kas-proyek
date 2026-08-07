@@ -253,6 +253,9 @@ select,
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    min-height: 178mm;
+    display: flex;
+    flex-direction: column;
   }
 
   .lpj-export-print .lpj-book-section .lpj-month-sheet:first-of-type {
@@ -260,12 +263,18 @@ select,
     page-break-before: auto;
   }
 
+  .lpj-export-print .lpj-book-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+  }
+
   .lpj-export-print .lpj-book-table {
     width: 100% !important;
     min-width: 0 !important;
     table-layout: fixed;
-    font-size: 8.5px !important;
-    line-height: 1.15 !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
   }
 
   .lpj-export-print .lpj-book-table thead {
@@ -283,38 +292,40 @@ select,
 
   .lpj-export-print .lpj-book-table th,
   .lpj-export-print .lpj-book-table td {
-    padding: 1px 3px !important;
+    padding: 2px 4px !important;
   }
 
   .lpj-export-print .lpj-book-table tbody tr {
-    height: auto !important;
-    min-height: 0 !important;
+    height: 7.2mm !important;
   }
 
-  /* Header dokumen = layout layar (judul + meta 3 kolom), bukan baris ringkas */
+  /* Header dokumen = layout layar (judul + meta 3 kolom) */
   .lpj-export-print .lpj-month-screen-header {
     display: block !important;
     margin-bottom: 0.35rem;
+    flex-shrink: 0;
   }
 
   .lpj-export-print .lpj-month-screen-header h3 {
-    font-size: 13px !important;
+    font-size: 14px !important;
     text-decoration: underline;
   }
 
   .lpj-export-print .lpj-month-screen-header p,
   .lpj-export-print .lpj-month-screen-header span {
-    font-size: 9px !important;
+    font-size: 10px !important;
   }
 
   .lpj-export-print .lpj-month-screen-header .mt-4 {
-    margin-top: 0.35rem !important;
+    margin-top: 0.4rem !important;
   }
 
   .lpj-export-print .lpj-sign-block {
     break-inside: avoid;
     page-break-inside: avoid;
-    margin-top: 0.75rem !important;
+    margin-top: auto !important;
+    padding-top: 0.5rem;
+    flex-shrink: 0;
   }
 
   .lpj-export-print .rekap-pajak-doc {

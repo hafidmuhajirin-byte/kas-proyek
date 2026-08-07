@@ -5,7 +5,6 @@ import { tidyCase } from "@/lib/text";
 import { formatRupiah } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/ui";
-import { PrintButton } from "@/components/PrintButton";
 import { loadLpjBooks } from "@/lib/lpj/load-lpj-books";
 import {
   buildTaxRekap,
@@ -18,11 +17,22 @@ import {
 } from "@/components/lpj/LpjBookPreviews";
 import { RekapitulasiPembayaranPajak } from "@/components/lpj/RekapitulasiPembayaranPajak";
 
-const SECTIONS = [
-  { id: "bank", title: "1. Buku Bank" },
-  { id: "bku", title: "2. Buku Kas Umum (BKU)" },
-  { id: "bkt", title: "3. Buku Kas Tunai (BKT)" },
-  { id: "pajak", title: "4. Rekap Pajak" },
+const CETAK_LINKS = [
+  {
+    href: "bank",
+    title: "Cetak Buku Bank",
+    desc: "Hanya Buku Bank — A4 landscape, per bulan",
+  },
+  {
+    href: "bku",
+    title: "Cetak Buku Kas Umum",
+    desc: "Hanya BKU — A4 landscape, per bulan",
+  },
+  {
+    href: "bkt",
+    title: "Cetak Buku Kas Tunai",
+    desc: "Hanya BKT — A4 landscape, per bulan",
+  },
 ] as const;
 
 export default async function AdminLpjExportPage({
@@ -52,7 +62,6 @@ export default async function AdminLpjExportPage({
     if (n.keterangan) notesByMonth[n.month] = n.keterangan;
   }
 
-  // taxRows sudah punya tax — rebuild dari ledger expenses via load path
   const expensesForRekap = await prisma.transaction.findMany({
     where: {
       projectId,
@@ -92,141 +101,110 @@ export default async function AdminLpjExportPage({
   );
   const projectTitle =
     (projectExtra?.notes ?? "").trim() || project.name;
+  const meta = {
+    schoolName: project.name,
+    location: project.location,
+    kabKota: project.lpjKabKota,
+    provinsi: project.lpjProvinsi,
+    kepalaNama: project.lpjKepalaNama,
+    kepalaNip: project.lpjKepalaNip,
+    ketuaNama: project.lpjKetuaNama,
+    ketuaNip: project.lpjKetuaNip,
+    bendaharaNama: project.lpjBendaharaNama,
+    bendaharaNip: project.lpjBendaharaNip,
+  };
 
   return (
-    <div className="lpj-export-print">
-      <div className="print:hidden">
-        <PageHeader
-          title="Laporan LPJ"
-          description={`${project.name.trim().toUpperCase()} · ${tidyCase(project.location)} · SPK ${formatRupiah(project.contractValue)}`}
-          actions={
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={`/admin/lpj/${project.id}`}
-                className="rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--paper-tint)]"
-              >
-                ← Menu proyek
-              </Link>
-              <PrintButton label="Cetak / PDF" />
-            </div>
-          }
-        />
+    <div>
+      <PageHeader
+        title="Laporan LPJ"
+        description={`${project.name.trim().toUpperCase()} · ${tidyCase(project.location)} · SPK ${formatRupiah(project.contractValue)}`}
+        actions={
+          <Link
+            href={`/admin/lpj/${project.id}`}
+            className="rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--paper-tint)]"
+          >
+            ← Menu proyek
+          </Link>
+        }
+      />
 
-        <nav className="mb-4 flex flex-wrap gap-2 text-sm">
-          {SECTIONS.map((s) => (
-            <a
-              key={s.id}
-              href={`#${s.id}`}
-              className="rounded-full border border-[var(--line-soft)] px-3 py-1.5 text-[var(--ink-muted)] hover:border-[var(--accent)]/40 hover:text-[var(--ink)]"
-            >
-              {s.title}
-            </a>
-          ))}
-        </nav>
+      <Card className="mb-4 text-sm text-[var(--ink-muted)]">
+        Cetak dipisah per buku agar file PDF tidak bercampur. Tiap bulan
+        diusahakan memenuhi 1 lembar <strong>A4 landscape</strong>.
+      </Card>
 
-        <Card className="mb-4 text-sm text-[var(--ink-muted)]">
-          Cetak/PDF memakai kertas <strong>A4 landscape</strong>. Layout header
-          sama seperti pratinjau layar. Tiap bulan Bank / BKU / BKT diusahakan 1
-          halaman; jika melebihi, header kolom tabel diulang di halaman
-          berikutnya. Gunakan <strong>Cetak → Save as PDF</strong>.
-        </Card>
+      <div className="mb-8 grid gap-3 sm:grid-cols-3">
+        {CETAK_LINKS.map((item) => (
+          <Link
+            key={item.href}
+            href={`/admin/lpj/${project.id}/cetak/${item.href}`}
+            className="rounded-xl border border-[var(--line-soft)] bg-[var(--surface)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[var(--paper-tint)]/40"
+          >
+            <p className="font-serif text-lg text-[var(--ink)]">{item.title}</p>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">{item.desc}</p>
+            <p className="mt-3 text-xs font-medium uppercase tracking-wide text-[var(--accent)]">
+              Buka & cetak →
+            </p>
+          </Link>
+        ))}
       </div>
 
-      <section id="bank" className="lpj-book-section mb-8 scroll-mt-20">
-        <Card className="print:border-0 print:bg-transparent print:p-0 print:shadow-none">
-          <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
-            Buku Bank
+      <section id="bank" className="mb-8 scroll-mt-20">
+        <Card>
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
+            Pratinjau Buku Bank
           </h2>
-          <BankBookPreview
-            blocks={books.bankBlocks}
-            meta={{
-              schoolName: project.name,
-              location: project.location,
-              kabKota: project.lpjKabKota,
-              provinsi: project.lpjProvinsi,
-              kepalaNama: project.lpjKepalaNama,
-              kepalaNip: project.lpjKepalaNip,
-              ketuaNama: project.lpjKetuaNama,
-              ketuaNip: project.lpjKetuaNip,
-              bendaharaNama: project.lpjBendaharaNama,
-              bendaharaNip: project.lpjBendaharaNip,
-            }}
-          />
+          <BankBookPreview blocks={books.bankBlocks} meta={meta} />
         </Card>
       </section>
 
-      <section id="bku" className="lpj-book-section mb-8 scroll-mt-20">
-        <Card className="print:border-0 print:bg-transparent print:p-0 print:shadow-none">
-          <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
-            Buku Kas Umum (BKU)
+      <section id="bku" className="mb-8 scroll-mt-20">
+        <Card>
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
+            Pratinjau Buku Kas Umum (BKU)
           </h2>
-          <p className="mb-3 text-sm text-[var(--ink-muted)] print:hidden">
-            Pemasukan mencakup{" "}
-            <strong>Pengambilan Ke-N</strong> (dana User → Owner dari bank).
-            Pengeluaran dari nota/biaya proyek + pajak.
-          </p>
           <BkuPreview
             blocks={books.bkuBlocks}
             projectTitle={projectTitle}
-            meta={{
-              schoolName: project.name,
-              location: project.location,
-              kabKota: project.lpjKabKota,
-              provinsi: project.lpjProvinsi,
-              kepalaNama: project.lpjKepalaNama,
-              kepalaNip: project.lpjKepalaNip,
-              ketuaNama: project.lpjKetuaNama,
-              ketuaNip: project.lpjKetuaNip,
-              bendaharaNama: project.lpjBendaharaNama,
-              bendaharaNip: project.lpjBendaharaNip,
-            }}
+            meta={meta}
           />
         </Card>
       </section>
 
-      <section id="bkt" className="lpj-book-section mb-8 scroll-mt-20">
-        <Card className="print:border-0 print:bg-transparent print:p-0 print:shadow-none">
-          <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
-            Buku Kas Tunai (BKT)
+      <section id="bkt" className="mb-8 scroll-mt-20">
+        <Card>
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
+            Pratinjau Buku Kas Tunai (BKT)
           </h2>
           <BktPreview
             blocks={books.bktBlocks}
             projectTitle={projectTitle}
-            meta={{
-              schoolName: project.name,
-              location: project.location,
-              kabKota: project.lpjKabKota,
-              provinsi: project.lpjProvinsi,
-              kepalaNama: project.lpjKepalaNama,
-              kepalaNip: project.lpjKepalaNip,
-              ketuaNama: project.lpjKetuaNama,
-              ketuaNip: project.lpjKetuaNip,
-              bendaharaNama: project.lpjBendaharaNama,
-              bendaharaNip: project.lpjBendaharaNip,
-            }}
+            meta={meta}
           />
         </Card>
       </section>
 
-      <section id="pajak" className="lpj-book-section mb-8 scroll-mt-20">
-        <Card className="print:border-0 print:bg-transparent print:p-0 print:shadow-none">
-          <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
-            Rekap Pajak
+      <section id="pajak" className="mb-8 scroll-mt-20">
+        <Card>
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
+            Pratinjau Rekap Pajak
           </h2>
+          <p className="mb-3 text-sm text-[var(--ink-muted)]">
+            Cetak rekap pajak dari menu{" "}
+            <Link
+              href={`/admin/lpj/${project.id}/pajak`}
+              className="text-[var(--accent)] underline"
+            >
+              Pajak
+            </Link>
+            .
+          </p>
           <RekapitulasiPembayaranPajak
             rekap={taxRekap}
             projectTitle={projectTitle}
             meta={{
-              schoolName: project.name,
-              location: project.location,
-              kabKota: project.lpjKabKota,
-              provinsi: project.lpjProvinsi,
-              kepalaNama: project.lpjKepalaNama,
-              kepalaNip: project.lpjKepalaNip,
-              ketuaNama: project.lpjKetuaNama,
-              ketuaNip: project.lpjKetuaNip,
-              bendaharaNama: project.lpjBendaharaNama,
-              bendaharaNip: project.lpjBendaharaNip,
+              ...meta,
               npwp: projectExtra?.lpjNpwp,
             }}
           />
