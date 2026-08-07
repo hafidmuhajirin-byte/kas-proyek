@@ -142,6 +142,16 @@ select,
     margin: 12mm 10mm;
   }
 
+  @page absen-landscape {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  @page absen-portrait {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
   html,
   body {
     background: white !important;
@@ -173,5 +183,13 @@ select,
   a {
     text-decoration: none !important;
     color: inherit !important;
+  }
+
+  .absen-print-landscape {
+    page: absen-landscape;
+  }
+
+  .absen-print-portrait {
+    page: absen-portrait;
   }
 }
