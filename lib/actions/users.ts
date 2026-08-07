@@ -12,6 +12,13 @@ function parseRole(raw: string): SessionRole | null {
   return null;
 }
 
+function revalidateUsersAndMandor() {
+  revalidatePath("/users");
+  revalidatePath("/mandor");
+  revalidatePath("/mandor/upload");
+  revalidatePath("/projects");
+}
+
 export async function createUserAction(
   _prev: FormState,
   formData: FormData,
@@ -24,7 +31,9 @@ export async function createUserAction(
   const name = String(formData.get("name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const role = parseRole(String(formData.get("role") ?? ""));
-  const projectIds = formData.getAll("projectIds").map(String).filter(Boolean);
+  const projectIds = [
+    ...new Set(formData.getAll("projectIds").map(String).filter(Boolean)),
+  ];
 
   if (!username || !name || !password || !role) {
     return { error: "Username, nama, password, dan role wajib diisi." };
@@ -32,9 +41,24 @@ export async function createUserAction(
   if (password.length < 6) {
     return { error: "Password minimal 6 karakter." };
   }
+  if (role === "MANDOR" && projectIds.length === 0) {
+    return {
+      error:
+        "Mandor wajib ditugaskan ke minimal 1 proyek agar muncul di login Mandor.",
+    };
+  }
 
   const exists = await prisma.user.findUnique({ where: { username } });
   if (exists) return { error: "Username sudah dipakai." };
+
+  if (projectIds.length > 0) {
+    const validCount = await prisma.project.count({
+      where: { id: { in: projectIds } },
+    });
+    if (validCount !== projectIds.length) {
+      return { error: "Ada proyek yang tidak valid." };
+    }
+  }
 
   const user = await prisma.user.create({
     data: {
@@ -54,7 +78,7 @@ export async function createUserAction(
     });
   }
 
-  revalidatePath("/users");
+  revalidateUsersAndMandor();
   return { success: "Pengguna ditambahkan." };
 }
 
@@ -68,14 +92,42 @@ export async function updateUserAction(
   const name = String(formData.get("name") ?? "").trim();
   const role = parseRole(String(formData.get("role") ?? ""));
   const password = String(formData.get("password") ?? "");
-  const projectIds = formData.getAll("projectIds").map(String).filter(Boolean);
+  const submittedIds = [
+    ...new Set(formData.getAll("projectIds").map(String).filter(Boolean)),
+  ];
+  /** Proyek yang tampil di form (ACTIVE + yang sudah ditugaskan). */
+  const formProjectIds = [
+    ...new Set(
+      formData.getAll("formProjectIds").map(String).filter(Boolean),
+    ),
+  ];
 
   if (!id || !name || !role) {
     return { error: "Data pengguna tidak lengkap." };
   }
 
-  const existing = await prisma.user.findUnique({ where: { id } });
+  const existing = await prisma.user.findUnique({
+    where: { id },
+    include: { projectAssignments: { select: { projectId: true } } },
+  });
   if (!existing) return { error: "Pengguna tidak ditemukan." };
+
+  let nextAssignmentIds: string[] = [];
+  if (role === "MANDOR") {
+    const previous = new Set(
+      existing.projectAssignments.map((a) => a.projectId),
+    );
+    const visible = new Set(formProjectIds);
+    // Pertahankan penugasan proyek yang tidak tampil di form (mis. non-ACTIVE)
+    const preserved = [...previous].filter((pid) => !visible.has(pid));
+    nextAssignmentIds = [...new Set([...submittedIds, ...preserved])];
+    if (nextAssignmentIds.length === 0) {
+      return {
+        error:
+          "Mandor wajib ditugaskan ke minimal 1 proyek. Centang proyek di bawah.",
+      };
+    }
+  }
 
   await prisma.user.update({
     where: { id },
@@ -89,16 +141,16 @@ export async function updateUserAction(
   });
 
   await prisma.projectAssignment.deleteMany({ where: { userId: id } });
-  if (role === "MANDOR" && projectIds.length > 0) {
+  if (role === "MANDOR" && nextAssignmentIds.length > 0) {
     await prisma.projectAssignment.createMany({
-      data: projectIds.map((projectId) => ({
+      data: nextAssignmentIds.map((projectId) => ({
         userId: id,
         projectId,
       })),
     });
   }
 
-  revalidatePath("/users");
+  revalidateUsersAndMandor();
   return { success: "Pengguna diperbarui." };
 }
 
@@ -161,7 +213,7 @@ export async function deleteUserAction(
 
   await prisma.projectAssignment.deleteMany({ where: { userId: id } });
   await prisma.user.delete({ where: { id } });
-  revalidatePath("/users");
+  revalidateUsersAndMandor();
   return {
     success: reassign
       ? "Histori dipindah ke Owner dan pengguna dihapus."

@@ -12,12 +12,16 @@ import {
   deleteWorkItemAction,
 } from "@/lib/actions/work-items";
 import { calcStageStatus, getGlobalCashBreakdown } from "@/lib/balance";
-import { isOwner, isAdmin, requireSession } from "@/lib/auth";
+import {
+  canBreakDownMandorExpense,
+  isOwner,
+  requireSession,
+} from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
 import { getMandorFundSummariesFor } from "@/lib/mandor-fund";
-import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
+import { MandorExpensePanel } from "@/components/MandorExpensePanel";
+import { ProjectCashBookPanel } from "@/components/ProjectCashBookPanel";
 import {
-  billingModeHints,
   billingModeLabels,
   fundingStatusLabels,
   projectStatusLabels,
@@ -38,6 +42,7 @@ import { calcFeeTransferQuota, calcProjectProfit } from "@/lib/project-profit";
 import { isOwnerPersonalDraw } from "@/lib/owner-personal";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
 import { ContractorPanel } from "@/components/ContractorPanel";
+import { PaymentSCurve } from "@/components/PaymentSCurve";
 import { ProjectBillingFields } from "@/components/ProjectBillingFields";
 import { ProjectCompletionPanel } from "@/components/ProjectCompletionPanel";
 import { ProjectFeeTransferPanel } from "@/components/ProjectFeeTransferPanel";
@@ -49,8 +54,8 @@ import {
   btnSecondaryClass,
   Card,
   EmptyState,
+  FinanceStrip,
   PageHeader,
-  StatCard,
 } from "@/components/ui";
 
 export default async function ProjectDetailPage({
@@ -60,10 +65,11 @@ export default async function ProjectDetailPage({
 }) {
   const user = await requireSession();
   const admin = isOwner(user);
-  const readOnlyAdmin = isAdmin(user);
+  const canBreakDown = canBreakDownMandorExpense(user);
+  const canRecordManagement = canBreakDown;
   const { id } = await params;
 
-  const [project, sources, kasBesar, assignedMandors, disbursements] =
+  const [project, sources, kasBesar, assignedMandors, allMandors, disbursements, workers] =
     await Promise.all([
     prisma.project.findUnique({
       where: { id },
@@ -121,16 +127,43 @@ export default async function ProjectDetailPage({
             isOwnerPersonal: true,
             isFeeTransfer: true,
             isMandorExpense: true,
+            isSplitParent: true,
+            splitParentId: true,
+            splitIndex: true,
+            breakdownVendor: true,
+            breakdownStatus: true,
+            breakdownNote: true,
             category: { select: { name: true, type: true } },
             cashSource: { select: { name: true } },
+            createdBy: { select: { id: true, name: true } },
+            linkedMandorDisbursement: {
+              select: { label: true },
+            },
+            linkedContractorAdvance: {
+              select: {
+                description: true,
+                contractor: { select: { name: true } },
+              },
+            },
+            expenseLines: {
+              orderBy: { createdAt: "asc" },
+              select: {
+                id: true,
+                kind: true,
+                description: true,
+                laborRole: true,
+                quantity: true,
+                unit: true,
+                unitPrice: true,
+                workDays: true,
+                dailyRate: true,
+                amount: true,
+              },
+            },
           },
         },
         contractor: {
           include: {
-            advances: {
-              orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-              include: { cashSource: { select: { name: true } } },
-            },
             expenses: {
               orderBy: [{ date: "desc" }, { createdAt: "desc" }],
             },
@@ -146,16 +179,34 @@ export default async function ProjectDetailPage({
     getGlobalCashBreakdown(),
     prisma.projectAssignment.findMany({
       where: { projectId: id, user: { role: "MANDOR" } },
-      include: { user: { select: { id: true, name: true } } },
+      include: {
+        user: { select: { id: true, name: true, username: true } },
+      },
+    }),
+    prisma.user.findMany({
+      where: { role: "MANDOR" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, username: true },
     }),
     prisma.mandorDisbursement.findMany({
       where: { projectId: id },
       orderBy: [{ sequence: "asc" }, { date: "asc" }],
       include: { mandor: { select: { name: true } } },
     }),
+    prisma.worker.findMany({
+      where: { projectId: id, active: true },
+      orderBy: { name: "asc" },
+      select: { name: true, role: true, dailyWage: true },
+    }),
   ]);
 
   if (!project) notFound();
+
+  const knownWorkers = workers.map((w) => ({
+    name: w.name,
+    role: w.role,
+    dailyWage: w.dailyWage,
+  }));
 
   const spentByKind: Partial<Record<ProjectFundKind, number>> = {};
   for (const tx of project.transactions) {
@@ -173,6 +224,9 @@ export default async function ProjectDetailPage({
   const clientIncomeTotal = project.transactions
     .filter((tx) => tx.type === "INCOME" && !tx.isOwnerPersonal)
     .reduce((sum, tx) => sum + tx.amount, 0);
+  const clientPayments = project.transactions
+    .filter((tx) => tx.type === "INCOME" && !tx.isOwnerPersonal)
+    .map((tx) => ({ date: tx.date, amount: tx.amount }));
   const ownerInjectionTotal = project.transactions
     .filter((tx) => tx.type === "INCOME" && tx.isOwnerPersonal)
     .reduce((sum, tx) => sum + tx.amount, 0);
@@ -189,7 +243,13 @@ export default async function ProjectDetailPage({
     )
     .reduce((sum, tx) => sum + tx.amount, 0);
   const expenseTotal = project.transactions
-    .filter((tx) => tx.type === "EXPENSE" && !isOwnerPersonalDraw(tx))
+    .filter(
+      (tx) =>
+        tx.type === "EXPENSE" &&
+        !isOwnerPersonalDraw(tx) &&
+        // BKK hasil split tidak dijumlah — shell/upload asli sudah mewakili total
+        !tx.splitParentId,
+    )
     .reduce((sum, tx) => sum + tx.amount, 0);
   const operatingExpense = project.transactions
     .filter(
@@ -197,6 +257,7 @@ export default async function ProjectDetailPage({
         tx.type === "EXPENSE" &&
         !tx.isOwnerPersonal &&
         !tx.isFeeTransfer &&
+        !tx.isMandorExpense &&
         tx.category.name !== SCHOOL_RESIDUAL_CATEGORY,
     )
     .reduce((sum, tx) => sum + tx.amount, 0);
@@ -214,14 +275,12 @@ export default async function ProjectDetailPage({
       cashSourceName: tx.cashSource.name,
       proofUrl: tx.proofUrl,
     }));
-  const contractorAdvances = project.contractor
-    ? project.contractor.advances.reduce((sum, a) => sum + a.amount, 0)
-    : 0;
+  // Dana ke Mandor sudah masuk projectCashAffectingExpense via Transaction
+  const contractorAdvances = 0;
   const cashBalance =
     project.openingBalance +
     incomeTotal -
-    projectCashAffectingExpense -
-    contractorAdvances;
+    projectCashAffectingExpense;
   const projectCash = cashBalance;
 
   const remainingPlannedFunds = projectFundKinds.reduce((sum, kind) => {
@@ -229,6 +288,12 @@ export default async function ProjectDetailPage({
       project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0;
     const spent = spentByKind[kind] ?? 0;
     return sum + Math.max(0, planned - spent);
+  }, 0);
+  const operationalFunds = projectFundKinds.reduce((sum, kind) => {
+    return (
+      sum +
+      Math.max(0, project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0)
+    );
   }, 0);
 
   const checklist: ProjectChecklistState = {
@@ -285,6 +350,7 @@ export default async function ProjectDetailPage({
     clientIncome: clientIncomeTotal,
     operatingExpense,
     contractorAdvances,
+    operationalFunds,
     remainingPlannedFunds,
     contingencyPercent: 0,
   });
@@ -315,12 +381,56 @@ export default async function ProjectDetailPage({
     assignedMandors.map((a) => ({ projectId: id, mandorId: a.userId })),
   );
   const overspend: { mandorName: string; amount: number }[] = [];
-  for (const a of assignedMandors) {
+  const fundBriefs = assignedMandors.map((a) => {
     const s = fundMap.get(`${id}::${a.userId}`);
     if (s && s.sisa < 0) {
       overspend.push({ mandorName: a.user.name, amount: -s.sisa });
     }
-  }
+    return {
+      mandorName: a.user.name,
+      totalCair: s?.totalCair ?? 0,
+      totalBukti: s?.totalBukti ?? 0,
+      sisa: s?.sisa ?? 0,
+    };
+  });
+
+  const mandorExpenseRows = project.transactions
+    .filter(
+      (tx) =>
+        tx.type === "EXPENSE" &&
+        tx.isMandorExpense &&
+        // Shell split disembunyikan — tampilkan BKK anak; unsplit = parent
+        !tx.isSplitParent,
+    )
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .map((tx) => ({
+      id: tx.id,
+      date: tx.date,
+      amount: tx.amount,
+      description: tx.description,
+      proofUrl: tx.proofUrl,
+      mandorName: tx.createdBy.name,
+      pencairanLabel: tx.linkedMandorDisbursement
+        ? tidyCase(tx.linkedMandorDisbursement.label)
+        : tx.linkedContractorAdvance
+          ? `Termin ${tidyCase(tx.linkedContractorAdvance.contractor.name)}`
+          : null,
+      vendor: tx.breakdownVendor,
+      breakdownStatus: tx.breakdownStatus,
+      breakdownNote: tx.breakdownNote,
+      lines: tx.expenseLines.map((l) => ({
+        id: l.id,
+        kind: l.kind,
+        description: l.description,
+        laborRole: l.laborRole,
+        quantity: l.quantity,
+        unit: l.unit,
+        unitPrice: l.unitPrice,
+        workDays: l.workDays,
+        dailyRate: l.dailyRate,
+        amount: l.amount,
+      })),
+    }));
 
   return (
     <div>
@@ -337,52 +447,82 @@ export default async function ProjectDetailPage({
                 href={`/transactions/new?projectId=${project.id}&type=INCOME`}
                 className={btnSecondaryClass}
               >
-                {isPayAtEnd ? "+ Pembayaran" : "+ Pembayaran"}
+                + Pembayaran
               </Link>
             ) : null}
           </>
         }
       />
 
-      <Card className="mb-6">
-        <MandorDisbursementPanel
-          projectId={project.id}
-          canEdit={admin}
-          mandors={assignedMandors.map((a) => ({
-            id: a.user.id,
-            name: a.user.name,
-          }))}
-          sources={sources.map((s) => ({ id: s.id, name: s.name }))}
-          rows={disbursements.map((d) => ({
-            id: d.id,
-            date: format(d.date, "dd/MM/yyyy"),
-            label: d.label,
-            amount: d.amount,
-            mandorName: d.mandor.name,
-            proofUrl: d.proofUrl,
-          }))}
-          overspend={overspend}
+      {isPayAtEnd ? (
+        <FinanceStrip
+          items={[
+            {
+              label: "Pekerjaan selesai",
+              value: formatRupiah(workCompletedValue),
+              tone: "neutral",
+            },
+            {
+              label: "Sudah dibayar",
+              value: formatRupiah(clientIncomeTotal),
+              hint: `${workPaidPercent}%`,
+              tone: "income",
+            },
+            {
+              label: "Biaya kas besar",
+              value: formatRupiah(expenseTotal),
+              tone: "expense",
+            },
+            {
+              label: "Kas besar",
+              value: formatRupiah(kasBesar.total),
+              hint: `Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`,
+              tone: "balance",
+            },
+          ]}
         />
-      </Card>
+      ) : (
+        <FinanceStrip
+          items={[
+            {
+              label: "Nilai kontrak",
+              value: formatRupiah(project.contractValue),
+              tone: "neutral",
+            },
+            {
+              label: "Sudah dibayar",
+              value: formatRupiah(clientIncomeTotal),
+              hint: `${contractPaidPercent}%`,
+              tone: "income",
+            },
+            {
+              label: "Sisa belum terbayar",
+              value: formatRupiah(contractRemaining),
+              tone: "expense",
+            },
+            {
+              label: "Saldo kas proyek",
+              value: formatRupiah(cashBalance),
+              hint:
+                project.openingBalance > 0
+                  ? `Awal ${formatRupiah(project.openingBalance)}`
+                  : undefined,
+              tone: "balance",
+            },
+          ]}
+        />
+      )}
 
-      {readOnlyAdmin ? (
-        <Card className="mb-6">
-          <p className="text-sm text-[var(--ink-muted)]">
-            Mode baca Admin — untuk buku kas detail dengan bukti, buka{" "}
-            <Link
-              href={`/transactions?projectId=${project.id}`}
-              className="text-[var(--accent)] underline"
-            >
-              Buku Kas proyek ini
-            </Link>
-            .
-          </p>
-        </Card>
-      ) : null}
-
-      <p className="mb-4 text-sm text-teal-900/65">
-        {billingModeHints[project.billingMode]}
-      </p>
+      <PaymentSCurve
+        className="mb-5"
+        payments={clientPayments}
+        baseline={
+          isPayAtEnd
+            ? Math.max(workCompletedValue, clientIncomeTotal, 1)
+            : Math.max(project.contractValue, 1)
+        }
+        baselineLabel={isPayAtEnd ? "pekerjaan selesai" : "kontrak"}
+      />
 
       <ContractorPanel
         projectId={project.id}
@@ -391,66 +531,48 @@ export default async function ProjectDetailPage({
         contractValue={project.contractValue}
         sources={sources}
         contractor={project.contractor}
+        mandors={assignedMandors.map((a) => ({
+          id: a.user.id,
+          name: a.user.name,
+          username: a.user.username,
+        }))}
+        allMandors={allMandors}
+        mandorDisbursements={disbursements.map((d) => ({
+          id: d.id,
+          date: format(d.date, "dd/MM/yyyy"),
+          label: d.label,
+          amount: d.amount,
+          mandorName: d.mandor.name,
+          proofUrl: d.proofUrl,
+          hasKasBesar: Boolean(d.transactionId),
+        }))}
+        mandorOverspend={overspend}
       />
+
+      <Card className="mb-6 mt-4">
+        <MandorExpensePanel
+          rows={mandorExpenseRows}
+          fundBriefs={fundBriefs}
+          bukuKasHref={`/transactions/project?projectId=${project.id}`}
+          canBreakDown={canBreakDown}
+          knownWorkers={knownWorkers}
+        />
+      </Card>
 
       {isPayAtEnd ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Nilai pekerjaan selesai"
-              value={formatRupiah(workCompletedValue)}
-              hint={`${project.workItems.length} catatan · tanpa kontrak & saldo awal`}
-              tone="neutral"
-            />
-            <StatCard
-              label="Sudah dibayar"
-              value={formatRupiah(clientIncomeTotal)}
-              hint={`${workPaidPercent}% dari pekerjaan`}
-              tone="income"
-            />
-            <StatCard
-              label="Biaya dari kas besar"
-              value={formatRupiah(expenseTotal)}
-              hint="Pengeluaran proyek ini diambil dari kas gabungan"
-              tone="expense"
-            />
-            <StatCard
-              label="Kas besar tersedia"
-              value={formatRupiah(kasBesar.total)}
-              hint={`Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`}
-              tone="balance"
-            />
+          <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/80 px-3 py-2 text-sm text-sky-950/80">
+            Sisa tagihan: <strong>{formatRupiah(receivable)}</strong>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-950/80">
-            Sisa tagihan (piutang): <strong>{formatRupiah(receivable)}</strong> —
-            pekerjaan selesai dikurangi pembayaran klien.
-          </div>
-
-          <div className="mt-4 h-3 overflow-hidden rounded-full bg-teal-900/10">
-            <div
-              className="h-full rounded-full bg-teal-700 transition-all"
-              style={{ width: `${workPaidPercent}%` }}
-            />
-          </div>
-          <p className="mt-2 text-sm text-teal-900/60">
-            Progress pembayaran: {formatRupiah(clientIncomeTotal)} dari{" "}
-            {formatRupiah(workCompletedValue)} pekerjaan selesai (
-            {workPaidPercent}%).
-          </p>
-
-          <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="mt-2 grid gap-6 lg:grid-cols-[1fr_320px]">
             <Card>
               <h3 className="font-serif text-xl text-teal-950">
                 Pekerjaan yang sudah dikerjakan
               </h3>
-              <p className="mt-1 text-sm text-teal-900/60">
-                Catat progress pekerjaan beserta nilainya. Pembayaran dilakukan di
-                akhir berdasarkan total pekerjaan ini.
-              </p>
               <div className="mt-4 space-y-3">
                 {project.workItems.length === 0 ? (
-                  <EmptyState message="Belum ada pekerjaan dicatat. Tambahkan progres pekerjaan di samping." />
+                  <EmptyState message="Belum ada pekerjaan." />
                 ) : (
                   project.workItems.map((item) => (
                     <div
@@ -548,10 +670,10 @@ export default async function ProjectDetailPage({
 
                 <Card>
                   <details>
-                    <summary className="cursor-pointer text-base font-medium text-teal-950">
-                      Pengaturan proyek
+                    <summary className="cursor-pointer text-sm font-medium text-teal-950">
+                      Pengaturan
                     </summary>
-                    <div className="mt-4">
+                    <div className="mt-3">
                       <ActionForm
                         action={updateProjectAction}
                         submitLabel="Simpan"
@@ -590,93 +712,23 @@ export default async function ProjectDetailPage({
         </>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Nilai kontrak"
-              value={formatRupiah(project.contractValue)}
-              tone="neutral"
-            />
-            <StatCard
-              label="Sudah dibayar"
-              value={formatRupiah(clientIncomeTotal)}
-              hint={`${contractPaidPercent}% dari kontrak`}
-              tone="income"
-            />
-            <StatCard
-              label="Sisa belum terbayar"
-              value={formatRupiah(contractRemaining)}
-              hint={
-                project.contractValue > 0
-                  ? `${Math.max(0, 100 - contractPaidPercent)}% belum cair`
-                  : "Isi nilai kontrak dulu"
-              }
-              tone="expense"
-            />
-            <StatCard
-              label="Saldo kas proyek"
-              value={formatRupiah(cashBalance)}
-              hint={
-                project.openingBalance > 0
-                  ? `Awal ${formatRupiah(project.openingBalance)}`
-                  : `Tanpa saldo awal · Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`
-              }
-              tone="balance"
-            />
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-teal-900/8 bg-white/80 p-4">
-            <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <p className="text-xs font-medium tracking-wide text-teal-900/55 uppercase">
-                  Progress pembayaran (pengawasan)
-                </p>
-                <p className="mt-1 font-serif text-2xl text-teal-950">
-                  {contractPaidPercent}%
-                </p>
-              </div>
-              <p className="text-sm text-teal-900/65">
-                {formatRupiah(clientIncomeTotal)} /{" "}
-                {formatRupiah(project.contractValue)}
-              </p>
-            </div>
-            <div className="h-3 overflow-hidden rounded-full bg-teal-900/10">
-              <div
-                className="h-full rounded-full bg-teal-700 transition-all"
-                style={{ width: `${contractPaidPercent}%` }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-teal-900/55">
-              Sisa tagihan kontrak: {formatRupiah(contractRemaining)}. Digunakan
-              untuk laporan pengawasan pembayaran proyek.
-            </p>
-          </div>
-
           {showTermin ? (
-            <>
-              <div className="mt-4 h-3 overflow-hidden rounded-full bg-teal-900/10">
-                <div
-                  className="h-full rounded-full bg-teal-600/70 transition-all"
-                  style={{ width: `${fundingProgressPercent}%` }}
-                />
-              </div>
-              <p className="mt-2 text-sm text-teal-900/60">
-                Acuan rencana termin: {formatRupiah(receivedFunding)} dari{" "}
-                {formatRupiah(fundingBase)} ({fundingProgressPercent}%).
-              </p>
-            </>
+            <p className="mb-4 text-sm text-teal-900/60">
+              Termin: {formatRupiah(receivedFunding)} /{" "}
+              {formatRupiah(fundingBase)} ({fundingProgressPercent}%)
+            </p>
           ) : null}
 
           <div
-            className={`mt-6 grid gap-6 ${admin ? "lg:grid-cols-[1fr_320px]" : ""}`}
+            className={`mt-2 grid gap-6 ${
+              admin && showTermin ? "lg:grid-cols-[1fr_320px]" : ""
+            }`}
           >
             {showTermin ? (
               <Card>
                 <h3 className="font-serif text-xl text-teal-950">
-                  Rencana termin (acuan)
+                  Rencana termin
                 </h3>
-                <p className="mt-1 text-sm text-teal-900/60">
-                  Rencana saja. Nominal pembayaran tetap sesuai permintaan Anda.
-                </p>
                 <div className="mt-4 space-y-4">
                   {stages.length === 0 ? (
                     <EmptyState message="Belum ada rencana termin." />
@@ -763,41 +815,7 @@ export default async function ProjectDetailPage({
                   )}
                 </div>
               </Card>
-            ) : (
-              <Card>
-                <h3 className="font-serif text-xl text-teal-950">
-                  Pembayaran sesuai permintaan
-                </h3>
-                <p className="mt-2 text-sm text-teal-900/65">
-                  Catat pemasukan kapan saja sesuai permintaan kas. Progress di
-                  atas mengikuti nilai kontrak untuk laporan pengawasan.
-                </p>
-                <div className="mt-4 grid gap-2 text-sm text-teal-900/75">
-                  <div className="flex justify-between border-b border-teal-900/5 py-2">
-                    <span>Sudah dibayar</span>
-                    <strong>{formatRupiah(clientIncomeTotal)}</strong>
-                  </div>
-                  <div className="flex justify-between border-b border-teal-900/5 py-2">
-                    <span>Sisa belum terbayar</span>
-                    <strong className="text-rose-700">
-                      {formatRupiah(contractRemaining)}
-                    </strong>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span>Persentase pembayaran</span>
-                    <strong className="text-teal-800">
-                      {contractPaidPercent}%
-                    </strong>
-                  </div>
-                </div>
-                <Link
-                  href={`/transactions/new?projectId=${project.id}&type=INCOME`}
-                  className={`${btnSecondaryClass} mt-4`}
-                >
-                  + Catat pembayaran
-                </Link>
-              </Card>
-            )}
+            ) : null}
 
             {admin ? (
               <div className="space-y-6">
@@ -844,10 +862,10 @@ export default async function ProjectDetailPage({
 
                 <Card>
                   <details>
-                    <summary className="cursor-pointer text-base font-medium text-teal-950">
-                      Pengaturan proyek
+                    <summary className="cursor-pointer text-sm font-medium text-teal-950">
+                      Pengaturan
                     </summary>
-                    <div className="mt-4">
+                    <div className="mt-3">
                       <ActionForm
                         action={updateProjectAction}
                         submitLabel="Simpan"
@@ -883,16 +901,36 @@ export default async function ProjectDetailPage({
         </>
       )}
 
-      <div className="mt-6 border-t border-teal-900/10 pt-2">
-        <p className="mb-1 text-xs font-medium tracking-wide text-teal-900/45 uppercase">
-          Lainnya (jarang dipakai)
+      <div className="mt-6 border-t border-[var(--line-soft)] pt-3">
+        <p className="mb-2 text-[10px] font-medium tracking-[0.08em] text-[var(--ink-faint)] uppercase">
+          Proyek
         </p>
+        <ProjectCashBookPanel
+          projectId={project.id}
+          rowCount={project.transactions.length}
+          cashBalance={projectCash}
+        />
         <ProjectFundsPanel
           projectId={project.id}
           admin={admin}
+          canRecordManagement={canRecordManagement}
           contractValue={project.contractValue}
           funds={project.funds}
           spentByKind={spentByKind}
+          managementExpenses={project.transactions
+            .filter(
+              (tx) =>
+                tx.type === "EXPENSE" &&
+                !tx.isMandorExpense &&
+                tx.category.name === "Dana Pengelolaan",
+            )
+            .sort((a, b) => b.date.getTime() - a.date.getTime())
+            .map((tx) => ({
+              id: tx.id,
+              date: tx.date,
+              amount: tx.amount,
+              description: tx.description,
+            }))}
         />
         <ProjectProfitPanel
           input={{
@@ -902,6 +940,7 @@ export default async function ProjectDetailPage({
             clientIncome: clientIncomeTotal,
             operatingExpense,
             contractorAdvances,
+            operationalFunds,
             remainingPlannedFunds,
           }}
           feeTransferred={feeTransferred}

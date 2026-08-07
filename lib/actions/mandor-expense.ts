@@ -11,6 +11,11 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseRupiahInput } from "@/lib/money";
+import { getPencairanOptionsForProject } from "@/lib/mandor-pencairan";
+import {
+  isMandorExpenseDescription,
+  isMaterialAlamDescription,
+} from "@/lib/mandor-expense-labels";
 import type { FormState } from "@/lib/actions/projects";
 
 async function saveProof(file: File | null): Promise<string | null> {
@@ -40,7 +45,10 @@ async function saveProof(file: File | null): Promise<string | null> {
   return `/uploads/${filename}`;
 }
 
-/** Upload pengeluaran Mandor — wajib bukti, tidak menyentuh kas besar (hanya pelaporan). */
+/**
+ * Upload pengeluaran Mandor — wajib bukti.
+ * Acuan pencairan dipilih otomatis (FIFO sisa dana milik Mandor ini).
+ */
 export async function createMandorExpenseAction(
   _prev: FormState,
   formData: FormData,
@@ -58,11 +66,44 @@ export async function createMandorExpenseAction(
   if (!projectId || !description || !dateRaw || amount <= 0) {
     return { error: "Proyek, tanggal, nominal, dan keterangan wajib diisi." };
   }
+  if (!isMandorExpenseDescription(description)) {
+    return {
+      error:
+        "Pilih keterangan: Belanja Bahan Bangunan, Pembelian Material Alam, atau Pembayaran Pekerja.",
+    };
+  }
 
   await requireProjectAccess(user, projectId);
 
   const date = new Date(dateRaw);
   if (Number.isNaN(date.getTime())) return { error: "Tanggal tidak valid." };
+
+  const options = await getPencairanOptionsForProject(projectId, {
+    mandorId: user.id,
+  });
+  if (options.length === 0) {
+    return {
+      error: "Belum ada dana cair dari Owner untuk Anda di proyek ini.",
+    };
+  }
+
+  // FIFO: pencairan paling lama yang sisanya cukup; fallback sisa terbesar > 0
+  const selected =
+    options.find((o) => o.remaining >= amount) ??
+    options
+      .filter((o) => o.remaining > 0)
+      .sort((a, b) => b.remaining - a.remaining)[0];
+
+  if (!selected || selected.remaining <= 0) {
+    return {
+      error: "Sisa dana cair sudah habis. Minta pencairan berikutnya ke Owner.",
+    };
+  }
+  if (amount > selected.remaining) {
+    return {
+      error: `Nominal melebihi sisa dana cair (${selected.remaining.toLocaleString("id-ID")}).`,
+    };
+  }
 
   let proofUrl: string | null = null;
   try {
@@ -83,11 +124,6 @@ export async function createMandorExpenseAction(
   const categoryId = category?.id ?? fallback?.id;
   if (!categoryId) return { error: "Kategori belanja belum tersedia." };
 
-  // Sumber kas: pakai Kas Tunai sebagai placeholder (bukti Mandor = laporan, bukan potong kas lagi —
-  // dana sudah keluar saat pencairan Owner→Mandor). Transaksi ditandai isMandorExpense
-  // dan isFromGlobalCash false; amount tidak double-count di kas jika kita exclude di balance.
-  // Untuk sederhana: catat sebagai EXPENSE isMandorExpense dari kas proyek=0 impact via flag.
-  // Balance helpers need to ignore isMandorExpense so kas tidak terpotong dua kali.
   const cashSource =
     (await prisma.cashSource.findFirst({ where: { type: "CASH" } })) ??
     (await prisma.cashSource.findFirst());
@@ -105,7 +141,10 @@ export async function createMandorExpenseAction(
       categoryId,
       createdById: user.id,
       isMandorExpense: true,
+      isMaterialAlam: isMaterialAlamDescription(description),
       isFromGlobalCash: false,
+      linkedMandorDisbursementId: selected.id,
+      linkedContractorAdvanceId: null,
     },
   });
 
@@ -113,5 +152,6 @@ export async function createMandorExpenseAction(
   revalidatePath("/dashboard");
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/transactions");
+  revalidatePath("/transactions/project");
   redirect("/mandor");
 }
