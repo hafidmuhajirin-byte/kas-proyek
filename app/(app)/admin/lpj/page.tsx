@@ -38,7 +38,7 @@ export default async function AdminLpjProjectListPage() {
               >
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
                   <h3 className="font-serif text-xl text-[var(--ink)]">
-                    {tidyCase(p.name)}
+                    {p.name.trim().toUpperCase()}
                   </h3>
                   <span className="text-sm font-medium text-[var(--accent)]">
                     {formatRupiah(p.contractValue)}

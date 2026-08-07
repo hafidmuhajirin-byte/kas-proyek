@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRoleAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { tidyCase } from "@/lib/text";
 import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 import {
   AdminMandorNotaReview,
@@ -210,7 +209,7 @@ export default async function AdminLpjNotaPage({
     <div>
       <PageHeader
         title="Review Nota Mandor"
-        description={`${tidyCase(project.name)} · Pecah isi dulu, Split Nota opsional jika > Rp 2 jt`}
+        description={`${project.name.trim().toUpperCase()} · Pecah isi dulu, Split Nota opsional jika > Rp 2 jt`}
         actions={
           <Link
             href={`/admin/lpj/${project.id}`}

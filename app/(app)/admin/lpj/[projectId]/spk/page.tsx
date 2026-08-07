@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRoleAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { tidyCase } from "@/lib/text";
 import { formatRupiah } from "@/lib/money";
 import { Card, PageHeader } from "@/components/ui";
 import {
@@ -55,7 +54,7 @@ export default async function AdminLpjSpkPage({
     <div>
       <PageHeader
         title="Ringkasan SPK"
-        description={tidyCase(project.name)}
+          description={project.name.trim().toUpperCase()}
         actions={
           <Link
             href={`/admin/lpj/${project.id}`}

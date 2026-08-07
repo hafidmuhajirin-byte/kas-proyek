@@ -98,7 +98,7 @@ export default async function AdminLpjExportPage({
       <div className="print:hidden">
         <PageHeader
           title="Laporan LPJ"
-          description={`${tidyCase(project.name)} · ${tidyCase(project.location)} · SPK ${formatRupiah(project.contractValue)}`}
+          description={`${project.name.trim().toUpperCase()} · ${tidyCase(project.location)} · SPK ${formatRupiah(project.contractValue)}`}
           actions={
             <div className="flex flex-wrap gap-2">
               <Link
@@ -133,7 +133,7 @@ export default async function AdminLpjExportPage({
       <header className="mb-6 hidden border-b border-stone-300 pb-3 print:block">
         <h1 className="text-lg font-semibold">Laporan Pertanggungjawaban (LPJ)</h1>
         <p className="text-sm text-stone-600">
-          {tidyCase(project.name)} · {tidyCase(project.location)}
+          {project.name.trim().toUpperCase()} · {tidyCase(project.location)}
         </p>
         <p className="text-sm text-stone-600">
           Nilai SPK {formatRupiah(project.contractValue)} · Cair 70%{" "}

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRoleAdmin } from "@/lib/auth";
-import { tidyCase } from "@/lib/text";
 import {
   loadAbsenProject,
   loadAbsenWeekDetail,
@@ -62,7 +61,7 @@ export default async function AdminLpjAbsenPage({
       <div className="print:hidden">
         <PageHeader
           title="Absen & Rekap Gaji"
-          description={tidyCase(project.name)}
+          description={project.name.trim().toUpperCase()}
           actions={
             <Link
               href={`/admin/lpj/${project.id}`}
@@ -77,7 +76,7 @@ export default async function AdminLpjAbsenPage({
           Data dari pecah nota <strong>Bayar pekerja</strong>. Judul ={" "}
           <strong>catatan proyek</strong>
           {project.notes?.trim()
-            ? ` (“${tidyCase(project.notes.trim())}”).`
+            ? ` (“${project.notes.trim().toUpperCase()}”).`
             : " (isi Catatan di halaman proyek jika kosong)."}{" "}
           Minggu selalu libur; hari hadir diacak Senin–Sabtu. Klik sel absen
           untuk ubah, atau tombol <strong>Acak kehadiran</strong>. Cetak tanpa

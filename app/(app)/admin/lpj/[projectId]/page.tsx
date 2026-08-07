@@ -88,7 +88,7 @@ export default async function AdminLpjProjectMenuPage({
   return (
     <div>
       <PageHeader
-        title={tidyCase(project.name)}
+        title={project.name.trim().toUpperCase()}
         description={`${tidyCase(project.location)} · SPK ${formatRupiah(project.contractValue)}`}
         actions={
           <Link
