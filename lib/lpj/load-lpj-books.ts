@@ -105,6 +105,9 @@ export async function loadLpjBooks(
           isFeeTransfer: true,
           isMandorDisbursement: true,
           isMaterialAlam: true,
+          isSplitParent: true,
+          splitParentId: true,
+          splitIndex: true,
           category: { select: { name: true } },
           cashSource: { select: { name: true, type: true } },
           expenseLines: {
@@ -126,12 +129,15 @@ export async function loadLpjBooks(
   });
   if (!project || project.status !== "ACTIVE") return null;
 
+  // Shell upload (isSplitParent) tidak masuk buku — pakai BKK anak
+  const bookTx = project.transactions.filter((tx) => !tx.isSplitParent);
+
   const t70 = project.bankTranches.find((t) => t.phase === "PHASE_70");
   const t30 = project.bankTranches.find((t) => t.phase === "PHASE_30");
 
   // Pengambilan = dana User → Owner → Kredit Buku Bank + pemasukan BKU
   const ownerPengambilan = collectOwnerPengambilan(
-    project.transactions.map((tx) => ({
+    bookTx.map((tx) => ({
       ...tx,
       categoryName: tx.category.name,
     })),
@@ -155,7 +161,7 @@ export async function loadLpjBooks(
     ownerPengambilan.map((tx) => [tx.id, tx] as const),
   );
 
-  const ledgerTx = project.transactions.filter(
+  const ledgerTx = bookTx.filter(
     (tx) => !tx.isOwnerPersonal && !tx.isFeeTransfer,
   );
 

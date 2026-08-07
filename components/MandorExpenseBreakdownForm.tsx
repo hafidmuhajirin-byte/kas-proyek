@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, type ReactNode } from "react";
 import {
   approveMandorExpenseBreakdownAction,
   rejectMandorExpenseBreakdownAction,
@@ -83,6 +83,7 @@ export function MandorExpenseBreakdownForm({
   status = "PENDING",
   rejectNote = null,
   defaultOpen = true,
+  afterActions = null,
 }: {
   transactionId: string;
   proofAmount: number;
@@ -93,6 +94,8 @@ export function MandorExpenseBreakdownForm({
   rejectNote?: string | null;
   /** false = hanya tombol singkat sampai diklik (Kas Proyek) */
   defaultOpen?: boolean;
+  /** Slot di bawah aksi simpan/setujui (mis. tombol Split Nota Admin) */
+  afterActions?: ReactNode;
 }) {
   const initialKind =
     lines[0]?.kind ?? ("MATERIAL" as "MATERIAL" | "LABOR");
@@ -503,7 +506,7 @@ export function MandorExpenseBreakdownForm({
                 required
                 rows={2}
                 className={`${cell} text-sm`}
-                placeholder="Alasan tolak, mis. foto buram / nominal tidak terbaca — minta kirim ulang"
+                placeholder="Alasan tolak, mis. foto buram / nominal tidak terbaca — minta kirim ulang. Mandor harus ganti bukti agar sesuai."
               />
               <button
                 type="submit"
@@ -518,6 +521,8 @@ export function MandorExpenseBreakdownForm({
               ) : null}
             </form>
           ) : null}
+
+          {afterActions}
         </>
       ) : lines.length > 0 ? (
         <ReadonlyTable kind={initialKind} vendor={vendor} lines={lines} />

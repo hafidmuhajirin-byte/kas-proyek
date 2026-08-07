@@ -13,7 +13,13 @@ function revalidateExpense(projectId: string | null | undefined, txId: string) {
   revalidatePath("/transactions");
   revalidatePath("/transactions/project");
   revalidatePath("/mandor");
-  if (projectId) revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/admin/lpj");
+  if (projectId) {
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/admin/lpj/${projectId}`);
+    revalidatePath(`/admin/lpj/${projectId}/nota`);
+    revalidatePath(`/admin/lpj/${projectId}/pajak`);
+  }
   revalidatePath(`/transactions/${txId}/edit`);
 }
 
@@ -95,11 +101,17 @@ export async function saveMandorExpenseBreakdownAction(
       amount: true,
       projectId: true,
       isMandorExpense: true,
+      isSplitParent: true,
       breakdownStatus: true,
     },
   });
   if (!tx || !tx.isMandorExpense) {
     return { error: "Bukti Mandor tidak ditemukan." };
+  }
+  if (tx.isSplitParent) {
+    return {
+      error: "Upload sudah di-split — pecah isi di masing-masing BKK.",
+    };
   }
   if (tx.breakdownStatus === "APPROVED") {
     return { error: "Nota sudah disetujui. Buka ulang dulu jika perlu ubah." };
@@ -163,18 +175,48 @@ export async function approveMandorExpenseBreakdownAction(
       amount: true,
       projectId: true,
       isMandorExpense: true,
+      isSplitParent: true,
+      splitParentId: true,
       expenseLines: { select: { amount: true } },
     },
   });
-  if (!tx || !tx.isMandorExpense) return;
+  if (!tx || !tx.isMandorExpense || tx.isSplitParent) return;
 
   const total = tx.expenseLines.reduce((s, l) => s + l.amount, 0);
   if (tx.expenseLines.length === 0 || total !== tx.amount) return;
+
+  // Jika bagian split: jumlah semua BKK harus = total upload Mandor
+  if (tx.splitParentId) {
+    const parent = await prisma.transaction.findUnique({
+      where: { id: tx.splitParentId },
+      select: { amount: true },
+    });
+    const siblings = await prisma.transaction.findMany({
+      where: { splitParentId: tx.splitParentId },
+      select: { amount: true },
+    });
+    const sumParts = siblings.reduce((s, c) => s + c.amount, 0);
+    if (!parent || sumParts !== parent.amount) return;
+  }
 
   await prisma.transaction.update({
     where: { id: transactionId },
     data: { breakdownStatus: "APPROVED", breakdownNote: null },
   });
+
+  // Jika semua BKK anak sudah approved, tandai parent shell juga
+  if (tx.splitParentId) {
+    const siblings = await prisma.transaction.findMany({
+      where: { splitParentId: tx.splitParentId },
+      select: { breakdownStatus: true },
+    });
+    if (siblings.every((s) => s.breakdownStatus === "APPROVED")) {
+      await prisma.transaction.update({
+        where: { id: tx.splitParentId },
+        data: { breakdownStatus: "APPROVED", breakdownNote: null },
+      });
+    }
+  }
 
   revalidateExpense(tx.projectId, transactionId);
 }
@@ -199,21 +241,36 @@ export async function rejectMandorExpenseBreakdownAction(
 
   const tx = await prisma.transaction.findUnique({
     where: { id: transactionId },
-    select: { id: true, projectId: true, isMandorExpense: true },
+    select: {
+      id: true,
+      projectId: true,
+      isMandorExpense: true,
+      isSplitParent: true,
+      splitParentId: true,
+    },
   });
   if (!tx || !tx.isMandorExpense) return { error: "Bukti tidak ditemukan." };
 
-  await prisma.transaction.update({
-    where: { id: transactionId },
-    data: {
-      breakdownStatus: "REJECTED",
-      breakdownNote: note,
-    },
-  });
+  // Tolak upload Mandor (parent) + semua BKK agar notifikasi sampai ke Mandor
+  const rootId = tx.isSplitParent
+    ? tx.id
+    : (tx.splitParentId ?? tx.id);
+
+  await prisma.$transaction([
+    prisma.transaction.update({
+      where: { id: rootId },
+      data: { breakdownStatus: "REJECTED", breakdownNote: note },
+    }),
+    prisma.transaction.updateMany({
+      where: { splitParentId: rootId },
+      data: { breakdownStatus: "REJECTED", breakdownNote: note },
+    }),
+  ]);
 
   revalidateExpense(tx.projectId, transactionId);
   return {
-    success: "Nota ditolak. Mandor akan melihat permintaan foto ulang.",
+    success:
+      "Nota ditolak. Mandor akan melihat permintaan ganti bukti nota agar sesuai.",
   };
 }
 

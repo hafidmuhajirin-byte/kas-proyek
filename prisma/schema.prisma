@@ -363,6 +363,14 @@ model Transaction {
   breakdownVendor      String?
   breakdownStatus      MandorBreakdownStatus @default(PENDING)
   breakdownNote        String? @db.Text
+  /// Upload Mandor yang sudah di-split menjadi beberapa BKK (shell LPJ).
+  isSplitParent        Boolean @default(false)
+  /// BKK hasil split — menunjuk ke upload Mandor (parent).
+  splitParentId        String?
+  splitParent          Transaction?  @relation("MandorNotaSplit", fields: [splitParentId], references: [id], onDelete: Cascade)
+  splitChildren        Transaction[] @relation("MandorNotaSplit")
+  /// Urutan BKK dalam satu upload (1..3).
+  splitIndex           Int?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -402,6 +410,8 @@ model Transaction {
   @@index([linkedMandorDisbursementId])
   @@index([linkedContractorAdvanceId])
   @@index([materialMasterId])
+  @@index([splitParentId])
+  @@index([isSplitParent])
 }
 
 /// Kategori pagu SPK (Admin LPJ Swakelola)

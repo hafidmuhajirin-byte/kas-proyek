@@ -54,6 +54,8 @@ export async function getMandorFundSummariesFor(
         projectId: { in: projectIds },
         type: "EXPENSE",
         isMandorExpense: true,
+        // BKK hasil split tidak dihitung — dana Mandor dari upload asli saja
+        splitParentId: null,
       },
       select: {
         amount: true,

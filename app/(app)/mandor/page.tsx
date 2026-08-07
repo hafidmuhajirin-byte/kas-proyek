@@ -56,6 +56,8 @@ export default async function MandorHomePage() {
         isMandorExpense: true,
         breakdownStatus: "REJECTED",
         projectId: { in: ids },
+        // Satu notifikasi per upload — bukan tiap BKK hasil split
+        splitParentId: null,
       },
       orderBy: [{ updatedAt: "desc" }],
       select: {

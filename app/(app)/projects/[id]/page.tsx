@@ -127,6 +127,9 @@ export default async function ProjectDetailPage({
             isOwnerPersonal: true,
             isFeeTransfer: true,
             isMandorExpense: true,
+            isSplitParent: true,
+            splitParentId: true,
+            splitIndex: true,
             breakdownVendor: true,
             breakdownStatus: true,
             breakdownNote: true,
@@ -228,7 +231,13 @@ export default async function ProjectDetailPage({
     )
     .reduce((sum, tx) => sum + tx.amount, 0);
   const expenseTotal = project.transactions
-    .filter((tx) => tx.type === "EXPENSE" && !isOwnerPersonalDraw(tx))
+    .filter(
+      (tx) =>
+        tx.type === "EXPENSE" &&
+        !isOwnerPersonalDraw(tx) &&
+        // BKK hasil split tidak dijumlah — shell/upload asli sudah mewakili total
+        !tx.splitParentId,
+    )
     .reduce((sum, tx) => sum + tx.amount, 0);
   const operatingExpense = project.transactions
     .filter(
@@ -374,7 +383,13 @@ export default async function ProjectDetailPage({
   });
 
   const mandorExpenseRows = project.transactions
-    .filter((tx) => tx.type === "EXPENSE" && tx.isMandorExpense)
+    .filter(
+      (tx) =>
+        tx.type === "EXPENSE" &&
+        tx.isMandorExpense &&
+        // Shell split disembunyikan — tampilkan BKK anak; unsplit = parent
+        !tx.isSplitParent,
+    )
     .sort((a, b) => b.date.getTime() - a.date.getTime())
     .map((tx) => ({
       id: tx.id,

@@ -14,6 +14,7 @@
     "db:reset": "prisma migrate reset",
     "test:lpj": "tsx scripts/test-lpj-core.ts",
     "test:mandor-assign": "tsx scripts/test-mandor-assign.ts",
+    "test:mandor-split": "tsx scripts/test-mandor-nota-split.ts",
     "repair:mandor-assign": "tsx scripts/repair-mandor-assignments.ts"
   },
   "dependencies": {
