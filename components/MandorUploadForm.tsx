@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createMandorExpenseAction } from "@/lib/actions/mandor-expense";
+import { MANDOR_EXPENSE_DESCRIPTIONS } from "@/lib/mandor-expense-labels";
 import { ProofCapture } from "@/components/ProofCapture";
 import { RupiahInput } from "@/components/RupiahInput";
 import {
@@ -28,8 +29,6 @@ export function MandorUploadForm({
   const [state, action, pending] = useActionState(createMandorExpenseAction, {});
   const [amountKey, setAmountKey] = useState(0);
   const [amountDefault, setAmountDefault] = useState(0);
-  const [descKey, setDescKey] = useState(0);
-  const [descDefault, setDescDefault] = useState("");
   const [projectId, setProjectId] = useState(
     defaultProjectId ?? projects[0]?.id ?? "",
   );
@@ -38,10 +37,6 @@ export function MandorUploadForm({
     if (s.amount != null && s.amount > 0) {
       setAmountDefault(s.amount);
       setAmountKey((k) => k + 1);
-    }
-    if (s.descriptionHint) {
-      setDescDefault(s.descriptionHint);
-      setDescKey((k) => k + 1);
     }
   }
 
@@ -91,16 +86,22 @@ export function MandorUploadForm({
       </Field>
 
       <Field label="Keterangan" htmlFor="description">
-        <textarea
-          key={descKey}
+        <select
           id="description"
           name="description"
           className={inputClass}
-          rows={3}
           required
-          defaultValue={descDefault}
-          placeholder="Contoh: Beli semen 10 zak"
-        />
+          defaultValue=""
+        >
+          <option value="" disabled>
+            Pilih keterangan…
+          </option>
+          {MANDOR_EXPENSE_DESCRIPTIONS.map((label) => (
+            <option key={label} value={label}>
+              {label}
+            </option>
+          ))}
+        </select>
       </Field>
 
       <Field label="Bukti (wajib)">

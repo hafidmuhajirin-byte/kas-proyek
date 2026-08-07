@@ -12,6 +12,10 @@ import {
 import { prisma } from "@/lib/prisma";
 import { parseRupiahInput } from "@/lib/money";
 import { getPencairanOptionsForProject } from "@/lib/mandor-pencairan";
+import {
+  isMandorExpenseDescription,
+  isMaterialAlamDescription,
+} from "@/lib/mandor-expense-labels";
 import type { FormState } from "@/lib/actions/projects";
 
 async function saveProof(file: File | null): Promise<string | null> {
@@ -61,6 +65,12 @@ export async function createMandorExpenseAction(
 
   if (!projectId || !description || !dateRaw || amount <= 0) {
     return { error: "Proyek, tanggal, nominal, dan keterangan wajib diisi." };
+  }
+  if (!isMandorExpenseDescription(description)) {
+    return {
+      error:
+        "Pilih keterangan: Belanja Bahan Bangunan, Pembelian Material Alam, atau Pembayaran Pekerja.",
+    };
   }
 
   await requireProjectAccess(user, projectId);
@@ -131,6 +141,7 @@ export async function createMandorExpenseAction(
       categoryId,
       createdById: user.id,
       isMandorExpense: true,
+      isMaterialAlam: isMaterialAlamDescription(description),
       isFromGlobalCash: false,
       linkedMandorDisbursementId: selected.id,
       linkedContractorAdvanceId: null,

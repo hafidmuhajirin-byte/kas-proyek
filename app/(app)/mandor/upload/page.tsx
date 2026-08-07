@@ -54,7 +54,7 @@ export default async function MandorUploadPage({
         Upload bukti
       </h1>
       <p className="text-center text-sm text-[var(--ink-muted)]">
-        Foto nota, isi nominal dan keterangan, lalu simpan.
+        Foto nota, isi nominal, pilih keterangan, lalu simpan.
       </p>
       <Card>
         <MandorUploadForm
