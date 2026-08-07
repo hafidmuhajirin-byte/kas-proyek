@@ -108,13 +108,30 @@ export function AppShell({
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr] print:block">
       <aside className="relative z-[1] hidden flex-col bg-[var(--accent)] text-[#eef4f1] print:hidden lg:flex lg:min-h-screen">
-        <div className="px-5 py-7">
-          <p className="font-serif text-2xl tracking-tight text-[#f7f4ee]">
-            Kas Proyek
-          </p>
-          <p className="mt-1 text-sm text-[#c5d4cf]">Buku kas multi lokasi</p>
+        <div className="border-b border-white/10 px-5 py-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-serif text-2xl tracking-tight text-[#f7f4ee]">
+                Kas Proyek
+              </p>
+              <p className="mt-1 truncate text-sm text-[#c5d4cf]">
+                {user.name}
+              </p>
+              <p className="truncate text-xs text-[#a8bbb4]">
+                {roleLabels[user.role] ?? user.role} · @{user.username}
+              </p>
+            </div>
+            <form action={logoutAction} className="shrink-0 pt-0.5">
+              <button
+                type="submit"
+                className="inline-flex min-h-9 items-center rounded-lg border border-white/20 bg-white/8 px-3 text-sm font-medium text-[#eef4f1] transition hover:border-white/35 hover:bg-white/14 hover:text-white"
+              >
+                Keluar
+              </button>
+            </form>
+          </div>
         </div>
-        <nav className="flex flex-1 flex-col gap-0.5 px-3 pb-4">
+        <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4">
           {nav.primary.map((item) => (
             <Link
               key={item.href}
@@ -160,20 +177,6 @@ export function AppShell({
             </div>
           ) : null}
         </nav>
-        <div className="border-t border-white/10 px-5 py-4">
-          <p className="text-sm font-medium text-white">{user.name}</p>
-          <p className="text-xs text-[#a8bbb4]">
-            {roleLabels[user.role] ?? user.role} · @{user.username}
-          </p>
-          <form action={logoutAction} className="mt-3">
-            <button
-              type="submit"
-              className="text-xs text-[#c5d4cf] underline-offset-2 hover:text-white hover:underline"
-            >
-              Keluar
-            </button>
-          </form>
-        </div>
       </aside>
 
       <div className="sticky top-0 z-30 border-b border-[var(--line-soft)] bg-[var(--paper)]/95 backdrop-blur print:hidden lg:hidden">
