@@ -138,8 +138,8 @@ function SignatoryBlock({
       <p className="mt-0.5 min-h-[1.25rem]">
         {org ? tidyCase(org) : "\u00a0"}
       </p>
-      {/* Ruang tanda tangan lebih lebar — nama tidak terlalu tinggi */}
-      <div className="mx-auto my-14 h-16 shrink-0 sm:my-16 sm:h-20" aria-hidden />
+      {/* Ruang tanda tangan — cukup untuk paraf, tidak terlalu tinggi */}
+      <div className="mx-auto my-5 h-10 shrink-0 sm:my-6 sm:h-12" aria-hidden />
       <div className="mt-auto">
         <p className="font-semibold underline decoration-1 underline-offset-2">
           {name?.trim() || "(nama)"}
