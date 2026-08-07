@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions/mandor-expense-lines";
 import { Alert } from "@/components/ui";
 import { LABOR_ROLES, isLaborRole, normalizeWorkerName } from "@/lib/labor-roles";
+import { toDateInputValue } from "@/lib/labor-period";
 import { formatNumberId, formatRupiah, parseRupiahInput } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 
@@ -100,6 +101,9 @@ export function MandorExpenseBreakdownForm({
   defaultOpen = true,
   afterActions = null,
   knownWorkers = [],
+  laborPeriodStart = null,
+  laborPeriodEnd = null,
+  laborWeekIndex = null,
 }: {
   transactionId: string;
   proofAmount: number;
@@ -114,11 +118,20 @@ export function MandorExpenseBreakdownForm({
   afterActions?: ReactNode;
   /** Nama pekerja yang sudah pernah tercatat di proyek ini */
   knownWorkers?: KnownWorkerOption[];
+  laborPeriodStart?: Date | string | null;
+  laborPeriodEnd?: Date | string | null;
+  laborWeekIndex?: number | null;
 }) {
   const initialKind =
     lines[0]?.kind ?? ("MATERIAL" as "MATERIAL" | "LABOR");
   const [kind, setKind] = useState<"MATERIAL" | "LABOR">(initialKind);
   const [vendorName, setVendorName] = useState(vendor ?? "");
+  const [periodStart, setPeriodStart] = useState(
+    () => toDateInputValue(laborPeriodStart),
+  );
+  const [periodEnd, setPeriodEnd] = useState(
+    () => toDateInputValue(laborPeriodEnd),
+  );
   const [rows, setRows] = useState<DraftRow[]>(() =>
     linesToDrafts(lines, initialKind),
   );
@@ -252,6 +265,9 @@ export function MandorExpenseBreakdownForm({
           vendor={vendor}
           lines={lines}
           proofAmount={proofAmount}
+          laborPeriodStart={laborPeriodStart}
+          laborPeriodEnd={laborPeriodEnd}
+          laborWeekIndex={laborWeekIndex}
         />
       </div>
     );
@@ -283,6 +299,9 @@ export function MandorExpenseBreakdownForm({
           vendor={vendor}
           lines={lines}
           proofAmount={proofAmount}
+          laborPeriodStart={laborPeriodStart}
+          laborPeriodEnd={laborPeriodEnd}
+          laborWeekIndex={laborWeekIndex}
         />
         <form action={reopenMandorExpenseBreakdownAction}>
           <input type="hidden" name="transactionId" value={transactionId} />
@@ -373,13 +392,41 @@ export function MandorExpenseBreakdownForm({
               className={`${cell} text-sm`}
             />
           ) : (
-            <p className="text-[11px] text-teal-900/55">
-              Isi nama pekerja + peran (Tukang / Pembantu tukang). Nama yang sama
-              tidak boleh dobel dalam satu pecah nota.
-              {knownWorkers.length > 0
-                ? " Ketik untuk memilih dari daftar pekerja proyek."
-                : ""}
-            </p>
+            <div className="space-y-2">
+              <p className="text-[11px] text-teal-900/55">
+                Isi periode gaji, nama pekerja + peran (Tukang / Pembantu tukang).
+                Nama yang sama tidak boleh dobel dalam satu pecah nota.
+                {knownWorkers.length > 0
+                  ? " Ketik untuk memilih dari daftar pekerja proyek."
+                  : ""}
+                {laborWeekIndex != null && laborWeekIndex > 0
+                  ? ` · Minggu Ke ${laborWeekIndex}`
+                  : ""}
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-[11px] text-teal-900/70">
+                  Tanggal awal
+                  <input
+                    type="date"
+                    required={kind === "LABOR"}
+                    value={periodStart}
+                    onChange={(e) => setPeriodStart(e.target.value)}
+                    className={`${cell} mt-0.5 block min-w-[9.5rem]`}
+                  />
+                </label>
+                <span className="pb-2 text-[11px] text-teal-900/45">sampai</span>
+                <label className="text-[11px] text-teal-900/70">
+                  Tanggal akhir
+                  <input
+                    type="date"
+                    required={kind === "LABOR"}
+                    value={periodEnd}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    className={`${cell} mt-0.5 block min-w-[9.5rem]`}
+                  />
+                </label>
+              </div>
+            </div>
           )}
 
           <div className="overflow-x-auto rounded border border-teal-900/10 bg-white">
@@ -576,6 +623,16 @@ export function MandorExpenseBreakdownForm({
               <input type="hidden" name="vendor" value={vendorName} />
               <input
                 type="hidden"
+                name="laborPeriodStart"
+                value={kind === "LABOR" ? periodStart : ""}
+              />
+              <input
+                type="hidden"
+                name="laborPeriodEnd"
+                value={kind === "LABOR" ? periodEnd : ""}
+              />
+              <input
+                type="hidden"
                 name="linesJson"
                 value={JSON.stringify(
                   rows
@@ -593,7 +650,11 @@ export function MandorExpenseBreakdownForm({
               />
               <button
                 type="submit"
-                disabled={savePending || duplicateNames.size > 0}
+                disabled={
+                  savePending ||
+                  duplicateNames.size > 0 ||
+                  (kind === "LABOR" && (!periodStart || !periodEnd))
+                }
                 className="rounded-md bg-teal-800 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
               >
                 {savePending ? "Menyimpan…" : "Simpan pecahan"}
@@ -666,18 +727,31 @@ function ApprovedSummary({
   vendor,
   lines,
   proofAmount,
+  laborPeriodStart,
+  laborPeriodEnd,
+  laborWeekIndex,
 }: {
   kind: "MATERIAL" | "LABOR";
   vendor: string | null | undefined;
   lines: ExpenseLineRow[];
   proofAmount: number;
+  laborPeriodStart?: Date | string | null;
+  laborPeriodEnd?: Date | string | null;
+  laborWeekIndex?: number | null;
 }) {
+  const start = toDateInputValue(laborPeriodStart);
+  const end = toDateInputValue(laborPeriodEnd);
   return (
     <div className="mt-2 space-y-1.5 rounded-lg border border-emerald-200 bg-emerald-50/50 px-2.5 py-2">
       <p className="text-xs font-medium text-emerald-900">
         ✓ Disetujui ·{" "}
         {kind === "MATERIAL" ? "Pembelian bahan" : "Bayar pekerja"}
-        {vendor ? ` · ${tidyCase(vendor)}` : ""} · {formatRupiah(proofAmount)}
+        {vendor ? ` · ${tidyCase(vendor)}` : ""}
+        {kind === "LABOR" && laborWeekIndex
+          ? ` · Minggu Ke ${laborWeekIndex}`
+          : ""}
+        {kind === "LABOR" && start && end ? ` · ${start} s/d ${end}` : ""} ·{" "}
+        {formatRupiah(proofAmount)}
       </p>
       <ReadonlyTable kind={kind} vendor={null} lines={lines} compact />
     </div>

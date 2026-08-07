@@ -7,6 +7,13 @@ import {
 } from "@/lib/auth";
 import { parseRupiahInput } from "@/lib/money";
 import { isLaborRole, normalizeWorkerName } from "@/lib/labor-roles";
+import {
+  attendanceAuditNote,
+  laborPayrollPeriodKey,
+  laborWeekLabel,
+  parseDateInput,
+  pickAttendanceDays,
+} from "@/lib/labor-period";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
 
@@ -20,6 +27,8 @@ function revalidateExpense(projectId: string | null | undefined, txId: string) {
     revalidatePath(`/admin/lpj/${projectId}`);
     revalidatePath(`/admin/lpj/${projectId}/nota`);
     revalidatePath(`/admin/lpj/${projectId}/pajak`);
+    revalidatePath(`/admin/lpj/${projectId}/absen`);
+    revalidatePath(`/admin/lpj/${projectId}/export`);
   }
   revalidatePath(`/transactions/${txId}/edit`);
 }
@@ -75,6 +84,25 @@ function parseLinesJson(raw: string): LinePayload[] | null {
   }
 }
 
+async function nextLaborWeekIndex(
+  projectId: string,
+  excludeTxId: string,
+): Promise<number> {
+  const prior = await prisma.transaction.findMany({
+    where: {
+      projectId,
+      isMandorExpense: true,
+      id: { not: excludeTxId },
+      laborWeekIndex: { not: null },
+    },
+    select: { laborWeekIndex: true },
+    orderBy: { laborWeekIndex: "desc" },
+    take: 1,
+  });
+  const max = prior[0]?.laborWeekIndex ?? 0;
+  return max + 1;
+}
+
 /** Simpan ulang seluruh pecahan (tabel) untuk satu bukti. */
 export async function saveMandorExpenseBreakdownAction(
   _prev: FormState,
@@ -88,6 +116,8 @@ export async function saveMandorExpenseBreakdownAction(
   const transactionId = String(formData.get("transactionId") ?? "");
   const kindRaw = String(formData.get("kind") ?? "").toUpperCase();
   const vendor = String(formData.get("vendor") ?? "").trim() || null;
+  const periodStartRaw = String(formData.get("laborPeriodStart") ?? "");
+  const periodEndRaw = String(formData.get("laborPeriodEnd") ?? "");
   const lines = parseLinesJson(String(formData.get("linesJson") ?? "[]"));
 
   if (!transactionId) return { error: "Nota tidak valid." };
@@ -98,11 +128,18 @@ export async function saveMandorExpenseBreakdownAction(
     return { error: "Minimal satu baris pecahan." };
   }
 
+  let laborStart: Date | null = null;
+  let laborEnd: Date | null = null;
   if (kindRaw === "LABOR") {
     for (const l of lines) {
       if (!l.laborRole || !isLaborRole(l.laborRole)) {
         return {
           error: `Pilih peran untuk "${l.description}": Tukang atau Pembantu tukang.`,
+        };
+      }
+      if (l.quantity == null || !(l.quantity > 0)) {
+        return {
+          error: `Isi jumlah hari kerja untuk "${l.description}".`,
         };
       }
     }
@@ -116,6 +153,16 @@ export async function saveMandorExpenseBreakdownAction(
       }
       seen.add(key);
     }
+    laborStart = parseDateInput(periodStartRaw);
+    laborEnd = parseDateInput(periodEndRaw);
+    if (!laborStart || !laborEnd) {
+      return {
+        error: "Isi tanggal awal dan tanggal akhir periode gaji.",
+      };
+    }
+    if (laborEnd.getTime() < laborStart.getTime()) {
+      return { error: "Tanggal akhir harus sama atau setelah tanggal awal." };
+    }
   }
 
   const tx = await prisma.transaction.findUnique({
@@ -127,6 +174,8 @@ export async function saveMandorExpenseBreakdownAction(
       isMandorExpense: true,
       isSplitParent: true,
       breakdownStatus: true,
+      laborWeekIndex: true,
+      description: true,
     },
   });
   if (!tx || !tx.isMandorExpense) {
@@ -148,6 +197,15 @@ export async function saveMandorExpenseBreakdownAction(
     };
   }
 
+  // Nomor minggu dihitung di luar transaksi interaktif agar sederhana
+  let weekIndex: number | null = null;
+  if (kindRaw === "LABOR" && tx.projectId) {
+    weekIndex =
+      tx.laborWeekIndex && tx.laborWeekIndex > 0
+        ? tx.laborWeekIndex
+        : await nextLaborWeekIndex(tx.projectId, transactionId);
+  }
+
   await prisma.$transaction(async (db) => {
     await db.mandorExpenseLine.deleteMany({ where: { transactionId } });
     await db.mandorExpenseLine.createMany({
@@ -165,66 +223,123 @@ export async function saveMandorExpenseBreakdownAction(
         createdById: user.id,
       })),
     });
+
+    const weekDesc =
+      kindRaw === "LABOR" && weekIndex ? laborWeekLabel(weekIndex) : null;
+
     await db.transaction.update({
       where: { id: transactionId },
       data: {
         breakdownVendor: kindRaw === "MATERIAL" ? vendor : null,
         breakdownStatus: "PENDING",
         breakdownNote: null,
+        laborPeriodStart: kindRaw === "LABOR" ? laborStart : null,
+        laborPeriodEnd: kindRaw === "LABOR" ? laborEnd : null,
+        laborWeekIndex: kindRaw === "LABOR" ? weekIndex : null,
+        ...(weekDesc ? { description: weekDesc } : {}),
       },
     });
 
-    // Rekam nama pekerja ke daftar proyek untuk pecah nota berikutnya
-    if (kindRaw === "LABOR" && tx.projectId) {
+    const audit = attendanceAuditNote(transactionId);
+    await db.workerAttendance.deleteMany({
+      where: { auditNote: audit },
+    });
+
+    if (kindRaw === "MATERIAL" && tx.laborWeekIndex && tx.projectId) {
+      await db.payrollHokLine.deleteMany({
+        where: {
+          projectId: tx.projectId,
+          periodMonth: laborPayrollPeriodKey(tx.laborWeekIndex),
+        },
+      });
+    }
+
+    if (
+      kindRaw === "LABOR" &&
+      tx.projectId &&
+      laborStart &&
+      laborEnd &&
+      weekIndex
+    ) {
+      const periodKey = laborPayrollPeriodKey(weekIndex);
+
       for (const l of lines) {
         const name = l.description.trim();
         const role = l.laborRole ?? "Pekerja";
-        const existing = await db.worker.findFirst({
-          where: {
-            projectId: tx.projectId,
-            name: { equals: name },
-          },
-          select: { id: true },
+        const days = l.quantity ?? 0;
+        const wage = l.unitPrice ?? 0;
+
+        const all = await db.worker.findMany({
+          where: { projectId: tx.projectId },
+          select: { id: true, name: true },
         });
-        if (existing) {
+        let workerId =
+          all.find(
+            (w) => normalizeWorkerName(w.name) === normalizeWorkerName(name),
+          )?.id ?? null;
+
+        if (workerId) {
           await db.worker.update({
-            where: { id: existing.id },
-            data: {
-              role,
-              dailyWage: l.unitPrice ?? 0,
-              active: true,
-            },
+            where: { id: workerId },
+            data: { role, dailyWage: wage, active: true },
           });
         } else {
-          // MySQL collation biasanya case-insensitive — cek manual lower
-          const all = await db.worker.findMany({
-            where: { projectId: tx.projectId },
-            select: { id: true, name: true },
+          const created = await db.worker.create({
+            data: {
+              projectId: tx.projectId,
+              name,
+              role,
+              dailyWage: wage,
+              active: true,
+            },
+            select: { id: true },
           });
-          const match = all.find(
-            (w) => normalizeWorkerName(w.name) === normalizeWorkerName(name),
-          );
-          if (match) {
-            await db.worker.update({
-              where: { id: match.id },
-              data: {
-                role,
-                dailyWage: l.unitPrice ?? 0,
-                active: true,
-              },
-            });
-          } else {
-            await db.worker.create({
-              data: {
-                projectId: tx.projectId,
-                name,
-                role,
-                dailyWage: l.unitPrice ?? 0,
-                active: true,
-              },
-            });
-          }
+          workerId = created.id;
         }
+
+        const attendDates = pickAttendanceDays(laborStart, laborEnd, days);
+        for (const d of attendDates) {
+          await db.workerAttendance.upsert({
+            where: {
+              workerId_date: { workerId, date: d },
+            },
+            create: {
+              workerId,
+              date: d,
+              present: true,
+              source: "ADMIN",
+              auditNote: audit,
+            },
+            update: {
+              present: true,
+              source: "ADMIN",
+              auditNote: audit,
+            },
+          });
+        }
+
+        await db.payrollHokLine.upsert({
+          where: {
+            projectId_workerId_periodMonth: {
+              projectId: tx.projectId,
+              workerId,
+              periodMonth: periodKey,
+            },
+          },
+          create: {
+            projectId: tx.projectId,
+            workerId,
+            periodMonth: periodKey,
+            days,
+            dailyWage: wage,
+            amount: l.amount,
+          },
+          update: {
+            days,
+            dailyWage: wage,
+            amount: l.amount,
+          },
+        });
       }
     }
   });
@@ -233,7 +348,9 @@ export async function saveMandorExpenseBreakdownAction(
   const match = total === tx.amount;
   return {
     success: match
-      ? "Pecahan tersimpan — total sesuai nota. Anda bisa setujui."
+      ? kindRaw === "LABOR"
+        ? "Pecahan gaji tersimpan — absensi & rekap gaji dicatat. Anda bisa setujui."
+        : "Pecahan tersimpan — total sesuai nota. Anda bisa setujui."
       : `Pecahan tersimpan. Total ${total.toLocaleString("id-ID")} belum sama dengan nota ${tx.amount.toLocaleString("id-ID")}.`,
   };
 }

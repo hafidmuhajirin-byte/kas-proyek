@@ -365,6 +365,11 @@ model Transaction {
   breakdownVendor      String?
   breakdownStatus      MandorBreakdownStatus @default(PENDING)
   breakdownNote        String? @db.Text
+  /// Periode gaji pecah LABOR (tanggal awal–akhir).
+  laborPeriodStart     DateTime?
+  laborPeriodEnd       DateTime?
+  /// Nomor minggu pembayaran pekerja di proyek (1, 2, …).
+  laborWeekIndex       Int?
   /// Upload Mandor yang sudah di-split menjadi beberapa BKK (shell LPJ).
   isSplitParent        Boolean @default(false)
   /// BKK hasil split — menunjuk ke upload Mandor (parent).

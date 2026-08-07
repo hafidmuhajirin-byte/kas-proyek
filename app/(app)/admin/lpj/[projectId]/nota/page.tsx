@@ -45,6 +45,9 @@ export default async function AdminLpjNotaPage({
       breakdownVendor: true,
       isMaterialAlam: true,
       isSplitParent: true,
+      laborPeriodStart: true,
+      laborPeriodEnd: true,
+      laborWeekIndex: true,
       createdBy: { select: { name: true } },
       category: { select: { name: true } },
       expenseLines: {
@@ -73,6 +76,9 @@ export default async function AdminLpjNotaPage({
           breakdownStatus: true,
           breakdownNote: true,
           breakdownVendor: true,
+          laborPeriodStart: true,
+          laborPeriodEnd: true,
+          laborWeekIndex: true,
           expenseLines: {
             orderBy: { createdAt: "asc" },
             select: {
@@ -141,6 +147,9 @@ export default async function AdminLpjNotaPage({
           vendor: c.breakdownVendor,
           breakdownStatus: c.breakdownStatus,
           breakdownNote: c.breakdownNote,
+          laborPeriodStart: c.laborPeriodStart,
+          laborPeriodEnd: c.laborPeriodEnd,
+          laborWeekIndex: c.laborWeekIndex,
           lines: c.expenseLines.map(mapLine),
         }))
       : [
@@ -152,6 +161,9 @@ export default async function AdminLpjNotaPage({
             vendor: n.breakdownVendor,
             breakdownStatus: n.breakdownStatus,
             breakdownNote: n.breakdownNote,
+            laborPeriodStart: n.laborPeriodStart,
+            laborPeriodEnd: n.laborPeriodEnd,
+            laborWeekIndex: n.laborWeekIndex,
             lines: n.expenseLines.map(mapLine),
           },
         ];

@@ -108,6 +108,9 @@ export default async function KasProyekPage({
         breakdownVendor: true,
         breakdownStatus: true,
         breakdownNote: true,
+        laborPeriodStart: true,
+        laborPeriodEnd: true,
+        laborWeekIndex: true,
         projectId: true,
         project: { select: { id: true, name: true, location: true } },
         cashSource: { select: { id: true, name: true, type: true } },
@@ -275,6 +278,9 @@ export default async function KasProyekPage({
       vendor: string | null;
       status: "PENDING" | "APPROVED" | "REJECTED";
       note: string | null;
+      laborPeriodStart: Date | null;
+      laborPeriodEnd: Date | null;
+      laborWeekIndex: number | null;
     }
   >();
   for (const tx of transactions) {
@@ -298,6 +304,9 @@ export default async function KasProyekPage({
         vendor: tx.breakdownVendor,
         status: tx.breakdownStatus,
         note: tx.breakdownNote,
+        laborPeriodStart: tx.laborPeriodStart,
+        laborPeriodEnd: tx.laborPeriodEnd,
+        laborWeekIndex: tx.laborWeekIndex,
       });
     }
   }
@@ -372,6 +381,9 @@ export default async function KasProyekPage({
             status={bd?.status ?? "PENDING"}
             rejectNote={bd?.note}
             knownWorkers={knownWorkers}
+            laborPeriodStart={bd?.laborPeriodStart}
+            laborPeriodEnd={bd?.laborPeriodEnd}
+            laborWeekIndex={bd?.laborWeekIndex}
             defaultOpen={false}
           />
         ) : null,

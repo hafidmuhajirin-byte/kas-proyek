@@ -23,6 +23,9 @@ export type MandorExpenseRow = {
   vendor?: string | null;
   breakdownStatus?: BreakdownStatus;
   breakdownNote?: string | null;
+  laborPeriodStart?: Date | string | null;
+  laborPeriodEnd?: Date | string | null;
+  laborWeekIndex?: number | null;
   lines: ExpenseLineRow[];
 };
 
@@ -156,6 +159,9 @@ export function MandorExpensePanel({
                     status={r.breakdownStatus ?? "PENDING"}
                     rejectNote={r.breakdownNote}
                     knownWorkers={knownWorkers}
+                    laborPeriodStart={r.laborPeriodStart}
+                    laborPeriodEnd={r.laborPeriodEnd}
+                    laborWeekIndex={r.laborWeekIndex}
                   />
                 ) : null}
               </li>

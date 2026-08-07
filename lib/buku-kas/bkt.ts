@@ -9,6 +9,7 @@
 
 import { formatBkuQty } from "@/lib/buku-kas/bku";
 import type { BkuExpenseLineInput } from "@/lib/buku-kas/bku";
+import { resolveExpenseLinesForCashBook } from "@/lib/buku-kas/labor-summary";
 import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 import type { TaxLineResult } from "@/lib/lpj/tax-compliance";
 
@@ -24,6 +25,7 @@ export type BktLedgerTx = {
   categoryName: string;
   /** Sumber kas CASH — BKT hanya mutasi tunai. */
   cashSourceType?: string;
+  laborWeekIndex?: number | null;
   expenseLines?: BkuExpenseLineInput[];
   unitPrice?: number | null;
 };
@@ -271,17 +273,18 @@ export function buildBktMonthBlocks(
 
       bkkSeq += 1;
       const buktiNo = `BKK.${bkkSeq}`;
-      const lines =
-        tx.expenseLines && tx.expenseLines.length > 0
-          ? tx.expenseLines
-          : null;
+      const lines = resolveExpenseLinesForCashBook({
+        description: tx.description,
+        laborWeekIndex: tx.laborWeekIndex,
+        expenseLines: tx.expenseLines,
+      });
 
       const tax = computeVoucherTax({
         amount,
         description: tx.description,
         categoryName: tx.categoryName,
         isMaterialAlam: tx.isMaterialAlam,
-        lines,
+        lines: tx.expenseLines,
       });
 
       if (lines) {

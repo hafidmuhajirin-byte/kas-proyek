@@ -108,6 +108,9 @@ export async function loadLpjBooks(
           isSplitParent: true,
           splitParentId: true,
           splitIndex: true,
+          laborWeekIndex: true,
+          laborPeriodStart: true,
+          laborPeriodEnd: true,
           category: { select: { name: true } },
           cashSource: { select: { name: true, type: true } },
           expenseLines: {
@@ -194,6 +197,7 @@ export async function loadLpjBooks(
         isMandorDisbursement: tx.isMandorDisbursement,
         isMaterialAlam: tx.isMaterialAlam,
         categoryName: tx.category.name,
+        laborWeekIndex: tx.laborWeekIndex,
         expenseLines: tx.expenseLines.map((l) => ({
           description: l.description,
           quantity: l.quantity ?? l.workDays,
@@ -245,6 +249,7 @@ export async function loadLpjBooks(
           tx.type === "INCOME" || tx.isMandorExpense
             ? "CASH"
             : tx.cashSource.type,
+        laborWeekIndex: tx.laborWeekIndex,
         expenseLines: tx.expenseLines.map((l) => ({
           description: l.description,
           quantity: l.quantity ?? l.workDays,

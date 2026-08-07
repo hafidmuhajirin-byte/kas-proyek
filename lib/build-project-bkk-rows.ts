@@ -1,4 +1,5 @@
 import type { BkkReportRow } from "@/lib/project-bkk-report";
+import { isAllLaborLines, laborWeekLabel } from "@/lib/labor-period";
 
 type ExpenseLine = {
   id: string;
@@ -24,6 +25,7 @@ type TxInput = {
   isMandorExpense: boolean;
   isMandorDisbursement: boolean;
   categoryName: string;
+  laborWeekIndex?: number | null;
   expenseLines: ExpenseLine[];
 };
 
@@ -105,7 +107,25 @@ export function buildProjectBkkRows(
     if (tx.isMandorExpense) {
       bkk += 1;
       const buktiNo = `BKK.${bkk}`;
-      if (tx.expenseLines.length > 0) {
+      if (tx.expenseLines.length > 0 && isAllLaborLines(tx.expenseLines)) {
+        const label =
+          tx.laborWeekIndex != null && tx.laborWeekIndex > 0
+            ? laborWeekLabel(tx.laborWeekIndex)
+            : tx.description;
+        rows.push({
+          id: `tx-${tx.id}`,
+          date: tx.date,
+          buktiNo,
+          status: "Bayar",
+          quantity: 1,
+          unit: "Ls",
+          keterangan: label,
+          unitPrice: tx.amount,
+          penerimaan: 0,
+          pengeluaran: tx.amount,
+          skipBalance: true,
+        });
+      } else if (tx.expenseLines.length > 0) {
         for (const line of tx.expenseLines) {
           const qty = line.quantity ?? line.workDays;
           const price = line.unitPrice ?? line.dailyRate;

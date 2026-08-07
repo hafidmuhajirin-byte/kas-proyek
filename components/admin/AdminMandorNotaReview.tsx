@@ -26,6 +26,9 @@ export type AdminNotaBkk = {
   vendor: string | null;
   breakdownStatus: BreakdownStatus;
   breakdownNote: string | null;
+  laborPeriodStart: Date | string | null;
+  laborPeriodEnd: Date | string | null;
+  laborWeekIndex: number | null;
   lines: ExpenseLineRow[];
 };
 
@@ -196,6 +199,9 @@ export function AdminMandorNotaReview({
                           status={bkk.breakdownStatus}
                           rejectNote={bkk.breakdownNote}
                           knownWorkers={knownWorkers}
+                          laborPeriodStart={bkk.laborPeriodStart}
+                          laborPeriodEnd={bkk.laborPeriodEnd}
+                          laborWeekIndex={bkk.laborWeekIndex}
                           afterActions={
                             bkk.breakdownStatus !== "APPROVED" ? (
                               <MandorNotaSplitButton

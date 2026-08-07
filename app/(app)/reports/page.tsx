@@ -598,6 +598,7 @@ export default async function ReportsPage({
                     isMandorExpense: tx.isMandorExpense,
                     isMandorDisbursement: tx.isMandorDisbursement,
                     categoryName: tx.category.name,
+                    laborWeekIndex: tx.laborWeekIndex,
                     expenseLines: tx.expenseLines,
                   })),
                   projectAdvs,

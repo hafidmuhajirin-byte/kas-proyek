@@ -5,6 +5,7 @@
  */
 
 import type { BankMonthBlock } from "@/lib/buku-kas/bank";
+import { resolveExpenseLinesForCashBook } from "@/lib/buku-kas/labor-summary";
 import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 import type { TaxLineResult } from "@/lib/lpj/tax-compliance";
 
@@ -32,6 +33,8 @@ export type BkuLedgerTx = {
   isMandorDisbursement?: boolean;
   isMaterialAlam?: boolean;
   categoryName: string;
+  /** Nomor minggu gaji — untuk ringkas uraian LABOR di BKU. */
+  laborWeekIndex?: number | null;
   expenseLines?: BkuExpenseLineInput[];
 };
 
@@ -290,17 +293,18 @@ export function buildBkuMonthBlocks(
 
       bkkSeq += 1;
       const buktiNo = `BKK.${bkkSeq}`;
-      const lines =
-        tx.expenseLines && tx.expenseLines.length > 0
-          ? tx.expenseLines
-          : null;
+      const lines = resolveExpenseLinesForCashBook({
+        description: tx.description,
+        laborWeekIndex: tx.laborWeekIndex,
+        expenseLines: tx.expenseLines,
+      });
 
       const tax = computeVoucherTax({
         amount,
         description: tx.description,
         categoryName: tx.categoryName,
         isMaterialAlam: tx.isMaterialAlam,
-        lines,
+        lines: tx.expenseLines,
       });
 
       // Samakan tinggi kolom agar "Terima PPh" sejajar dengan baris BKK
