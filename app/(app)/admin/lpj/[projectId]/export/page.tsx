@@ -94,7 +94,7 @@ export default async function AdminLpjExportPage({
     (projectExtra?.notes ?? "").trim() || project.name;
 
   return (
-    <div>
+    <div className="lpj-export-print">
       <div className="print:hidden">
         <PageHeader
           title="Laporan LPJ"
@@ -125,27 +125,16 @@ export default async function AdminLpjExportPage({
         </nav>
 
         <Card className="mb-4 text-sm text-[var(--ink-muted)]">
-          Pratinjau laporan di bawah. Unduh Excel/PDF A4 file menyusul — untuk
-          sementara gunakan tombol <strong>Cetak</strong> (Save as PDF).
+          Cetak/PDF memakai kertas <strong>A4 landscape</strong>. Tiap bulan
+          Buku Bank / BKU / BKT diusahakan 1 halaman; jika melebihi, header
+          dokumen + kolom tabel diulang di halaman berikutnya. Gunakan{" "}
+          <strong>Cetak → Save as PDF</strong>.
         </Card>
       </div>
 
-      <header className="mb-6 hidden border-b border-stone-300 pb-3 print:block">
-        <h1 className="text-lg font-semibold">Laporan Pertanggungjawaban (LPJ)</h1>
-        <p className="text-sm text-stone-600">
-          {project.name.trim().toUpperCase()} · {tidyCase(project.location)}
-        </p>
-        <p className="text-sm text-stone-600">
-          Nilai SPK {formatRupiah(project.contractValue)} · Cair 70%{" "}
-          {formatRupiah(books.trancheSummary.phase70Received)} · Cair 30%{" "}
-          {formatRupiah(books.trancheSummary.phase30Received)} · Pengambilan{" "}
-          {formatRupiah(books.trancheSummary.totalPengambilan)}
-        </p>
-      </header>
-
-      <section id="bank" className="mb-8 scroll-mt-20">
-        <Card>
-          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
+      <section id="bank" className="lpj-book-section mb-8 scroll-mt-20">
+        <Card className="print:border-0 print:bg-transparent print:p-0 print:shadow-none">
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
             Buku Bank
           </h2>
           <BankBookPreview
@@ -166,8 +155,8 @@ export default async function AdminLpjExportPage({
         </Card>
       </section>
 
-      <section id="bku" className="mb-8 scroll-mt-20">
-        <Card>
+      <section id="bku" className="lpj-book-section mb-8 scroll-mt-20">
+        <Card className="print:border-0 print:bg-transparent print:p-0 print:shadow-none">
           <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
             Buku Kas Umum (BKU)
           </h2>
@@ -195,8 +184,8 @@ export default async function AdminLpjExportPage({
         </Card>
       </section>
 
-      <section id="bkt" className="mb-8 scroll-mt-20">
-        <Card>
+      <section id="bkt" className="lpj-book-section mb-8 scroll-mt-20">
+        <Card className="print:border-0 print:bg-transparent print:p-0 print:shadow-none">
           <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
             Buku Kas Tunai (BKT)
           </h2>
@@ -219,8 +208,8 @@ export default async function AdminLpjExportPage({
         </Card>
       </section>
 
-      <section id="pajak" className="mb-8 scroll-mt-20">
-        <Card className="print:border-0 print:shadow-none">
+      <section id="pajak" className="lpj-book-section mb-8 scroll-mt-20">
+        <Card className="print:border-0 print:bg-transparent print:p-0 print:shadow-none">
           <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
             Rekap Pajak
           </h2>

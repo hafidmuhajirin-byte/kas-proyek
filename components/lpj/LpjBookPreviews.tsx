@@ -185,7 +185,7 @@ export function BankBookPreview({
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 print:space-y-0">
       {blocks.map((b) => {
         const padded = [...b.rows];
         while (padded.length < minRows) {
@@ -200,57 +200,68 @@ export function BankBookPreview({
           });
         }
         const monthEnd = new Date(b.year, b.month, 0);
+        const monthLabel = format(new Date(b.year, b.month - 1, 1), "MMMM yyyy", {
+          locale: localeId,
+        });
         const placeDate = `${kab || "Malang"}, ${format(monthEnd, "d MMMM yyyy", { locale: localeId })}`;
 
         return (
           <article
             key={`${b.year}-${b.month}`}
-            className="break-inside-avoid rounded-lg border border-stone-300 bg-white p-4 text-black sm:p-5 print:border-0 print:p-0"
+            className="lpj-month-sheet rounded-lg border border-stone-300 bg-white p-4 text-black sm:p-5 print:border-0 print:p-0"
           >
-            <h3 className="text-center text-base font-bold tracking-wide sm:text-lg">
-              BUKU BANK
-            </h3>
-            <p className="mt-0.5 text-center text-sm font-medium">
-              Bulan{" "}
-              {format(new Date(b.year, b.month - 1, 1), "MMMM yyyy", {
-                locale: localeId,
-              })}
-            </p>
+            <div className="lpj-month-screen-header">
+              <h3 className="text-center text-base font-bold tracking-wide sm:text-lg">
+                BUKU BANK
+              </h3>
+              <p className="mt-0.5 text-center text-sm font-medium">
+                Bulan {monthLabel}
+              </p>
 
-            <div className="mt-4 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2 sm:text-sm">
-              <div className="space-y-0.5">
-                <p>
-                  <span className="inline-block w-24 text-stone-600">
-                    Sekolah
-                  </span>
-                  <span>: {school}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-24 text-stone-600">Desa</span>
-                  <span>: {loc.alamat}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-24 text-stone-600">
-                    Kecamatan
-                  </span>
-                  <span>: {loc.kecamatan}</span>
-                </p>
-              </div>
-              <div className="space-y-0.5 sm:text-right">
-                <p>
-                  <span className="text-stone-600">Kab/Kota : </span>
-                  {kab}
-                </p>
-                <p>
-                  <span className="text-stone-600">Provinsi : </span>
-                  {prov}
-                </p>
+              <div className="mt-4 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2 sm:text-sm">
+                <div className="space-y-0.5">
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">
+                      Sekolah
+                    </span>
+                    <span>: {school}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">Desa</span>
+                    <span>: {loc.alamat}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">
+                      Kecamatan
+                    </span>
+                    <span>: {loc.kecamatan}</span>
+                  </p>
+                </div>
+                <div className="space-y-0.5 sm:text-right">
+                  <p>
+                    <span className="text-stone-600">Kab/Kota : </span>
+                    {kab}
+                  </p>
+                  <p>
+                    <span className="text-stone-600">Provinsi : </span>
+                    {prov}
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-[11px] sm:text-xs">
+            <div className="mt-4 overflow-x-auto print:mt-0">
+              <table className="lpj-book-table w-full min-w-[640px] border-collapse text-[11px] sm:text-xs">
                 <thead>
+                  <tr className="lpj-print-running-header">
+                    <th colSpan={7}>BUKU BANK — Bulan {monthLabel}</th>
+                  </tr>
+                  <tr className="lpj-print-running-meta">
+                    <th colSpan={7}>
+                      Sekolah: {school} · Desa: {loc.alamat} · Kec:{" "}
+                      {loc.kecamatan} · Kab: {kab} · Prov: {prov}
+                    </th>
+                  </tr>
                   <tr className="bg-stone-100">
                     <th className="border border-stone-400 px-1.5 py-2 text-center">
                       No.
@@ -330,7 +341,7 @@ export function BankBookPreview({
               </table>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
+            <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
                 labels={["", "Mengetahui :"]}
                 title="Kepala Sekolah"
@@ -387,7 +398,7 @@ export function BkuPreview({
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 print:space-y-0">
       {blocks.map((b) => {
         const incomes = [...b.incomes];
         const expenses = [...b.expenses];
@@ -400,87 +411,99 @@ export function BkuPreview({
           locale: localeId,
         });
         const placeDate = `${(loc.kecamatan !== "—" ? loc.kecamatan : kab) || "Malang"} ${endLong}`;
+        const periodStartLabel = format(b.periodStart, "dd MMMM yyyy", {
+          locale: localeId,
+        });
+        const periodEndLabel = format(b.periodEnd, "dd MMMM yyyy", {
+          locale: localeId,
+        });
 
         return (
           <article
             key={`${b.year}-${b.month}`}
-            className="break-inside-avoid rounded-lg border border-stone-300 bg-white p-4 text-black sm:p-5 print:border-0 print:p-0"
+            className="lpj-month-sheet rounded-lg border border-stone-300 bg-white p-4 text-black sm:p-5 print:border-0 print:p-0"
           >
-            <h3 className="text-center text-base font-bold tracking-wide sm:text-lg">
-              BUKU KAS UMUM
-            </h3>
-            <p className="mt-0.5 text-center text-xs font-semibold uppercase tracking-wide sm:text-sm">
-              {subtitle}
-            </p>
+            <div className="lpj-month-screen-header">
+              <h3 className="text-center text-base font-bold tracking-wide sm:text-lg">
+                BUKU KAS UMUM
+              </h3>
+              <p className="mt-0.5 text-center text-xs font-semibold uppercase tracking-wide sm:text-sm">
+                {subtitle}
+              </p>
 
-            <div className="mt-4 grid gap-x-4 gap-y-1 text-[11px] sm:grid-cols-3 sm:text-xs">
-              <div className="space-y-0.5">
-                <p>
-                  <span className="inline-block w-[7.5rem] text-stone-600">
-                    Bulan ke
-                  </span>
-                  <span>: {b.monthIndex}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-[7.5rem] text-stone-600">
-                    Sekolah
-                  </span>
-                  <span>: {school}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-[7.5rem] align-top text-stone-600">
-                    Alamat
-                  </span>
-                  <span className="inline">: {loc.alamat}</span>
-                </p>
-              </div>
-              <div className="space-y-0.5">
-                <p>
-                  <span className="inline-block w-24 text-stone-600">
-                    Kecamatan
-                  </span>
-                  <span>: {loc.kecamatan}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-24 text-stone-600">
-                    Kabupaten
-                  </span>
-                  <span>: {kab}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-24 text-stone-600">
-                    Propinsi
-                  </span>
-                  <span>: {prov}</span>
-                </p>
-              </div>
-              <div className="space-y-0.5">
-                <p>
-                  <span className="inline-block w-[8.5rem] text-stone-600">
-                    Awal Pembukuan
-                  </span>
-                  <span>
-                    :{" "}
-                    {format(b.periodStart, "dd MMMM yyyy", {
-                      locale: localeId,
-                    })}
-                  </span>
-                </p>
-                <p>
-                  <span className="inline-block w-[8.5rem] text-stone-600">
-                    Akhir Pembukuan
-                  </span>
-                  <span>
-                    :{" "}
-                    {format(b.periodEnd, "dd MMMM yyyy", { locale: localeId })}
-                  </span>
-                </p>
+              <div className="mt-4 grid gap-x-4 gap-y-1 text-[11px] sm:grid-cols-3 sm:text-xs">
+                <div className="space-y-0.5">
+                  <p>
+                    <span className="inline-block w-[7.5rem] text-stone-600">
+                      Bulan ke
+                    </span>
+                    <span>: {b.monthIndex}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-[7.5rem] text-stone-600">
+                      Sekolah
+                    </span>
+                    <span>: {school}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-[7.5rem] align-top text-stone-600">
+                      Alamat
+                    </span>
+                    <span className="inline">: {loc.alamat}</span>
+                  </p>
+                </div>
+                <div className="space-y-0.5">
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">
+                      Kecamatan
+                    </span>
+                    <span>: {loc.kecamatan}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">
+                      Kabupaten
+                    </span>
+                    <span>: {kab}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">
+                      Propinsi
+                    </span>
+                    <span>: {prov}</span>
+                  </p>
+                </div>
+                <div className="space-y-0.5">
+                  <p>
+                    <span className="inline-block w-[8.5rem] text-stone-600">
+                      Awal Pembukuan
+                    </span>
+                    <span>: {periodStartLabel}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-[8.5rem] text-stone-600">
+                      Akhir Pembukuan
+                    </span>
+                    <span>: {periodEndLabel}</span>
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[980px] border-collapse text-[10px] sm:text-[11px]">
+            <div className="mt-4 overflow-x-auto print:mt-0">
+              <table className="lpj-book-table w-full min-w-[980px] border-collapse text-[10px] sm:text-[11px]">
                 <thead>
+                  <tr className="lpj-print-running-header">
+                    <th colSpan={11}>
+                      BUKU KAS UMUM — {subtitle} (Bulan ke-{b.monthIndex})
+                    </th>
+                  </tr>
+                  <tr className="lpj-print-running-meta">
+                    <th colSpan={11}>
+                      Sekolah: {school} · {loc.alamat} · Kec: {loc.kecamatan} ·
+                      Kab: {kab} · Prov: {prov} · {periodStartLabel} s/d{" "}
+                      {periodEndLabel}
+                    </th>
+                  </tr>
                   <tr className="bg-stone-100">
                     <th
                       colSpan={3}
@@ -703,7 +726,7 @@ export function BkuPreview({
               </div>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
+            <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
                 labels={["", "Mengetahui"]}
                 title="Kepala Sekolah"
@@ -759,7 +782,7 @@ export function BktPreview({
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 print:space-y-0">
       {blocks.map((b) => {
         const padded = [...b.rows];
         while (padded.length < minRows) {
@@ -785,61 +808,74 @@ export function BktPreview({
         return (
           <article
             key={`${b.year}-${b.month}`}
-            className="break-inside-avoid rounded-lg border border-stone-300 bg-white p-4 text-black sm:p-5 print:border-0 print:p-0"
+            className="lpj-month-sheet rounded-lg border border-stone-300 bg-white p-4 text-black sm:p-5 print:border-0 print:p-0"
           >
-            <h3 className="text-center text-base font-bold tracking-wide sm:text-lg">
-              BUKU KAS TUNAI
-            </h3>
-            <p className="mt-0.5 text-center text-xs font-semibold uppercase tracking-wide sm:text-sm">
-              {subtitle}
-            </p>
+            <div className="lpj-month-screen-header">
+              <h3 className="text-center text-base font-bold tracking-wide sm:text-lg">
+                BUKU KAS TUNAI
+              </h3>
+              <p className="mt-0.5 text-center text-xs font-semibold uppercase tracking-wide sm:text-sm">
+                {subtitle}
+              </p>
 
-            <div className="mt-4 grid gap-x-4 gap-y-1 text-[11px] sm:grid-cols-2 sm:text-xs">
-              <div className="space-y-0.5">
-                <p>
-                  <span className="inline-block w-[7.5rem] text-stone-600">
-                    Bulan ke
-                  </span>
-                  <span>: {b.monthIndex}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-[7.5rem] text-stone-600">
-                    Sekolah
-                  </span>
-                  <span>: {school}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-[7.5rem] align-top text-stone-600">
-                    Alamat
-                  </span>
-                  <span>: {loc.alamat}</span>
-                </p>
-              </div>
-              <div className="space-y-0.5">
-                <p>
-                  <span className="inline-block w-24 text-stone-600">
-                    Kecamatan
-                  </span>
-                  <span>: {loc.kecamatan}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-24 text-stone-600">
-                    Kabupaten
-                  </span>
-                  <span>: {kab}</span>
-                </p>
-                <p>
-                  <span className="inline-block w-24 text-stone-600">
-                    Propinsi
-                  </span>
-                  <span>: {prov}</span>
-                </p>
+              <div className="mt-4 grid gap-x-4 gap-y-1 text-[11px] sm:grid-cols-2 sm:text-xs">
+                <div className="space-y-0.5">
+                  <p>
+                    <span className="inline-block w-[7.5rem] text-stone-600">
+                      Bulan ke
+                    </span>
+                    <span>: {b.monthIndex}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-[7.5rem] text-stone-600">
+                      Sekolah
+                    </span>
+                    <span>: {school}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-[7.5rem] align-top text-stone-600">
+                      Alamat
+                    </span>
+                    <span>: {loc.alamat}</span>
+                  </p>
+                </div>
+                <div className="space-y-0.5">
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">
+                      Kecamatan
+                    </span>
+                    <span>: {loc.kecamatan}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">
+                      Kabupaten
+                    </span>
+                    <span>: {kab}</span>
+                  </p>
+                  <p>
+                    <span className="inline-block w-24 text-stone-600">
+                      Propinsi
+                    </span>
+                    <span>: {prov}</span>
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[960px] border-collapse text-[10px] sm:text-[11px]">
+            <div className="mt-4 overflow-x-auto print:mt-0">
+              <table className="lpj-book-table w-full min-w-[960px] border-collapse text-[10px] sm:text-[11px]">
                 <thead>
+                  <tr className="lpj-print-running-header">
+                    <th colSpan={11}>
+                      BUKU KAS TUNAI — {subtitle} (Bulan ke-{b.monthIndex})
+                    </th>
+                  </tr>
+                  <tr className="lpj-print-running-meta">
+                    <th colSpan={11}>
+                      Sekolah: {school} · {loc.alamat} · Kec: {loc.kecamatan} ·
+                      Kab: {kab} · Prov: {prov}
+                    </th>
+                  </tr>
                   <tr className="bg-stone-100">
                     <th
                       rowSpan={2}
@@ -995,7 +1031,7 @@ export function BktPreview({
               </table>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
+            <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
                 labels={["", "Mengetahui"]}
                 title="Kepala Sekolah"
