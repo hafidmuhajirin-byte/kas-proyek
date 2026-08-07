@@ -6,6 +6,7 @@ import {
   useState,
   type MouseEvent,
   type ReactNode,
+  type WheelEvent,
 } from "react";
 
 type OpenFn = (url: string, title?: string) => void;
@@ -16,12 +17,28 @@ const PROOF_WIDTH_KEY = "kas-proof-panel-width";
 const WIDTH_NARROW = 320;
 const WIDTH_WIDE = 480;
 
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3] as const;
+const ZOOM_DEFAULT = 1;
+
 function isImageUrl(url: string) {
   return /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(url);
 }
 
 function isPdfUrl(url: string) {
   return /\.pdf(\?|$)/i.test(url);
+}
+
+function nearestZoomIndex(zoom: number): number {
+  let best = 0;
+  let bestDiff = Infinity;
+  for (let i = 0; i < ZOOM_STEPS.length; i++) {
+    const d = Math.abs(ZOOM_STEPS[i] - zoom);
+    if (d < bestDiff) {
+      bestDiff = d;
+      best = i;
+    }
+  }
+  return best;
 }
 
 /** Deteksi PC/laptop: layar lebar + pointer halus (bukan sentuh utama). */
@@ -58,6 +75,7 @@ export function ProofReviewHost() {
   const [title, setTitle] = useState<string>("Bukti");
   const [ready, setReady] = useState(false);
   const [width, setWidth] = useState(WIDTH_NARROW);
+  const [zoom, setZoom] = useState(ZOOM_DEFAULT);
 
   useEffect(() => {
     try {
@@ -79,6 +97,7 @@ export function ProofReviewHost() {
     openProofReview = (next, t) => {
       setTitle(t?.trim() || "Bukti");
       setReady(false);
+      setZoom(ZOOM_DEFAULT);
       setUrl(next);
     };
     return () => {
@@ -113,10 +132,40 @@ export function ProofReviewHost() {
     });
   }
 
+  function zoomIn() {
+    setZoom((z) => {
+      const i = nearestZoomIndex(z);
+      return ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, i + 1)];
+    });
+  }
+
+  function zoomOut() {
+    setZoom((z) => {
+      const i = nearestZoomIndex(z);
+      return ZOOM_STEPS[Math.max(0, i - 1)];
+    });
+  }
+
+  function zoomReset() {
+    setZoom(ZOOM_DEFAULT);
+  }
+
+  function onWheel(e: WheelEvent<HTMLDivElement>) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    if (e.deltaY < 0) zoomIn();
+    else if (e.deltaY > 0) zoomOut();
+  }
+
   if (!desktop || !url) return null;
 
   const image = isImageUrl(url);
   const pdf = isPdfUrl(url);
+  const zoomPct = Math.round(zoom * 100);
+  const atMin = nearestZoomIndex(zoom) === 0;
+  const atMax = nearestZoomIndex(zoom) === ZOOM_STEPS.length - 1;
+  const btnZoom =
+    "rounded-md border border-teal-900/15 px-2 py-1 text-[11px] text-teal-800 hover:bg-teal-950/[0.04] disabled:opacity-40";
 
   return (
     <aside
@@ -133,7 +182,7 @@ export function ProofReviewHost() {
           <button
             type="button"
             onClick={toggleWidth}
-            className="rounded-md border border-teal-900/15 px-2 py-1 text-[11px] text-teal-800 hover:bg-teal-950/[0.04]"
+            className={btnZoom}
             title="Lebarkan / sempitkan panel"
           >
             {width === WIDTH_NARROW ? "Lebar" : "Sempit"}
@@ -156,29 +205,81 @@ export function ProofReviewHost() {
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-auto bg-teal-950/[0.03] p-3">
+      <div className="flex shrink-0 items-center justify-center gap-1.5 border-b border-teal-900/8 bg-teal-950/[0.02] px-3 py-1.5">
+        <button
+          type="button"
+          onClick={zoomOut}
+          disabled={atMin}
+          className={btnZoom}
+          title="Perkecil (Ctrl + scroll)"
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={zoomReset}
+          className="min-w-[3.25rem] rounded-md px-1.5 py-1 text-[11px] tabular-nums text-teal-900/70 hover:bg-teal-950/[0.04]"
+          title="Reset 100%"
+        >
+          {zoomPct}%
+        </button>
+        <button
+          type="button"
+          onClick={zoomIn}
+          disabled={atMax}
+          className={btnZoom}
+          title="Perbesar (Ctrl + scroll)"
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+      </div>
+
+      <div
+        className="relative min-h-0 flex-1 overflow-auto bg-teal-950/[0.03] p-3"
+        onWheel={onWheel}
+      >
         {!ready ? (
           <p className="text-center text-xs text-teal-900/50">Memuat…</p>
         ) : null}
 
         {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={url}
-            alt={title}
-            className={`mx-auto max-h-full max-w-full object-contain ${
-              ready ? "" : "invisible absolute"
-            }`}
-            onLoad={() => setReady(true)}
-            onError={() => setReady(true)}
-          />
+          <div
+            className="mx-auto origin-top"
+            style={{
+              width: `${zoom * 100}%`,
+              maxWidth: "none",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={title}
+              className={`mx-auto block h-auto w-full object-contain ${
+                ready ? "" : "invisible absolute"
+              }`}
+              onLoad={() => setReady(true)}
+              onError={() => setReady(true)}
+              draggable={false}
+            />
+          </div>
         ) : pdf ? (
-          <iframe
-            title={title}
-            src={url}
-            className="h-full min-h-[70vh] w-full rounded border border-teal-900/10 bg-white"
-            onLoad={() => setReady(true)}
-          />
+          <div
+            className="mx-auto"
+            style={{
+              width: `${zoom * 100}%`,
+              height: `${Math.max(70, 70 * zoom)}vh`,
+              minHeight: "70vh",
+            }}
+          >
+            <iframe
+              title={title}
+              src={url}
+              className="h-full w-full rounded border border-teal-900/10 bg-white"
+              onLoad={() => setReady(true)}
+            />
+          </div>
         ) : (
           <div className="space-y-2 text-center text-sm">
             <p className="text-teal-900/70">Pratinjau tidak tersedia.</p>
