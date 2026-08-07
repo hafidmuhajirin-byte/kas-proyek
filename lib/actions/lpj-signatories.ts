@@ -26,6 +26,7 @@ export async function updateLpjSignatoriesAction(formData: FormData) {
       lpjBendaharaNip: str(formData.get("lpjBendaharaNip")),
       lpjKabKota: str(formData.get("lpjKabKota")),
       lpjProvinsi: str(formData.get("lpjProvinsi")),
+      lpjNpwp: str(formData.get("lpjNpwp")),
     },
   });
 
@@ -33,5 +34,6 @@ export async function updateLpjSignatoriesAction(formData: FormData) {
   revalidatePath(`/admin/lpj/${projectId}/bank`);
   revalidatePath(`/admin/lpj/${projectId}/export`);
   revalidatePath(`/admin/lpj/${projectId}/spk`);
+  revalidatePath(`/admin/lpj/${projectId}/pajak`);
   redirect(`/admin/lpj/${projectId}/bank`);
 }

@@ -5,27 +5,48 @@ import { prisma } from "@/lib/prisma";
 import { tidyCase } from "@/lib/text";
 import { formatRupiah } from "@/lib/money";
 import { Card, PageHeader } from "@/components/ui";
+import { getTaxCeilingStatus } from "@/lib/lpj/tax-compliance";
 import {
-  computeVoucherTax,
-  getTaxCeilingStatus,
-} from "@/lib/lpj/tax-compliance";
+  buildTaxRekap,
+  suggestTaxYears,
+} from "@/lib/lpj/build-tax-rekap";
 import { TaxCeilingBar } from "@/components/lpj/TaxCeilingBar";
+import { RekapitulasiPembayaranPajak } from "@/components/lpj/RekapitulasiPembayaranPajak";
+import {
+  PajakKeteranganEditor,
+  PajakRekapToolbar,
+} from "@/components/lpj/PajakRekapToolbar";
+import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
 
 export default async function AdminLpjPajakPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ year?: string }>;
 }) {
   await requireRoleAdmin();
   const { projectId } = await params;
+  const sp = await searchParams;
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: {
       id: true,
       name: true,
+      notes: true,
+      location: true,
       contractValue: true,
       status: true,
+      lpjKabKota: true,
+      lpjProvinsi: true,
+      lpjKepalaNama: true,
+      lpjKepalaNip: true,
+      lpjKetuaNama: true,
+      lpjKetuaNip: true,
+      lpjBendaharaNama: true,
+      lpjBendaharaNip: true,
+      lpjNpwp: true,
     },
   });
   if (!project || project.status !== "ACTIVE") notFound();
@@ -37,6 +58,7 @@ export default async function AdminLpjPajakPage({
       isOwnerPersonal: false,
       isFeeTransfer: false,
       isMandorDisbursement: false,
+      isSplitParent: false,
     },
     select: {
       id: true,
@@ -54,93 +76,133 @@ export default async function AdminLpjPajakPage({
         },
       },
     },
-    orderBy: { date: "desc" },
-    take: 300,
+    orderBy: { date: "asc" },
+    take: 500,
   });
 
-  const results = expenses.map((e) =>
-    computeVoucherTax({
+  const years = suggestTaxYears(expenses);
+  const yearParam = sp.year ? Number(sp.year) : NaN;
+  const year =
+    Number.isFinite(yearParam) && years.includes(yearParam)
+      ? yearParam
+      : years[0]!;
+
+  const notes = await prisma.taxMonthNote.findMany({
+    where: { projectId, year },
+    select: { month: true, keterangan: true },
+  });
+  const notesByMonth: Record<number, string> = {};
+  for (const n of notes) {
+    if (n.keterangan) notesByMonth[n.month] = n.keterangan;
+  }
+
+  const rekap = buildTaxRekap(
+    expenses.map((e) => ({
+      date: e.date,
       amount: e.amount,
       description: e.description,
       categoryName: e.category.name,
       isMaterialAlam: e.isMaterialAlam,
       lines: e.expenseLines,
-    }),
+    })),
+    year,
+    notesByMonth,
   );
-  let totalTax = 0;
-  let totalPpn = 0;
-  let totalPph = 0;
-  for (const r of results) {
-    totalTax += r.totalTax;
-    totalPpn += r.ppn;
-    totalPph += r.pph;
-  }
-  const ceiling = getTaxCeilingStatus(totalTax, project.contractValue);
 
-  const rows = expenses.map((e, i) => ({
-    ...e,
-    tax: results[i],
-  }));
+  const ceiling = getTaxCeilingStatus(
+    rekap.pajakTertanggung,
+    project.contractValue,
+  );
+
+  const projectTitle = (project.notes ?? "").trim() || project.name;
+  const meta: LpjHeaderMeta = {
+    schoolName: project.name,
+    location: project.location,
+    kabKota: project.lpjKabKota,
+    provinsi: project.lpjProvinsi,
+    kepalaNama: project.lpjKepalaNama,
+    kepalaNip: project.lpjKepalaNip,
+    ketuaNama: project.lpjKetuaNama,
+    ketuaNip: project.lpjKetuaNip,
+    bendaharaNama: project.lpjBendaharaNama,
+    bendaharaNip: project.lpjBendaharaNip,
+    npwp: project.lpjNpwp,
+  };
 
   return (
-    <div>
-      <PageHeader
-        title="Pajak"
-        description={tidyCase(project.name)}
-        actions={
-          <Link
-            href={`/admin/lpj/${project.id}`}
-            className="rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--paper-tint)]"
-          >
-            ← Menu proyek
-          </Link>
-        }
-      />
+    <div className="absen-print-landscape">
+      <div className="print:hidden">
+        <PageHeader
+          title="Pajak"
+          description={tidyCase(project.name)}
+          actions={
+            <Link
+              href={`/admin/lpj/${project.id}`}
+              className="rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--paper-tint)]"
+            >
+              ← Menu proyek
+            </Link>
+          }
+        />
 
-      <TaxCeilingBar status={ceiling} />
+        <TaxCeilingBar status={ceiling} />
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Card className="!p-3">
-          <p className="text-xs text-[var(--ink-muted)]">Total PPN</p>
-          <p className="font-medium">{formatRupiah(totalPpn)}</p>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Card className="!p-3">
+            <p className="text-xs text-[var(--ink-muted)]">PPN (pengeluaran)</p>
+            <p className="font-medium">
+              {formatRupiah(rekap.totals.ppnPengeluaran)}
+            </p>
+          </Card>
+          <Card className="!p-3">
+            <p className="text-xs text-[var(--ink-muted)]">
+              PPh 22 + Final (pengeluaran)
+            </p>
+            <p className="font-medium">
+              {formatRupiah(
+                rekap.totals.pph22Pengeluaran +
+                  rekap.totals.pphFinalPengeluaran,
+              )}
+            </p>
+          </Card>
+          <Card className="!p-3">
+            <p className="text-xs text-[var(--ink-muted)]">Pajak tertanggung</p>
+            <p className="font-medium">
+              {formatRupiah(rekap.pajakTertanggung)}
+            </p>
+          </Card>
+        </div>
+
+        <Card className="mt-4 text-sm text-[var(--ink-muted)]">
+          Rekapitulasi diisi otomatis dari nota (PPN 11% + PPh 22 untuk belanja
+          manufaktur &gt; Rp 2 jt; PPh Final 3,5% perencanaan/pengawasan). Judul
+          = catatan proyek. Sesuaikan NPWP & keterangan bulan di bawah, lalu
+          cetak.
         </Card>
-        <Card className="!p-3">
-          <p className="text-xs text-[var(--ink-muted)]">Total PPh</p>
-          <p className="font-medium">{formatRupiah(totalPph)}</p>
-        </Card>
-        <Card className="!p-3">
-          <p className="text-xs text-[var(--ink-muted)]">Total pajak</p>
-          <p className="font-medium">{formatRupiah(totalTax)}</p>
-        </Card>
+
+        <div className="mt-4">
+          <PajakRekapToolbar
+            projectId={project.id}
+            year={year}
+            years={years}
+            npwp={project.lpjNpwp ?? ""}
+          />
+        </div>
       </div>
 
-      <Card className="mt-4">
-        <h3 className="font-medium">Baris yang kena / mendekati ambang</h3>
-        <ul className="mt-3 space-y-2 text-sm">
-          {rows
-            .filter((r) => r.tax.totalTax > 0 || r.tax.overThreshold)
-            .slice(0, 40)
-            .map((r) => (
-              <li
-                key={r.id}
-                className="flex flex-wrap justify-between gap-2 border-b border-[var(--line-soft)]/50 py-2"
-              >
-                <span className="min-w-0 flex-1">
-                  {r.description || "—"}
-                  {r.isMaterialAlam ? " (alam)" : ""}
-                </span>
-                <span className="text-[var(--ink-muted)]">
-                  {formatRupiah(r.amount)} → {formatRupiah(r.tax.totalTax)}
-                </span>
-              </li>
-            ))}
-          {rows.every((r) => r.tax.totalTax === 0 && !r.tax.overThreshold) ? (
-            <li className="text-[var(--ink-muted)]">
-              Belum ada baris kena pajak dari data saat ini.
-            </li>
-          ) : null}
-        </ul>
-      </Card>
+      <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white p-3 print:overflow-visible print:border-0 print:p-0">
+        <RekapitulasiPembayaranPajak
+          rekap={rekap}
+          meta={meta}
+          projectTitle={projectTitle}
+        />
+      </div>
+
+      <PajakKeteranganEditor
+        projectId={project.id}
+        year={year}
+        months={rekap.months}
+      />
     </div>
   );
 }

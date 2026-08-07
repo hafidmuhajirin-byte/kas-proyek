@@ -3,15 +3,20 @@ import { notFound } from "next/navigation";
 import { requireRoleAdmin } from "@/lib/auth";
 import { tidyCase } from "@/lib/text";
 import { formatRupiah } from "@/lib/money";
+import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/PrintButton";
 import { loadLpjBooks } from "@/lib/lpj/load-lpj-books";
 import {
+  buildTaxRekap,
+  suggestTaxYears,
+} from "@/lib/lpj/build-tax-rekap";
+import {
   BankBookPreview,
   BkuPreview,
   BktPreview,
-  PajakPreview,
 } from "@/components/lpj/LpjBookPreviews";
+import { RekapitulasiPembayaranPajak } from "@/components/lpj/RekapitulasiPembayaranPajak";
 
 const SECTIONS = [
   { id: "bank", title: "1. Buku Bank" },
@@ -31,6 +36,62 @@ export default async function AdminLpjExportPage({
   if (!books) notFound();
 
   const { project } = books;
+  const projectExtra = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { notes: true, lpjNpwp: true },
+  });
+
+  const years = suggestTaxYears(books.taxRows.map((r) => ({ date: r.date })));
+  const year = years[0]!;
+  const notes = await prisma.taxMonthNote.findMany({
+    where: { projectId, year },
+    select: { month: true, keterangan: true },
+  });
+  const notesByMonth: Record<number, string> = {};
+  for (const n of notes) {
+    if (n.keterangan) notesByMonth[n.month] = n.keterangan;
+  }
+
+  // taxRows sudah punya tax — rebuild dari ledger expenses via load path
+  const expensesForRekap = await prisma.transaction.findMany({
+    where: {
+      projectId,
+      type: "EXPENSE",
+      isOwnerPersonal: false,
+      isFeeTransfer: false,
+      isMandorDisbursement: false,
+      isSplitParent: false,
+    },
+    select: {
+      date: true,
+      amount: true,
+      description: true,
+      isMaterialAlam: true,
+      category: { select: { name: true } },
+      expenseLines: {
+        select: {
+          amount: true,
+          description: true,
+          kind: true,
+          isMaterialAlam: true,
+        },
+      },
+    },
+  });
+  const taxRekap = buildTaxRekap(
+    expensesForRekap.map((e) => ({
+      date: e.date,
+      amount: e.amount,
+      description: e.description,
+      categoryName: e.category.name,
+      isMaterialAlam: e.isMaterialAlam,
+      lines: e.expenseLines,
+    })),
+    year,
+    notesByMonth,
+  );
+  const projectTitle =
+    (projectExtra?.notes ?? "").trim() || project.name;
 
   return (
     <div>
@@ -159,14 +220,26 @@ export default async function AdminLpjExportPage({
       </section>
 
       <section id="pajak" className="mb-8 scroll-mt-20">
-        <Card>
-          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
+        <Card className="print:border-0 print:shadow-none">
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)] print:hidden">
             Rekap Pajak
           </h2>
-          <PajakPreview
-            rows={books.taxRows}
-            totals={books.taxTotals}
-            ceiling={books.taxCeiling}
+          <RekapitulasiPembayaranPajak
+            rekap={taxRekap}
+            projectTitle={projectTitle}
+            meta={{
+              schoolName: project.name,
+              location: project.location,
+              kabKota: project.lpjKabKota,
+              provinsi: project.lpjProvinsi,
+              kepalaNama: project.lpjKepalaNama,
+              kepalaNip: project.lpjKepalaNip,
+              ketuaNama: project.lpjKetuaNama,
+              ketuaNip: project.lpjKetuaNip,
+              bendaharaNama: project.lpjBendaharaNama,
+              bendaharaNip: project.lpjBendaharaNip,
+              npwp: projectExtra?.lpjNpwp,
+            }}
           />
         </Card>
       </section>

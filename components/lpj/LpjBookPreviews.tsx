@@ -27,6 +27,7 @@ export type LpjHeaderMeta = {
   ketuaNip?: string | null;
   bendaharaNama?: string | null;
   bendaharaNip?: string | null;
+  npwp?: string | null;
 };
 
 function formatRpPlain(n: number) {

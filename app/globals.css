@@ -202,12 +202,14 @@ select,
   }
 
   .daftar-hadir-doc,
-  .rekap-pekerja-doc {
+  .rekap-pekerja-doc,
+  .rekap-pajak-doc {
     width: 100% !important;
     max-width: none !important;
   }
 
-  .daftar-hadir-doc table {
+  .daftar-hadir-doc table,
+  .rekap-pajak-doc table {
     width: 100% !important;
     table-layout: fixed;
   }

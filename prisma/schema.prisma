@@ -81,6 +81,8 @@ model Project {
   lpjBendaharaNip   String?
   lpjKabKota        String?
   lpjProvinsi       String?
+  /// NPWP sekolah / bendahara untuk rekap pajak
+  lpjNpwp           String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   transactions   Transaction[]
@@ -95,6 +97,7 @@ model Project {
   workers             Worker[]
   payrollHokLines     PayrollHokLine[]
   taxWithholdingLines TaxWithholdingLine[]
+  taxMonthNotes       TaxMonthNote[]
   lpjSnapshots        LpjSnapshot[]
 }
 
@@ -563,6 +566,22 @@ model PayrollHokLine {
   @@index([projectId])
   @@index([workerId])
   @@index([periodMonth])
+}
+
+/// Keterangan per bulan pada Rekapitulasi Pembayaran Pajak
+model TaxMonthNote {
+  id         String   @id @default(cuid())
+  year       Int
+  month      Int
+  keterangan String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, year, month])
+  @@index([projectId])
 }
 
 /// Buku pembantu pajak (baris pemotongan)
