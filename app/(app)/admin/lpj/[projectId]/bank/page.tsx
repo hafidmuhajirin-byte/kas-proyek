@@ -46,6 +46,7 @@ export default async function AdminLpjBankPage({
       lpjBendaharaNip: true,
       lpjKabKota: true,
       lpjProvinsi: true,
+      lpjNpwp: true,
       transactions: {
         where: { type: "INCOME" },
         orderBy: [{ date: "asc" }, { createdAt: "asc" }],
