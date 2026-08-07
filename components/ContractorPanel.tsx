@@ -5,6 +5,7 @@ import {
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
+import { MandorAssignPanel } from "@/components/MandorAssignPanel";
 import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
 import { RupiahInput } from "@/components/RupiahInput";
 import { btnSecondaryClass, Card } from "@/components/ui";
@@ -31,7 +32,7 @@ type MandorDisbursementRow = {
   hasKasBesar?: boolean;
 };
 
-type MandorOption = { id: string; name: string };
+type MandorOption = { id: string; name: string; username?: string };
 
 function ContractorForm({
   projectId,
@@ -104,6 +105,7 @@ export function ContractorPanel({
   sources,
   contractor,
   mandors = [],
+  allMandors = [],
   mandorDisbursements = [],
   mandorOverspend,
 }: {
@@ -119,7 +121,10 @@ export function ContractorPanel({
     agreedAmount: number;
     expenses?: ExpenseRow[];
   } | null;
+  /** Mandor yang sudah ditugaskan ke proyek ini. */
   mandors?: MandorOption[];
+  /** Semua akun Mandor (untuk form penugasan). */
+  allMandors?: MandorOption[];
   mandorDisbursements?: MandorDisbursementRow[];
   mandorOverspend?: { mandorName: string; amount: number }[];
 }) {
@@ -128,9 +133,21 @@ export function ContractorPanel({
   );
   const mandorCairTotal = mandorPayments.reduce((s, r) => s + r.amount, 0);
 
-  const showMandorBlock = mandors.length > 0 || mandorDisbursements.length > 0;
+  const assignCard = (
+    <Card>
+      <MandorAssignPanel
+        projectId={projectId}
+        canEdit={admin}
+        assigned={mandors}
+        allMandors={allMandors}
+      />
+    </Card>
+  );
 
-  const mandorSection = showMandorBlock ? (
+  const showDisbursement =
+    mandors.length > 0 || mandorDisbursements.length > 0;
+
+  const disbursementSection = showDisbursement ? (
     <Card>
       <MandorDisbursementPanel
         projectId={projectId}
@@ -147,6 +164,7 @@ export function ContractorPanel({
   if (!contractor) {
     return (
       <div className="mt-4 space-y-4">
+        {assignCard}
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-base font-medium text-teal-950">Pemborong</h3>
@@ -167,14 +185,19 @@ export function ContractorPanel({
               </details>
             ) : null}
           </div>
+          <p className="mt-2 text-xs text-teal-900/60">
+            Tip: jika nama pemborong sama dengan akun Mandor, penugasan
+            otomatis dibuat saat disimpan.
+          </p>
         </Card>
-        {mandorSection}
+        {disbursementSection}
       </div>
     );
   }
 
   return (
     <div className="mt-4 space-y-4">
+      {assignCard}
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3 text-sm">
           <div>
@@ -204,7 +227,7 @@ export function ContractorPanel({
         </div>
       </Card>
 
-      {mandorSection}
+      {disbursementSection}
     </div>
   );
 }

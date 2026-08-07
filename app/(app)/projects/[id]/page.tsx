@@ -69,7 +69,7 @@ export default async function ProjectDetailPage({
   const canRecordManagement = canBreakDown;
   const { id } = await params;
 
-  const [project, sources, kasBesar, assignedMandors, disbursements] =
+  const [project, sources, kasBesar, assignedMandors, allMandors, disbursements] =
     await Promise.all([
     prisma.project.findUnique({
       where: { id },
@@ -175,7 +175,14 @@ export default async function ProjectDetailPage({
     getGlobalCashBreakdown(),
     prisma.projectAssignment.findMany({
       where: { projectId: id, user: { role: "MANDOR" } },
-      include: { user: { select: { id: true, name: true } } },
+      include: {
+        user: { select: { id: true, name: true, username: true } },
+      },
+    }),
+    prisma.user.findMany({
+      where: { role: "MANDOR" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, username: true },
     }),
     prisma.mandorDisbursement.findMany({
       where: { projectId: id },
@@ -499,7 +506,9 @@ export default async function ProjectDetailPage({
         mandors={assignedMandors.map((a) => ({
           id: a.user.id,
           name: a.user.name,
+          username: a.user.username,
         }))}
+        allMandors={allMandors}
         mandorDisbursements={disbursements.map((d) => ({
           id: d.id,
           date: format(d.date, "dd/MM/yyyy"),

@@ -5,6 +5,7 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireSession } from "@/lib/auth";
 import { CONTRACTOR_MAX_SAFE_PERCENT, calcContractorBudgetAmount } from "@/lib/contractor";
+import { findMandorByName } from "@/lib/mandor-assign";
 import { formatRupiah, parseRupiahInput } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
@@ -110,8 +111,32 @@ export async function upsertContractorAction(
     },
   });
 
+  // Jika nama pemborong cocok akun Mandor → otomatis tugaskan ke proyek
+  // agar proyek muncul di login Mandor (bukan hanya data pemborong).
+  const mandors = await prisma.user.findMany({
+    where: { role: "MANDOR" },
+    select: { id: true, name: true, username: true },
+  });
+  const matched = findMandorByName(mandors, name);
+  let assignNote = "";
+  if (matched) {
+    await prisma.projectAssignment.upsert({
+      where: {
+        userId_projectId: { userId: matched.id, projectId },
+      },
+      create: { userId: matched.id, projectId },
+      update: {},
+    });
+    assignNote = ` Mandor ${matched.name} otomatis ditugaskan ke proyek.`;
+    revalidatePath("/mandor");
+    revalidatePath("/mandor/upload");
+    revalidatePath("/users");
+  }
+
   revalidateContractor(projectId);
-  return { success: "Data pemborong disimpan." };
+  return {
+    success: `Data pemborong disimpan.${assignNote}`,
+  };
 }
 
 export async function createContractorAdvanceAction(

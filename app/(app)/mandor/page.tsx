@@ -28,7 +28,9 @@ export default async function MandorHomePage() {
         </h1>
         <Card>
           <p className="text-base text-[var(--ink)]">
-            Belum ada proyek. Hubungi Owner untuk penugasan.
+            Belum ada proyek ditugaskan. Minta Owner membuka halaman proyek →{" "}
+            <strong>Mandor ditugaskan</strong>, atau centang proyek di menu
+            Pengguna.
           </p>
         </Card>
       </div>
