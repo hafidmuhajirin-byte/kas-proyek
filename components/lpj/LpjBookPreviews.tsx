@@ -174,7 +174,7 @@ export function BankBookPreview({
   const loc = parseProjectLocation(meta.location);
   const kab = meta.kabKota?.trim() || loc.kabupaten;
   const prov = meta.provinsi?.trim() || loc.propinsi;
-  const school = tidyCase(meta.schoolName);
+  const school = meta.schoolName.trim().toUpperCase();
 
   if (blocks.length === 0) {
     return (
@@ -375,8 +375,8 @@ export function BkuPreview({
   const loc = parseProjectLocation(meta.location);
   const kab = meta.kabKota?.trim() || loc.kabupaten;
   const prov = meta.provinsi?.trim() || loc.propinsi;
-  const school = tidyCase(meta.schoolName);
-  const subtitle = tidyCase(projectTitle || meta.schoolName);
+  const school = meta.schoolName.trim().toUpperCase();
+  const subtitle = (projectTitle || meta.schoolName).trim().toUpperCase();
 
   if (blocks.length === 0) {
     return (
@@ -747,8 +747,8 @@ export function BktPreview({
   const loc = parseProjectLocation(meta.location);
   const kab = meta.kabKota?.trim() || loc.kabupaten;
   const prov = meta.provinsi?.trim() || loc.propinsi;
-  const school = tidyCase(meta.schoolName);
-  const subtitle = tidyCase(projectTitle || meta.schoolName);
+  const school = meta.schoolName.trim().toUpperCase();
+  const subtitle = (projectTitle || meta.schoolName).trim().toUpperCase();
 
   if (blocks.length === 0) {
     return (

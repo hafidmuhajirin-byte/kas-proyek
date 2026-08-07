@@ -57,7 +57,7 @@ export function RekapitulasiPembayaranPekerja({
   meta: LpjHeaderMeta;
   projectTitle: string;
 }) {
-  const school = tidyCase(meta.schoolName);
+  const school = meta.schoolName.trim().toUpperCase();
   const loc = parseProjectLocation(meta.location);
   const kab = meta.kabKota?.trim() || loc.kabupaten;
   const kec = loc.kecamatan;
@@ -91,7 +91,7 @@ export function RekapitulasiPembayaranPekerja({
           Rekapitulasi Pembayaran Pekerja
         </h1>
         <p className="mt-1 text-sm font-bold uppercase">
-          {tidyCase(projectTitle) || school}
+          {(projectTitle || school).trim().toUpperCase()}
         </p>
       </header>
 

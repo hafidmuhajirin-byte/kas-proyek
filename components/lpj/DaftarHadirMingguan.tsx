@@ -64,7 +64,7 @@ export function DaftarHadirMingguan({
   projectTitle: string;
   projectId: string;
 }) {
-  const school = tidyCase(meta.schoolName);
+  const school = meta.schoolName.trim().toUpperCase();
   const loc = parseProjectLocation(meta.location);
   const kab = meta.kabKota?.trim() || loc.kabupaten;
   const placeDate = `${tidyCase(kab)}, ${formatLongId(detail.periodEnd)}`;
@@ -78,7 +78,7 @@ export function DaftarHadirMingguan({
           Daftar Hadir Pekerja Dan Upah Mingguan
         </h1>
         <p className="mt-1 text-xs font-bold uppercase">
-          {tidyCase(projectTitle) || school}
+          {(projectTitle || school).trim().toUpperCase()}
         </p>
       </header>
 
