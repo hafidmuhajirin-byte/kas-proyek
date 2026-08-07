@@ -178,7 +178,7 @@ export default async function AdminLpjExportPage({
           </p>
           <BkuPreview
             blocks={books.bkuBlocks}
-            projectTitle={project.name}
+            projectTitle={projectTitle}
             meta={{
               schoolName: project.name,
               location: project.location,
@@ -202,7 +202,7 @@ export default async function AdminLpjExportPage({
           </h2>
           <BktPreview
             blocks={books.bktBlocks}
-            projectTitle={project.name}
+            projectTitle={projectTitle}
             meta={{
               schoolName: project.name,
               location: project.location,
