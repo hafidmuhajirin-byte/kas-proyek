@@ -6,6 +6,7 @@
  *   npx tsx scripts/repair-mandor-assignments.ts
  *   npx tsx scripts/repair-mandor-assignments.ts --dry-run
  */
+import "dotenv/config";
 import { findMandorByName } from "../lib/mandor-assign";
 import { prisma } from "../lib/prisma";
 
