@@ -31,7 +31,7 @@ function SignCol({
       </div>
       <p className="font-medium">{title}</p>
       {org ? <p className="mt-0.5">{tidyCase(org)}</p> : null}
-      <div className="min-h-[3.75rem]" />
+      <div className="min-h-[2rem]" />
       <p className="font-medium underline decoration-1">
         {name?.trim() ? tidyCase(name) : "................................"}
       </p>
