@@ -214,11 +214,9 @@ export default async function AdminLpjBankPage({
       </div>
 
       <Card className="mt-4">
-        <h3 className="font-medium">
-          Pengambilan dana dari bank (User → Owner)
-        </h3>
+        <h3 className="font-medium">Pencairan Dana Bank</h3>
         <p className="mt-2 text-sm">
-          Total cair bank: {formatRupiah(bankReceived)} · Total pengambilan:{" "}
+          Total cair bank: {formatRupiah(bankReceived)} · Total pencairan:{" "}
           {formatRupiah(totalPengambilan)} · Sisa di bank:{" "}
           {formatRupiah(bankCheck.remaining)}
         </p>
