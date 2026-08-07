@@ -32,6 +32,41 @@ export function eachCalendarDay(start: Date, end: Date): Date[] {
   return out;
 }
 
+const DAY_LETTERS_SUN_SAT = ["M", "S", "S", "R", "K", "J", "S"] as const;
+
+/**
+ * Kolom absensi tetap Minggu → Sabtu (7 hari).
+ * Mingguan diambil dari minggu kalender yang memuat tanggal awal periode.
+ */
+export function sundayThroughSaturdayWeek(anchor: Date): Array<{
+  date: Date;
+  dayLetter: string;
+}> {
+  const utc = Date.UTC(
+    anchor.getUTCFullYear(),
+    anchor.getUTCMonth(),
+    anchor.getUTCDate(),
+  );
+  const dow = new Date(utc).getUTCDay(); // 0=Minggu … 6=Sabtu
+  const sunday = utc - dow * MS_DAY;
+  return DAY_LETTERS_SUN_SAT.map((dayLetter, i) => ({
+    date: new Date(sunday + i * MS_DAY),
+    dayLetter,
+  }));
+}
+
+/** Apakah tanggal d (UTC date) ada di [start, end] inklusif. */
+export function isDateInRange(d: Date, start: Date, end: Date): boolean {
+  const t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const a = Date.UTC(
+    start.getUTCFullYear(),
+    start.getUTCMonth(),
+    start.getUTCDate(),
+  );
+  const b = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+  return t >= a && t <= b;
+}
+
 /** Ambil N hari pertama dari rentang (untuk qty HOK). */
 export function pickAttendanceDays(
   start: Date,

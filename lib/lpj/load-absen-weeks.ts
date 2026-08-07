@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import {
-  eachCalendarDay,
+  isDateInRange,
   laborPayrollPeriodKey,
   laborWeekLabel,
+  sundayThroughSaturdayWeek,
 } from "@/lib/labor-period";
 import { golFromRole, type LaborGol } from "@/lib/labor-golongan";
 
@@ -19,8 +20,10 @@ export type AbsenWeekSummary = {
 
 export type AbsenDayCol = {
   date: Date;
-  /** M / S / S / R / K / J / S */
+  /** M / S / S / R / K / J / S — selalu Minggu→Sabtu */
   dayLetter: string;
+  /** Tanggal termasuk periode gaji yang dipecah */
+  inPeriod: boolean;
 };
 
 export type AbsenWorkerRow = {
@@ -42,15 +45,8 @@ export type AbsenWeekDetail = AbsenWeekSummary & {
   workers: AbsenWorkerRow[];
 };
 
-const DAY_LETTERS = ["M", "S", "S", "R", "K", "J", "S"] as const;
-
 function utcKey(d: Date): string {
   return d.toISOString().slice(0, 10);
-}
-
-function dayLetter(d: Date): string {
-  // UTC getUTCDay: 0=Sun … 6=Sat → matches template M S S R K J S
-  return DAY_LETTERS[d.getUTCDay()];
 }
 
 export async function loadAbsenProject(projectId: string) {
@@ -148,11 +144,12 @@ export async function loadAbsenWeekDetail(
 
   const periodStart = summary.periodStart;
   const periodEnd = summary.periodEnd;
-  const allDays = eachCalendarDay(periodStart, periodEnd);
-  const dayCols: AbsenDayCol[] = allDays.slice(0, 7).map((d) => ({
-    date: d,
-    dayLetter: dayLetter(d),
-  }));
+  const dayCols: AbsenDayCol[] = sundayThroughSaturdayWeek(periodStart).map(
+    (d) => ({
+      ...d,
+      inPeriod: isDateInRange(d.date, periodStart, periodEnd),
+    }),
+  );
 
   const periodKey = laborPayrollPeriodKey(weekIndex);
   const workersDb = await prisma.worker.findMany({

@@ -66,14 +66,7 @@ export function DaftarHadirMingguan({
   const kab = meta.kabKota?.trim() || loc.kabupaten;
   const placeDate = `${tidyCase(kab)}, ${formatLongId(detail.periodEnd)}`;
   const total = detail.workers.reduce((s, w) => s + w.totalWage, 0);
-  const dayLetters = ["M", "S", "S", "R", "K", "J", "S"] as const;
-  const dayCols = [...detail.dayCols];
-  while (dayCols.length < 7) {
-    dayCols.push({
-      date: new Date(0),
-      dayLetter: dayLetters[dayCols.length] ?? "",
-    });
-  }
+  const dayCols = detail.dayCols;
 
   return (
     <article className="daftar-hadir-doc bg-white text-black">
@@ -187,7 +180,7 @@ export function DaftarHadirMingguan({
               {dayCols.map((d, i) => (
                 <Fragment key={`hdr-${i}`}>
                   <th className="border border-black px-0.5 py-0.5 w-4">
-                    {d.date.getTime() > 0 ? d.date.getUTCDate() : ""}
+                    {d.date.getUTCDate()}
                   </th>
                   <th className="border border-black px-0.5 py-0.5 w-5 text-[7px] font-normal">
                     lembu
@@ -216,13 +209,13 @@ export function DaftarHadirMingguan({
                   </td>
                   <td className="border border-black px-0.5 py-1">{w.gol}</td>
                   {dayCols.map((d, i) => {
-                    const valid = d.date.getTime() > 0;
-                    const present =
-                      valid && w.presentByDate[utcKey(d.date)] === true;
+                    const present = w.presentByDate[utcKey(d.date)] === true;
+                    let mark = "";
+                    if (d.inPeriod) mark = present ? "V" : "X";
                     return (
                       <Fragment key={`${w.workerId}-d-${i}`}>
                         <td className="border border-black px-0.5 py-1">
-                          {valid ? (present ? "V" : "X") : ""}
+                          {mark}
                         </td>
                         <td className="border border-black px-0.5 py-1" />
                       </Fragment>
