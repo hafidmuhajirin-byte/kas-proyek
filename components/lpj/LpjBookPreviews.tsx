@@ -165,7 +165,7 @@ function BkuEmptyCell({ className = "" }: { className?: string }) {
 export function BankBookPreview({
   blocks,
   meta,
-  minRows = 18,
+  minRows = 11,
 }: {
   blocks: BankMonthBlock[];
   meta: LpjHeaderMeta;
@@ -334,6 +334,7 @@ export function BankBookPreview({
             </div>
             </div>
 
+            <div className="lpj-closing-block">
             <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
                 labels={["", "Mengetahui :"]}
@@ -357,6 +358,7 @@ export function BankBookPreview({
                 nip={meta.bendaharaNip}
               />
             </div>
+            </div>
           </article>
         );
       })}
@@ -369,7 +371,7 @@ export function BkuPreview({
   blocks,
   meta,
   projectTitle,
-  minRows = 16,
+  minRows = 10,
 }: {
   blocks: BkuMonthBlock[];
   meta: LpjHeaderMeta;
@@ -395,7 +397,15 @@ export function BkuPreview({
       {blocks.map((b) => {
         const incomes = [...b.incomes];
         const expenses = [...b.expenses];
-        const rowCount = Math.max(incomes.length, expenses.length, minRows);
+        const actualRows = Math.max(incomes.length, expenses.length);
+        // Muat 1 halaman + footer → pad ke fitWithFooter.
+        // Jika data lebih banyak → isi penuh halaman tabel dulu supaya footer tidak terpotong.
+        const fitWithFooter = minRows;
+        const fitTableOnly = 16;
+        const rowCount =
+          actualRows <= fitWithFooter
+            ? fitWithFooter
+            : Math.ceil(actualRows / fitTableOnly) * fitTableOnly;
         while (incomes.length < rowCount) incomes.push(emptySideRow());
         while (expenses.length < rowCount) expenses.push(emptySideRow());
 
@@ -659,7 +669,9 @@ export function BkuPreview({
                 </tbody>
               </table>
             </div>
+            </div>
 
+            <div className="lpj-closing-block">
             <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
               <div className="text-[11px] leading-relaxed sm:text-xs">
                 <p>
@@ -707,7 +719,6 @@ export function BkuPreview({
                 </ul>
               </div>
             </div>
-            </div>
 
             <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
@@ -732,6 +743,7 @@ export function BkuPreview({
                 nip={meta.bendaharaNip}
               />
             </div>
+            </div>
           </article>
         );
       })}
@@ -743,7 +755,7 @@ export function BktPreview({
   blocks,
   meta,
   projectTitle,
-  minRows = 18,
+  minRows = 11,
 }: {
   blocks: BktMonthBlock[];
   meta: LpjHeaderMeta;
@@ -768,7 +780,14 @@ export function BktPreview({
     <div className="space-y-10 print:space-y-0">
       {blocks.map((b) => {
         const padded = [...b.rows];
-        while (padded.length < minRows) {
+        const actualRows = padded.length;
+        const fitWithFooter = minRows;
+        const fitTableOnly = 16;
+        const targetRows =
+          actualRows <= fitWithFooter
+            ? fitWithFooter
+            : Math.ceil(actualRows / fitTableOnly) * fitTableOnly;
+        while (padded.length < targetRows) {
           padded.push({
             date: null,
             proofNo: "",
@@ -1005,6 +1024,7 @@ export function BktPreview({
             </div>
             </div>
 
+            <div className="lpj-closing-block">
             <div className="lpj-sign-block mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
                 labels={["", "Mengetahui"]}
@@ -1027,6 +1047,7 @@ export function BktPreview({
                 name={meta.bendaharaNama}
                 nip={meta.bendaharaNip}
               />
+            </div>
             </div>
           </article>
         );

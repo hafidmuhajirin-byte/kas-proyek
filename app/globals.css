@@ -253,9 +253,6 @@ select,
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    min-height: 178mm;
-    display: flex;
-    flex-direction: column;
   }
 
   .lpj-export-print .lpj-book-section .lpj-month-sheet:first-of-type {
@@ -264,9 +261,7 @@ select,
   }
 
   .lpj-export-print .lpj-book-body {
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
+    display: block;
   }
 
   .lpj-export-print .lpj-book-table {
@@ -296,14 +291,14 @@ select,
   }
 
   .lpj-export-print .lpj-book-table tbody tr {
-    height: 7.2mm !important;
+    height: auto !important;
+    min-height: 5.5mm;
   }
 
   /* Header dokumen = layout layar (judul + meta 3 kolom) */
   .lpj-export-print .lpj-month-screen-header {
     display: block !important;
     margin-bottom: 0.35rem;
-    flex-shrink: 0;
   }
 
   .lpj-export-print .lpj-month-screen-header h3 {
@@ -320,12 +315,17 @@ select,
     margin-top: 0.4rem !important;
   }
 
+  /* Saldo + catatan + TTD tidak boleh terpotong di tengah */
+  .lpj-export-print .lpj-closing-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-top: 0.5rem;
+  }
+
   .lpj-export-print .lpj-sign-block {
     break-inside: avoid;
     page-break-inside: avoid;
-    margin-top: auto !important;
-    padding-top: 0.5rem;
-    flex-shrink: 0;
+    margin-top: 0.75rem !important;
   }
 
   .lpj-export-print .rekap-pajak-doc {
