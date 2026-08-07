@@ -6,6 +6,7 @@ import { parseProjectLocation } from "@/lib/project-bkk-report";
 import { LABOR_GOL_LABELS } from "@/lib/labor-golongan";
 import type { AbsenWeekDetail } from "@/lib/lpj/load-absen-weeks";
 import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
+import { AttendanceMarkButton } from "@/components/lpj/AttendanceMarkButton";
 
 function utcKey(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -55,11 +56,13 @@ export function DaftarHadirMingguan({
   detail,
   meta,
   projectTitle,
+  projectId,
 }: {
   detail: AbsenWeekDetail;
   meta: LpjHeaderMeta;
   /** Catatan proyek → judul pekerjaan di bawah header */
   projectTitle: string;
+  projectId: string;
 }) {
   const school = tidyCase(meta.schoolName);
   const loc = parseProjectLocation(meta.location);
@@ -109,7 +112,7 @@ export function DaftarHadirMingguan({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto print:overflow-visible">
         <table className="w-full border-collapse border border-black text-[9px] leading-tight">
           <thead>
             <tr className="bg-[#e8dcc0] text-center font-semibold">
@@ -210,12 +213,17 @@ export function DaftarHadirMingguan({
                   <td className="border border-black px-0.5 py-1">{w.gol}</td>
                   {dayCols.map((d, i) => {
                     const present = w.presentByDate[utcKey(d.date)] === true;
-                    let mark = "";
-                    if (d.inPeriod) mark = present ? "V" : "X";
                     return (
                       <Fragment key={`${w.workerId}-d-${i}`}>
                         <td className="border border-black px-0.5 py-1">
-                          {mark}
+                          <AttendanceMarkButton
+                            workerId={w.workerId}
+                            projectId={projectId}
+                            weekIndex={detail.weekIndex}
+                            dateKey={utcKey(d.date)}
+                            present={present}
+                            workable={d.inPeriod}
+                          />
                         </td>
                         <td className="border border-black px-0.5 py-1" />
                       </Fragment>

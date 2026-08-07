@@ -74,12 +74,14 @@ export default async function AdminLpjAbsenPage({
         />
 
         <Card className="mb-4 text-sm text-[var(--ink-muted)]">
-          Data diisi otomatis dari pecah nota <strong>Bayar pekerja</strong>.
-          Judul pekerjaan memakai <strong>catatan proyek</strong>
+          Data dari pecah nota <strong>Bayar pekerja</strong>. Judul ={" "}
+          <strong>catatan proyek</strong>
           {project.notes?.trim()
             ? ` (“${tidyCase(project.notes.trim())}”).`
-            : " (isi Catatan di halaman proyek jika masih kosong)."}{" "}
-          Daftar hadir dicetak A4 landscape; rekapitulasi A4 potret.
+            : " (isi Catatan di halaman proyek jika kosong)."}{" "}
+          Minggu selalu libur; hari hadir diacak Senin–Sabtu. Klik sel absen
+          untuk ubah, atau tombol <strong>Acak kehadiran</strong>. Cetak tanpa
+          scrollbar.
         </Card>
 
         <AbsenWeekToolbar
@@ -96,7 +98,7 @@ export default async function AdminLpjAbsenPage({
       {weeks.length === 0 ? (
         <EmptyState message="Belum ada pecah nota Bayar pekerja dengan periode tanggal. Simpan pecah gaji dulu di Review Nota." />
       ) : view === "rekap" ? (
-        <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white p-4 print:border-0 print:p-0">
+        <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white p-4 print:overflow-visible print:border-0 print:p-0">
           <RekapitulasiPembayaranPekerja
             weeks={weeks}
             meta={meta}
@@ -104,11 +106,12 @@ export default async function AdminLpjAbsenPage({
           />
         </div>
       ) : weekDetail ? (
-        <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white p-3 print:border-0 print:p-0">
+        <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white p-3 print:overflow-visible print:border-0 print:p-0">
           <DaftarHadirMingguan
             detail={weekDetail}
             meta={meta}
             projectTitle={projectTitle}
+            projectId={project.id}
           />
         </div>
       ) : (

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import {
-  isDateInRange,
   laborPayrollPeriodKey,
   laborWeekLabel,
   sundayThroughSaturdayWeek,
@@ -147,10 +146,13 @@ export async function loadAbsenWeekDetail(
   const dayCols: AbsenDayCol[] = sundayThroughSaturdayWeek(periodStart).map(
     (d) => ({
       ...d,
-      inPeriod: isDateInRange(d.date, periodStart, periodEnd),
+      // Minggu selalu libur; Senin–Sabtu bisa diisi kehadiran
+      inPeriod: d.date.getUTCDay() !== 0,
     }),
   );
 
+  const weekStart = dayCols[0]!.date;
+  const weekEnd = dayCols[6]!.date;
   const periodKey = laborPayrollPeriodKey(weekIndex);
   const workersDb = await prisma.worker.findMany({
     where: { projectId, active: true },
@@ -163,7 +165,7 @@ export async function loadAbsenWeekDetail(
       attendances: {
         where: {
           present: true,
-          date: { gte: periodStart, lte: periodEnd },
+          date: { gte: weekStart, lte: weekEnd },
         },
         select: { date: true },
       },
@@ -196,11 +198,14 @@ export async function loadAbsenWeekDetail(
       }
 
       const role = line?.laborRole || w.role;
+      const presentCount = w.attendances.length;
       const workDays =
-        payroll?.days ??
-        line?.workDays ??
-        line?.quantity ??
-        w.attendances.length;
+        presentCount > 0
+          ? presentCount
+          : (payroll?.days ??
+            line?.workDays ??
+            line?.quantity ??
+            0);
       const dailyWage =
         payroll?.dailyWage ??
         line?.dailyRate ??

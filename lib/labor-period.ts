@@ -67,16 +67,38 @@ export function isDateInRange(d: Date, start: Date, end: Date): boolean {
   return t >= a && t <= b;
 }
 
-/** Ambil N hari pertama dari rentang (untuk qty HOK). */
+/** Ambil N hari kerja acak: Senin–Sabtu saja (Minggu selalu libur). */
 export function pickAttendanceDays(
   start: Date,
   end: Date,
   workDays: number,
 ): Date[] {
-  const all = eachCalendarDay(start, end);
-  if (workDays <= 0) return [];
-  if (workDays >= all.length) return all;
-  return all.slice(0, Math.floor(workDays));
+  const n = Math.floor(workDays);
+  if (n <= 0) return [];
+
+  // Kandidat: Senin–Sabtu pada minggu kalender + hari dalam periode (tanpa Minggu)
+  const week = sundayThroughSaturdayWeek(start);
+  const inRange = eachCalendarDay(start, end);
+  const byKey = new Map<string, Date>();
+  for (const d of [...week.map((w) => w.date), ...inRange]) {
+    if (d.getUTCDay() === 0) continue; // Minggu libur
+    byKey.set(d.toISOString().slice(0, 10), d);
+  }
+  const candidates = [...byKey.values()].sort(
+    (a, b) => a.getTime() - b.getTime(),
+  );
+  if (candidates.length === 0) return [];
+  if (n >= candidates.length) return candidates;
+
+  // Acak (Fisher–Yates) lalu ambil n hari — pola beda tiap pekerja/simpan
+  const shuffled = [...candidates];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = shuffled[i]!;
+    shuffled[i] = shuffled[j]!;
+    shuffled[j] = tmp;
+  }
+  return shuffled.slice(0, n).sort((a, b) => a.getTime() - b.getTime());
 }
 
 export function laborWeekLabel(weekIndex: number): string {

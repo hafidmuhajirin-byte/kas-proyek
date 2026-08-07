@@ -192,4 +192,23 @@ select,
   .absen-print-portrait {
     page: absen-portrait;
   }
+
+  /* Hilangkan scrollbar & potongan scroll saat cetak */
+  .absen-print-landscape,
+  .absen-print-portrait,
+  .absen-print-landscape *,
+  .absen-print-portrait * {
+    overflow: visible !important;
+  }
+
+  .daftar-hadir-doc,
+  .rekap-pekerja-doc {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .daftar-hadir-doc table {
+    width: 100% !important;
+    table-layout: fixed;
+  }
 }

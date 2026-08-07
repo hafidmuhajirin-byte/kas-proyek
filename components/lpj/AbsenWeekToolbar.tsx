@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { PrintButton } from "@/components/PrintButton";
+import { reshuffleWeekAttendanceAction } from "@/lib/actions/reshuffle-attendance";
 
 export function AbsenWeekToolbar({
   projectId,
@@ -15,6 +17,7 @@ export function AbsenWeekToolbar({
   view: "hadir" | "rekap";
 }) {
   const router = useRouter();
+  const [pending, start] = useTransition();
   const base = `/admin/lpj/${projectId}/absen`;
 
   function go(nextView: "hadir" | "rekap", week?: number | null) {
@@ -66,6 +69,23 @@ export function AbsenWeekToolbar({
             ))}
           </select>
         </label>
+      ) : null}
+
+      {view === "hadir" && selectedWeek != null ? (
+        <button
+          type="button"
+          disabled={pending}
+          className="rounded-md border border-[var(--line)] px-3 py-1.5 text-sm text-[var(--ink)] hover:bg-[var(--paper-tint)] disabled:opacity-50"
+          title="Acak ulang hari hadir Senin–Sabtu (Minggu tetap libur)"
+          onClick={() => {
+            const fd = new FormData();
+            fd.set("projectId", projectId);
+            fd.set("weekIndex", String(selectedWeek));
+            start(() => reshuffleWeekAttendanceAction(fd));
+          }}
+        >
+          {pending ? "Mengacak…" : "Acak kehadiran"}
+        </button>
       ) : null}
 
       <PrintButton
