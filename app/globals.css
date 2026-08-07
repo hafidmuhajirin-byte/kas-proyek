@@ -33,6 +33,22 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-jost), "Segoe UI", sans-serif;
+  /* Hindari kursor/caret seleksi teks saat klik label UI (HP & desktop) */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Tetap bisa mengetik & menyeleksi di field form */
+input,
+textarea,
+select,
+[contenteditable="true"],
+.allow-text-select {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 .font-serif {
