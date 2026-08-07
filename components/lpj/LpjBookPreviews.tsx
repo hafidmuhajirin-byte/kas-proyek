@@ -130,18 +130,18 @@ function SignatoryBlock({
 
   return (
     <div className="flex w-full flex-col text-center text-[11px] leading-snug sm:text-xs">
-      {/* Label atas — rapat ke jabatan; tinggi seragam agar 3 kolom sejajar */}
-      <div className="mb-0 flex min-h-[1.7rem] flex-col justify-end leading-tight">
-        <p className="min-h-[0.85rem]">{line1 || "\u00a0"}</p>
-        <p className="min-h-[0.85rem]">{line2 || "\u00a0"}</p>
+      {/* Label lalu jabatan: 1 enter saja (tanpa spacer di antaranya) */}
+      <div className="leading-tight">
+        <p className="min-h-[1em]">{line1 || "\u00a0"}</p>
+        <p>{line2 || "\u00a0"}</p>
+        <p className="font-medium">{title}</p>
       </div>
-      {/* Ruang paraf singkat antara label dan jabatan */}
-      <div className="mx-auto my-1.5 h-5 shrink-0 sm:my-2 sm:h-6" aria-hidden />
-      <p className="font-medium">{title}</p>
       <p className="mt-0.5 min-h-[1rem]">
         {org ? tidyCase(org) : "\u00a0"}
       </p>
-      <div className="mt-1">
+      {/* Ruang paraf di bawah jabatan, sebelum nama */}
+      <div className="mx-auto my-2 h-6 shrink-0 sm:my-2.5 sm:h-7" aria-hidden />
+      <div>
         <p className="font-semibold underline decoration-1 underline-offset-2">
           {name?.trim() || "(nama)"}
         </p>
