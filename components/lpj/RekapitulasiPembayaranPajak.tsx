@@ -225,18 +225,25 @@ export function RekapitulasiPembayaranPajak({
               >
                 Pajak Tertanggung
               </td>
-              <td className="border border-black px-0.5 py-1 text-right tabular-nums">
+              {/* Tiap jenis pajak: merge Masukan+Pengeluaran (colSpan 2) */}
+              <td
+                colSpan={2}
+                className="border border-black px-0.5 py-1 text-right tabular-nums"
+              >
                 {formatRp(t.ppnPengeluaran)}
               </td>
-              <td className="border border-black" />
-              <td className="border border-black px-0.5 py-1 text-right tabular-nums">
+              <td
+                colSpan={2}
+                className="border border-black px-0.5 py-1 text-right tabular-nums"
+              >
                 {formatRp(t.pph22Pengeluaran)}
               </td>
-              <td className="border border-black" />
-              <td className="border border-black px-0.5 py-1 text-right tabular-nums">
+              <td
+                colSpan={2}
+                className="border border-black px-0.5 py-1 text-right tabular-nums"
+              >
                 {formatRp(t.pphFinalPengeluaran)}
               </td>
-              <td className="border border-black" />
               <td className="border border-black px-1 py-1 text-right tabular-nums">
                 Rp {rekap.pajakTertanggung.toLocaleString("id-ID")}
               </td>
