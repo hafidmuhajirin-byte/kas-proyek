@@ -9,6 +9,7 @@ import {
   MandorExpenseBreakdownForm,
   type BreakdownStatus,
   type ExpenseLineRow,
+  type KnownWorkerOption,
 } from "@/components/MandorExpenseBreakdownForm";
 import { ProofReviewLink } from "@/components/ProofReviewLink";
 import {
@@ -63,7 +64,13 @@ function pecahHint(bkk: AdminNotaBkk) {
  * Review nota Mandor untuk Admin — pecah isi = UI Owner,
  * plus Split Nota opsional per BKK.
  */
-export function AdminMandorNotaReview({ groups }: { groups: AdminNotaGroup[] }) {
+export function AdminMandorNotaReview({
+  groups,
+  knownWorkers = [],
+}: {
+  groups: AdminNotaGroup[];
+  knownWorkers?: KnownWorkerOption[];
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (groups.length === 0) {
@@ -188,6 +195,7 @@ export function AdminMandorNotaReview({ groups }: { groups: AdminNotaGroup[] }) 
                           vendor={bkk.vendor}
                           status={bkk.breakdownStatus}
                           rejectNote={bkk.breakdownNote}
+                          knownWorkers={knownWorkers}
                           afterActions={
                             bkk.breakdownStatus !== "APPROVED" ? (
                               <MandorNotaSplitButton

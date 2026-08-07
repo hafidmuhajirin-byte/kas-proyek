@@ -89,7 +89,7 @@ export default async function KasProyekPage({
       : {}),
   };
 
-  const [transactions, advances, projects] = await Promise.all([
+  const [transactions, advances, projects, workers] = await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
@@ -130,6 +130,7 @@ export default async function KasProyekPage({
             id: true,
             kind: true,
             description: true,
+            laborRole: true,
             quantity: true,
             unit: true,
             unitPrice: true,
@@ -172,7 +173,20 @@ export default async function KasProyekPage({
         openingBalance: true,
       },
     }),
+    params.projectId
+      ? prisma.worker.findMany({
+          where: { projectId: params.projectId, active: true },
+          orderBy: { name: "asc" },
+          select: { name: true, role: true, dailyWage: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const knownWorkers = workers.map((w) => ({
+    name: w.name,
+    role: w.role,
+    dailyWage: w.dailyWage,
+  }));
 
   const projectsInScope = params.projectId
     ? projects.filter((p) => p.id === params.projectId)
@@ -271,6 +285,7 @@ export default async function KasProyekPage({
           id: l.id,
           kind: l.kind,
           description: l.description,
+          laborRole: l.laborRole,
           quantity: l.quantity,
           unit: l.unit,
           unitPrice: l.unitPrice,
@@ -356,6 +371,7 @@ export default async function KasProyekPage({
             vendor={bd?.vendor}
             status={bd?.status ?? "PENDING"}
             rejectNote={bd?.note}
+            knownWorkers={knownWorkers}
             defaultOpen={false}
           />
         ) : null,

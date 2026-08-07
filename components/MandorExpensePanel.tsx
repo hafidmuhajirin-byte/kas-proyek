@@ -8,6 +8,7 @@ import {
   MandorExpenseBreakdownForm,
   type BreakdownStatus,
   type ExpenseLineRow,
+  type KnownWorkerOption,
 } from "@/components/MandorExpenseBreakdownForm";
 import { ProofReviewLink } from "@/components/ProofReviewLink";
 
@@ -50,11 +51,13 @@ export function MandorExpensePanel({
   fundBriefs,
   bukuKasHref,
   canBreakDown = false,
+  knownWorkers = [],
 }: {
   rows: MandorExpenseRow[];
   fundBriefs: MandorFundBrief[];
   bukuKasHref?: string;
   canBreakDown?: boolean;
+  knownWorkers?: KnownWorkerOption[];
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [fundsOpen, setFundsOpen] = useState(false);
@@ -152,6 +155,7 @@ export function MandorExpensePanel({
                     vendor={r.vendor}
                     status={r.breakdownStatus ?? "PENDING"}
                     rejectNote={r.breakdownNote}
+                    knownWorkers={knownWorkers}
                   />
                 ) : null}
               </li>

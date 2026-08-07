@@ -69,7 +69,7 @@ export default async function ProjectDetailPage({
   const canRecordManagement = canBreakDown;
   const { id } = await params;
 
-  const [project, sources, kasBesar, assignedMandors, allMandors, disbursements] =
+  const [project, sources, kasBesar, assignedMandors, allMandors, disbursements, workers] =
     await Promise.all([
     prisma.project.findUnique({
       where: { id },
@@ -151,6 +151,7 @@ export default async function ProjectDetailPage({
                 id: true,
                 kind: true,
                 description: true,
+                laborRole: true,
                 quantity: true,
                 unit: true,
                 unitPrice: true,
@@ -192,9 +193,20 @@ export default async function ProjectDetailPage({
       orderBy: [{ sequence: "asc" }, { date: "asc" }],
       include: { mandor: { select: { name: true } } },
     }),
+    prisma.worker.findMany({
+      where: { projectId: id, active: true },
+      orderBy: { name: "asc" },
+      select: { name: true, role: true, dailyWage: true },
+    }),
   ]);
 
   if (!project) notFound();
+
+  const knownWorkers = workers.map((w) => ({
+    name: w.name,
+    role: w.role,
+    dailyWage: w.dailyWage,
+  }));
 
   const spentByKind: Partial<Record<ProjectFundKind, number>> = {};
   for (const tx of project.transactions) {
@@ -410,6 +422,7 @@ export default async function ProjectDetailPage({
         id: l.id,
         kind: l.kind,
         description: l.description,
+        laborRole: l.laborRole,
         quantity: l.quantity,
         unit: l.unit,
         unitPrice: l.unitPrice,
@@ -542,6 +555,7 @@ export default async function ProjectDetailPage({
           fundBriefs={fundBriefs}
           bukuKasHref={`/transactions/project?projectId=${project.id}`}
           canBreakDown={canBreakDown}
+          knownWorkers={knownWorkers}
         />
       </Card>
 

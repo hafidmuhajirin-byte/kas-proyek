@@ -8,6 +8,7 @@ import {
   saveMandorExpenseBreakdownAction,
 } from "@/lib/actions/mandor-expense-lines";
 import { Alert } from "@/components/ui";
+import { LABOR_ROLES, isLaborRole, normalizeWorkerName } from "@/lib/labor-roles";
 import { formatNumberId, formatRupiah, parseRupiahInput } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 
@@ -15,12 +16,19 @@ export type ExpenseLineRow = {
   id: string;
   kind: "MATERIAL" | "LABOR";
   description: string;
+  laborRole?: string | null;
   quantity: number | null;
   unit: string | null;
   unitPrice: number | null;
   workDays: number | null;
   dailyRate: number | null;
   amount: number;
+};
+
+export type KnownWorkerOption = {
+  name: string;
+  role: string;
+  dailyWage: number;
 };
 
 export type BreakdownStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -30,6 +38,7 @@ type DraftRow = {
   quantity: string;
   unit: string;
   description: string;
+  laborRole: string;
   unitPrice: string;
   amount: string;
 };
@@ -40,6 +49,7 @@ function emptyRow(kind: "MATERIAL" | "LABOR"): DraftRow {
     quantity: "",
     unit: kind === "LABOR" ? "hari" : "",
     description: "",
+    laborRole: kind === "LABOR" ? "Tukang" : "",
     unitPrice: "",
     amount: "",
   };
@@ -58,6 +68,11 @@ function linesToDrafts(
       quantity: qty != null ? String(qty) : "",
       unit: l.unit ?? (kind === "LABOR" ? "hari" : ""),
       description: l.description,
+      laborRole: isLaborRole(l.laborRole ?? "")
+        ? l.laborRole!
+        : kind === "LABOR"
+          ? "Tukang"
+          : "",
       unitPrice: price != null && price > 0 ? formatNumberId(price) : "",
       amount: l.amount > 0 ? formatNumberId(l.amount) : "",
     };
@@ -84,6 +99,7 @@ export function MandorExpenseBreakdownForm({
   rejectNote = null,
   defaultOpen = true,
   afterActions = null,
+  knownWorkers = [],
 }: {
   transactionId: string;
   proofAmount: number;
@@ -96,6 +112,8 @@ export function MandorExpenseBreakdownForm({
   defaultOpen?: boolean;
   /** Slot di bawah aksi simpan/setujui (mis. tombol Split Nota Admin) */
   afterActions?: ReactNode;
+  /** Nama pekerja yang sudah pernah tercatat di proyek ini */
+  knownWorkers?: KnownWorkerOption[];
 }) {
   const initialKind =
     lines[0]?.kind ?? ("MATERIAL" as "MATERIAL" | "LABOR");
@@ -156,7 +174,55 @@ export function MandorExpenseBreakdownForm({
       prev.map((r) => ({
         ...r,
         unit: r.unit || (next === "LABOR" ? "hari" : r.unit),
+        laborRole:
+          next === "LABOR" ? r.laborRole || "Tukang" : "",
       })),
+    );
+  }
+
+  const duplicateNames = useMemo(() => {
+    if (kind !== "LABOR") return new Set<string>();
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      const key = normalizeWorkerName(r.description);
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return new Set(
+      [...counts.entries()].filter(([, n]) => n > 1).map(([k]) => k),
+    );
+  }, [kind, rows]);
+
+  const nameListId = `workers-${transactionId}`;
+
+  function pickKnownWorker(rowKey: string, name: string) {
+    const known = knownWorkers.find(
+      (w) => normalizeWorkerName(w.name) === normalizeWorkerName(name),
+    );
+    if (!known) {
+      updateRow(rowKey, { description: name }, "other");
+      return;
+    }
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.key !== rowKey) return r;
+        const role = isLaborRole(known.role) ? known.role : r.laborRole || "Tukang";
+        const next = {
+          ...r,
+          description: known.name,
+          laborRole: role,
+          unitPrice:
+            known.dailyWage > 0
+              ? formatNumberId(known.dailyWage)
+              : r.unitPrice,
+        };
+        const qty = parseQty(next.quantity);
+        const price = parseRupiahInput(next.unitPrice);
+        if (qty != null && qty > 0 && price > 0) {
+          next.amount = formatNumberId(Math.round(qty * price));
+        }
+        return next;
+      }),
     );
   }
 
@@ -306,15 +372,43 @@ export function MandorExpenseBreakdownForm({
               placeholder="Nama toko (opsional), mis. Toko bangunan OPOJARE"
               className={`${cell} text-sm`}
             />
-          ) : null}
+          ) : (
+            <p className="text-[11px] text-teal-900/55">
+              Isi nama pekerja + peran (Tukang / Pembantu tukang). Nama yang sama
+              tidak boleh dobel dalam satu pecah nota.
+              {knownWorkers.length > 0
+                ? " Ketik untuk memilih dari daftar pekerja proyek."
+                : ""}
+            </p>
+          )}
 
           <div className="overflow-x-auto rounded border border-teal-900/10 bg-white">
-            <table className="w-full min-w-[520px] border-collapse text-left text-[11px]">
+            {kind === "LABOR" && knownWorkers.length > 0 ? (
+              <datalist id={nameListId}>
+                {knownWorkers.map((w) => (
+                  <option key={w.name} value={w.name}>
+                    {w.role}
+                  </option>
+                ))}
+              </datalist>
+            ) : null}
+            <table
+              className={`w-full border-collapse text-left text-[11px] ${
+                kind === "LABOR" ? "min-w-[640px]" : "min-w-[520px]"
+              }`}
+            >
               <thead>
                 <tr className="border-b border-teal-900/10 bg-teal-950/[0.03] text-teal-900/55">
                   <th className="w-12 px-1.5 py-1.5 font-medium">Qty</th>
                   <th className="w-12 px-1.5 py-1.5 font-medium">Sat</th>
-                  <th className="px-1.5 py-1.5 font-medium">Keterangan</th>
+                  <th className="px-1.5 py-1.5 font-medium">
+                    {kind === "LABOR" ? "Nama pekerja" : "Keterangan"}
+                  </th>
+                  {kind === "LABOR" ? (
+                    <th className="w-[8.5rem] px-1.5 py-1.5 font-medium">
+                      Peran
+                    </th>
+                  ) : null}
                   <th className="w-[7.5rem] px-1.5 py-1.5 font-medium">
                     {kind === "LABOR" ? "Upah/hari" : "Harga sat"}
                   </th>
@@ -325,7 +419,12 @@ export function MandorExpenseBreakdownForm({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {rows.map((r) => {
+                  const dup =
+                    kind === "LABOR" &&
+                    r.description.trim() &&
+                    duplicateNames.has(normalizeWorkerName(r.description));
+                  return (
                   <tr key={r.key} className="border-b border-teal-900/6">
                     <td className="px-1 py-1 align-top">
                       <input
@@ -350,20 +449,43 @@ export function MandorExpenseBreakdownForm({
                     </td>
                     <td className="px-1 py-1 align-top">
                       <input
-                        className={cell}
+                        className={`${cell} ${dup ? "border-rose-400" : ""}`}
+                        list={kind === "LABOR" ? nameListId : undefined}
                         value={r.description}
                         placeholder={
                           kind === "LABOR" ? "Nama pekerja" : "Hebel, besi…"
                         }
                         onChange={(e) =>
-                          updateRow(
-                            r.key,
-                            { description: e.target.value },
-                            "other",
-                          )
+                          pickKnownWorker(r.key, e.target.value)
                         }
                       />
+                      {dup ? (
+                        <p className="mt-0.5 text-[10px] text-rose-700">
+                          Nama dobel
+                        </p>
+                      ) : null}
                     </td>
+                    {kind === "LABOR" ? (
+                      <td className="px-1 py-1 align-top">
+                        <select
+                          className={cell}
+                          value={r.laborRole || "Tukang"}
+                          onChange={(e) =>
+                            updateRow(
+                              r.key,
+                              { laborRole: e.target.value },
+                              "other",
+                            )
+                          }
+                        >
+                          {LABOR_ROLES.map((role) => (
+                            <option key={role} value={role}>
+                              {role}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    ) : null}
                     <td className="px-1 py-1 align-top">
                       <input
                         className={cell}
@@ -415,11 +537,15 @@ export function MandorExpenseBreakdownForm({
                       ) : null}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="bg-teal-950/[0.03] text-xs">
-                  <td colSpan={4} className="px-1.5 py-1.5 text-right font-medium">
+                  <td
+                    colSpan={kind === "LABOR" ? 5 : 4}
+                    className="px-1.5 py-1.5 text-right font-medium"
+                  >
                     Total
                   </td>
                   <td
@@ -456,6 +582,8 @@ export function MandorExpenseBreakdownForm({
                     .filter((r) => r.description.trim() && parseRupiahInput(r.amount) > 0)
                     .map((r) => ({
                       description: r.description.trim(),
+                      laborRole:
+                        kind === "LABOR" ? r.laborRole || "Tukang" : null,
                       quantity: parseQty(r.quantity),
                       unit: r.unit.trim() || null,
                       unitPrice: parseRupiahInput(r.unitPrice) || null,
@@ -465,7 +593,7 @@ export function MandorExpenseBreakdownForm({
               />
               <button
                 type="submit"
-                disabled={savePending}
+                disabled={savePending || duplicateNames.size > 0}
                 className="rounded-md bg-teal-800 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
               >
                 {savePending ? "Menyimpan…" : "Simpan pecahan"}
@@ -578,7 +706,12 @@ function ReadonlyTable({
           <tr className="text-teal-900/50">
             <th className="pr-2 font-medium">Qty</th>
             <th className="pr-2 font-medium">Sat</th>
-            <th className="pr-2 font-medium">Keterangan</th>
+            <th className="pr-2 font-medium">
+              {kind === "LABOR" ? "Nama pekerja" : "Keterangan"}
+            </th>
+            {kind === "LABOR" ? (
+              <th className="pr-2 font-medium">Peran</th>
+            ) : null}
             <th className="pr-2 text-right font-medium">
               {kind === "LABOR" ? "Upah" : "Harga"}
             </th>
@@ -594,6 +727,11 @@ function ReadonlyTable({
                 <td className="py-0.5 pr-2 tabular-nums">{qty ?? "—"}</td>
                 <td className="py-0.5 pr-2">{l.unit ?? "—"}</td>
                 <td className="py-0.5 pr-2">{tidyCase(l.description)}</td>
+                {kind === "LABOR" ? (
+                  <td className="py-0.5 pr-2">
+                    {l.laborRole ? tidyCase(l.laborRole) : "—"}
+                  </td>
+                ) : null}
                 <td className="py-0.5 pr-2 text-right tabular-nums">
                   {price != null ? formatRupiah(price) : "—"}
                 </td>
@@ -606,7 +744,7 @@ function ReadonlyTable({
         </tbody>
         <tfoot>
           <tr className="border-t border-teal-900/10 font-medium">
-            <td colSpan={4} className="pt-1 text-right">
+            <td colSpan={kind === "LABOR" ? 5 : 4} className="pt-1 text-right">
               Total
             </td>
             <td className="pt-1 text-right tabular-nums">{formatRupiah(total)}</td>

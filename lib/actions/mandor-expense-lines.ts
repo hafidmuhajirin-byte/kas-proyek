@@ -6,6 +6,7 @@ import {
   requireSession,
 } from "@/lib/auth";
 import { parseRupiahInput } from "@/lib/money";
+import { isLaborRole, normalizeWorkerName } from "@/lib/labor-roles";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
 
@@ -25,6 +26,7 @@ function revalidateExpense(projectId: string | null | undefined, txId: string) {
 
 type LinePayload = {
   description: string;
+  laborRole: string | null;
   quantity: number | null;
   unit: string | null;
   unitPrice: number | null;
@@ -51,11 +53,13 @@ function parseLinesJson(raw: string): LinePayload[] | null {
         r.unitPrice == null || r.unitPrice === ""
           ? null
           : Number(r.unitPrice);
+      const laborRoleRaw = String(r.laborRole ?? "").trim() || null;
       if (quantity != null && Number.isNaN(quantity)) return null;
       if (unitPrice != null && (Number.isNaN(unitPrice) || unitPrice < 0))
         return null;
       lines.push({
         description,
+        laborRole: laborRoleRaw,
         quantity,
         unit,
         unitPrice:
@@ -94,6 +98,26 @@ export async function saveMandorExpenseBreakdownAction(
     return { error: "Minimal satu baris pecahan." };
   }
 
+  if (kindRaw === "LABOR") {
+    for (const l of lines) {
+      if (!l.laborRole || !isLaborRole(l.laborRole)) {
+        return {
+          error: `Pilih peran untuk "${l.description}": Tukang atau Pembantu tukang.`,
+        };
+      }
+    }
+    const seen = new Set<string>();
+    for (const l of lines) {
+      const key = normalizeWorkerName(l.description);
+      if (seen.has(key)) {
+        return {
+          error: `Nama "${l.description}" sudah ada di pecah nota ini — tidak boleh dobel.`,
+        };
+      }
+      seen.add(key);
+    }
+  }
+
   const tx = await prisma.transaction.findUnique({
     where: { id: transactionId },
     select: {
@@ -130,6 +154,7 @@ export async function saveMandorExpenseBreakdownAction(
       data: lines.map((l) => ({
         kind: kindRaw as "MATERIAL" | "LABOR",
         description: l.description,
+        laborRole: kindRaw === "LABOR" ? l.laborRole : null,
         quantity: l.quantity,
         unit: l.unit,
         unitPrice: l.unitPrice,
@@ -148,6 +173,60 @@ export async function saveMandorExpenseBreakdownAction(
         breakdownNote: null,
       },
     });
+
+    // Rekam nama pekerja ke daftar proyek untuk pecah nota berikutnya
+    if (kindRaw === "LABOR" && tx.projectId) {
+      for (const l of lines) {
+        const name = l.description.trim();
+        const role = l.laborRole ?? "Pekerja";
+        const existing = await db.worker.findFirst({
+          where: {
+            projectId: tx.projectId,
+            name: { equals: name },
+          },
+          select: { id: true },
+        });
+        if (existing) {
+          await db.worker.update({
+            where: { id: existing.id },
+            data: {
+              role,
+              dailyWage: l.unitPrice ?? 0,
+              active: true,
+            },
+          });
+        } else {
+          // MySQL collation biasanya case-insensitive — cek manual lower
+          const all = await db.worker.findMany({
+            where: { projectId: tx.projectId },
+            select: { id: true, name: true },
+          });
+          const match = all.find(
+            (w) => normalizeWorkerName(w.name) === normalizeWorkerName(name),
+          );
+          if (match) {
+            await db.worker.update({
+              where: { id: match.id },
+              data: {
+                role,
+                dailyWage: l.unitPrice ?? 0,
+                active: true,
+              },
+            });
+          } else {
+            await db.worker.create({
+              data: {
+                projectId: tx.projectId,
+                name,
+                role,
+                dailyWage: l.unitPrice ?? 0,
+                active: true,
+              },
+            });
+          }
+        }
+      }
+    }
   });
 
   revalidateExpense(tx.projectId, transactionId);

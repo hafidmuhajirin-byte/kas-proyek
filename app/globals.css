@@ -123,6 +123,13 @@ select,
   padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* Saat panel bukti terbuka di PC: dorong konten agar tabel pecah isi tidak tertutup */
+@media (min-width: 1024px) {
+  html.proof-review-open .mobile-main-pad {
+    padding-right: calc(var(--proof-panel-w, 320px) + 1rem);
+  }
+}
+
 @media (min-width: 1024px) {
   .mobile-main-pad {
     padding-bottom: 2rem;

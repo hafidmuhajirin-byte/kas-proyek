@@ -12,6 +12,10 @@ type OpenFn = (url: string, title?: string) => void;
 
 let openProofReview: OpenFn | null = null;
 
+const PROOF_WIDTH_KEY = "kas-proof-panel-width";
+const WIDTH_NARROW = 320;
+const WIDTH_WIDE = 480;
+
 function isImageUrl(url: string) {
   return /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(url);
 }
@@ -33,20 +37,43 @@ function useDesktopProofReview() {
   return desktop;
 }
 
+function applyProofOpenCss(widthPx: number | null) {
+  const root = document.documentElement;
+  if (widthPx == null) {
+    root.classList.remove("proof-review-open");
+    root.style.removeProperty("--proof-panel-w");
+    return;
+  }
+  root.classList.add("proof-review-open");
+  root.style.setProperty("--proof-panel-w", `${widthPx}px`);
+}
+
 /**
  * Host tunggal — pasang sekali di AppShell.
- * Hanya satu panel review aktif; media baru dimuat saat dibuka.
+ * Panel kanan + dorong konten utama agar tabel pecah isi tidak tertutup.
  */
 export function ProofReviewHost() {
   const desktop = useDesktopProofReview();
   const [url, setUrl] = useState<string | null>(null);
   const [title, setTitle] = useState<string>("Bukti");
   const [ready, setReady] = useState(false);
+  const [width, setWidth] = useState(WIDTH_NARROW);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PROOF_WIDTH_KEY);
+      if (raw === "wide") setWidth(WIDTH_WIDE);
+      else if (raw === "narrow") setWidth(WIDTH_NARROW);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (!desktop) {
       openProofReview = null;
       setUrl(null);
+      applyProofOpenCss(null);
       return;
     }
     openProofReview = (next, t) => {
@@ -56,27 +83,61 @@ export function ProofReviewHost() {
     };
     return () => {
       openProofReview = null;
+      applyProofOpenCss(null);
     };
   }, [desktop]);
 
+  useEffect(() => {
+    if (!desktop || !url) {
+      applyProofOpenCss(null);
+      return;
+    }
+    applyProofOpenCss(width);
+    return () => applyProofOpenCss(null);
+  }, [desktop, url, width]);
+
   const close = useCallback(() => setUrl(null), []);
+
+  function toggleWidth() {
+    setWidth((w) => {
+      const next = w === WIDTH_NARROW ? WIDTH_WIDE : WIDTH_NARROW;
+      try {
+        localStorage.setItem(
+          PROOF_WIDTH_KEY,
+          next === WIDTH_WIDE ? "wide" : "narrow",
+        );
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   if (!desktop || !url) return null;
 
   const image = isImageUrl(url);
   const pdf = isPdfUrl(url);
 
-  // Panel kanan saja — area kiri tetap bisa diisi (pecahan Admin dll).
-  // Hanya tombol Tutup yang menutup; klik di luar / Esc tidak menutup.
   return (
     <aside
       role="complementary"
       aria-label={title}
-      className="fixed inset-y-0 right-0 z-[80] hidden w-[min(440px,42vw)] flex-col border-l border-teal-900/15 bg-[#fffcf7] shadow-xl lg:flex"
+      style={{ width }}
+      className="fixed inset-y-0 right-0 z-[80] hidden flex-col border-l border-teal-900/15 bg-[#fffcf7] shadow-xl lg:flex"
     >
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-teal-900/10 px-3 py-2.5">
-        <p className="truncate text-sm font-medium text-teal-950">{title}</p>
-        <div className="flex shrink-0 items-center gap-2">
+        <p className="min-w-0 truncate text-sm font-medium text-teal-950">
+          {title}
+        </p>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={toggleWidth}
+            className="rounded-md border border-teal-900/15 px-2 py-1 text-[11px] text-teal-800 hover:bg-teal-950/[0.04]"
+            title="Lebarkan / sempitkan panel"
+          >
+            {width === WIDTH_NARROW ? "Lebar" : "Sempit"}
+          </button>
           <a
             href={url}
             target="_blank"
@@ -101,6 +162,7 @@ export function ProofReviewHost() {
         ) : null}
 
         {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={url}
             alt={title}

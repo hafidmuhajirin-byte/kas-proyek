@@ -24,7 +24,8 @@ export default async function AdminLpjNotaPage({
   });
   if (!project || project.status !== "ACTIVE") notFound();
 
-  const notas = await prisma.transaction.findMany({
+  const [notas, workers] = await Promise.all([
+    prisma.transaction.findMany({
     where: {
       projectId,
       isMandorExpense: true,
@@ -52,6 +53,7 @@ export default async function AdminLpjNotaPage({
           id: true,
           kind: true,
           description: true,
+          laborRole: true,
           quantity: true,
           unit: true,
           unitPrice: true,
@@ -77,6 +79,7 @@ export default async function AdminLpjNotaPage({
               id: true,
               kind: true,
               description: true,
+              laborRole: true,
               quantity: true,
               unit: true,
               unitPrice: true,
@@ -88,13 +91,26 @@ export default async function AdminLpjNotaPage({
         },
       },
     },
-  });
+  }),
+    prisma.worker.findMany({
+      where: { projectId, active: true },
+      orderBy: { name: "asc" },
+      select: { name: true, role: true, dailyWage: true },
+    }),
+  ]);
+
+  const knownWorkers = workers.map((w) => ({
+    name: w.name,
+    role: w.role,
+    dailyWage: w.dailyWage,
+  }));
 
   const groups: AdminNotaGroup[] = notas.map((n) => {
     type LineIn = {
       id: string;
       kind: string;
       description: string;
+      laborRole: string | null;
       quantity: number | null;
       unit: string | null;
       unitPrice: number | null;
@@ -106,6 +122,7 @@ export default async function AdminLpjNotaPage({
       id: l.id,
       kind: l.kind as "MATERIAL" | "LABOR",
       description: l.description,
+      laborRole: l.laborRole,
       quantity: l.quantity,
       unit: l.unit,
       unitPrice: l.unitPrice,
@@ -195,7 +212,7 @@ export default async function AdminLpjNotaPage({
       {groups.length === 0 ? (
         <EmptyState message="Belum ada nota Mandor untuk proyek ini." />
       ) : (
-        <AdminMandorNotaReview groups={groups} />
+        <AdminMandorNotaReview groups={groups} knownWorkers={knownWorkers} />
       )}
     </div>
   );

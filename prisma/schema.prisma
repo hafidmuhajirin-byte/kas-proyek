@@ -222,6 +222,8 @@ model MandorExpenseLine {
   id          String               @id @default(cuid())
   kind        MandorExpenseLineKind
   description String               @db.Text
+  /// Khusus LABOR: "Tukang" | "Pembantu tukang"
+  laborRole   String?
   quantity    Float?
   unit        String?
   unitPrice   Int?
