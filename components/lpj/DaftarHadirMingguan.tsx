@@ -30,14 +30,14 @@ function SignCol({
   nip?: string | null;
 }) {
   return (
-    <div className="flex flex-col text-center text-[10px] leading-snug">
-      <div className="mb-2 min-h-[2.5rem] space-y-0.5">
-        <p className="min-h-[1rem]">{labels[0] || "\u00a0"}</p>
-        <p className="min-h-[1rem]">{labels[1] || "\u00a0"}</p>
+    <div className="flex flex-col text-center text-[10px] leading-tight">
+      <div className="mb-1 flex h-[2.1rem] flex-col justify-end">
+        <p className="min-h-[0.95rem]">{labels[0] || "\u00a0"}</p>
+        <p className="min-h-[0.95rem]">{labels[1] || "\u00a0"}</p>
       </div>
       <p className="font-medium">{title}</p>
       {org ? <p className="mt-0.5">{tidyCase(org)}</p> : null}
-      <div className="min-h-[2rem]" />
+      <div className="my-3 h-8" />
       <p className="font-medium underline decoration-1">
         {name?.trim() ? tidyCase(name) : "................................"}
       </p>

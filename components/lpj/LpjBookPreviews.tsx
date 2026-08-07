@@ -129,18 +129,19 @@ function SignatoryBlock({
   const line2 = labels[1] ?? "";
 
   return (
-    <div className="flex h-full w-full flex-col text-center text-[11px] leading-snug sm:text-xs">
-      <div className="mb-3 min-h-[2.75rem] space-y-1">
-        <p className="min-h-[1.25rem]">{line1 || "\u00a0"}</p>
-        <p className="min-h-[1.25rem]">{line2 || "\u00a0"}</p>
+    <div className="flex w-full flex-col text-center text-[11px] leading-snug sm:text-xs">
+      {/* Label atas — rapat ke jabatan; tinggi seragam agar 3 kolom sejajar */}
+      <div className="mb-1 flex h-[2.1rem] flex-col justify-end leading-tight">
+        <p className="min-h-[0.95rem]">{line1 || "\u00a0"}</p>
+        <p className="min-h-[0.95rem]">{line2 || "\u00a0"}</p>
       </div>
       <p className="font-medium">{title}</p>
-      <p className="mt-0.5 min-h-[1.25rem]">
+      <p className="mt-0.5 min-h-[1rem]">
         {org ? tidyCase(org) : "\u00a0"}
       </p>
-      {/* Ruang tanda tangan — cukup untuk paraf, tidak terlalu tinggi */}
-      <div className="mx-auto my-5 h-10 shrink-0 sm:my-6 sm:h-12" aria-hidden />
-      <div className="mt-auto">
+      {/* Ruang paraf singkat */}
+      <div className="mx-auto my-3 h-8 shrink-0 sm:my-3.5 sm:h-9" aria-hidden />
+      <div>
         <p className="font-semibold underline decoration-1 underline-offset-2">
           {name?.trim() || "(nama)"}
         </p>
@@ -329,7 +330,7 @@ export function BankBookPreview({
               </table>
             </div>
 
-            <div className="mt-16 grid grid-cols-1 gap-8 sm:mt-20 sm:grid-cols-3 sm:items-stretch sm:gap-3">
+            <div className="mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
                 labels={["", "Mengetahui :"]}
                 title="Kepala Sekolah"
@@ -702,7 +703,7 @@ export function BkuPreview({
               </div>
             </div>
 
-            <div className="mt-16 grid grid-cols-1 gap-8 sm:mt-20 sm:grid-cols-3 sm:items-stretch sm:gap-3">
+            <div className="mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
                 labels={["", "Mengetahui"]}
                 title="Kepala Sekolah"
@@ -994,7 +995,7 @@ export function BktPreview({
               </table>
             </div>
 
-            <div className="mt-16 grid grid-cols-1 gap-8 sm:mt-20 sm:grid-cols-3 sm:items-stretch sm:gap-3">
+            <div className="mt-8 grid grid-cols-1 gap-6 sm:mt-10 sm:grid-cols-3 sm:items-start sm:gap-3">
               <SignatoryBlock
                 labels={["", "Mengetahui"]}
                 title="Kepala Sekolah"
