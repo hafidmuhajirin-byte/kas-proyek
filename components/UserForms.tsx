@@ -71,7 +71,10 @@ export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
         </Field>
       </div>
       {role === "MANDOR" ? (
-        <Field label="Proyek ditugaskan">
+        <Field
+          label="Proyek ditugaskan"
+          hint="Wajib pilih minimal 1 — tanpa ini Mandor tidak melihat proyek saat login"
+        >
           <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
             {projects.length === 0 ? (
               <p className="text-sm text-[var(--ink-faint)]">Belum ada proyek.</p>
@@ -147,10 +150,14 @@ export function UserEditForm({
         </Field>
       </div>
       {role === "MANDOR" ? (
-        <Field label="Proyek ditugaskan">
+        <Field
+          label="Proyek ditugaskan"
+          hint="Wajib minimal 1 proyek. Centang ulang sebelum simpan."
+        >
           <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
             {projects.map((p) => (
               <label key={p.id} className="flex items-center gap-2 text-sm">
+                <input type="hidden" name="formProjectIds" value={p.id} />
                 <input
                   type="checkbox"
                   name="projectIds"

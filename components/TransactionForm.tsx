@@ -529,7 +529,7 @@ export function TransactionForm({
         />
       </Field>
 
-      <Field label="Bukti / nota (opsional)" htmlFor="proof">
+      <Field label="Bukti / nota (opsional)">
         <ProofCapture
           existingProofUrl={defaults?.proofUrl}
           onApplySuggestion={applyOcrSuggestion}
