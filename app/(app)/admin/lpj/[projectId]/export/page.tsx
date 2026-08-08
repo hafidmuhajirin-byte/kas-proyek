@@ -129,9 +129,16 @@ export default async function AdminLpjExportPage({
         }
       />
 
-      <Card className="mb-4 text-sm text-[var(--ink-muted)]">
-        Cetak dipisah per buku agar file PDF tidak bercampur. Tiap bulan
-        diusahakan memenuhi 1 lembar <strong>A4 landscape</strong>.
+      <Card className="mb-4 space-y-2 text-sm text-[var(--ink-muted)]">
+        <p>
+          Cetak dipisah per buku agar file PDF tidak bercampur. Tiap bulan
+          diusahakan memenuhi 1 lembar <strong>A4 landscape</strong>. Di dialog
+          cetak/PDF, pastikan <strong>Orientasi = Landscape</strong>.
+        </p>
+        <p>
+          Export Excel workbook (Bank / BKU / BKT + rumus seperti template LPJ)
+          menyusul — template acuan sudah ada.
+        </p>
       </Card>
 
       <div className="mb-8 grid gap-3 sm:grid-cols-3">

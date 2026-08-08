@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { requireRoleAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/ui";
-import { PrintButton } from "@/components/PrintButton";
+import { ForcePrintLandscape } from "@/components/lpj/ForcePrintLandscape";
+import { LpjPrintButton } from "@/components/lpj/LpjPrintButton";
 import { loadLpjBooks } from "@/lib/lpj/load-lpj-books";
 import {
   BankBookPreview,
@@ -14,15 +15,15 @@ import {
 const BOOKS = {
   bank: {
     title: "Cetak Buku Bank",
-    hint: "Hanya Buku Bank — A4 landscape, tiap bulan 1 halaman.",
+    hint: "Hanya Buku Bank — A4 landscape, tiap bulan 1 halaman. Di dialog cetak pastikan Orientasi = Landscape.",
   },
   bku: {
     title: "Cetak Buku Kas Umum (BKU)",
-    hint: "Hanya BKU — A4 landscape, tiap bulan 1 halaman.",
+    hint: "Hanya BKU — A4 landscape, tiap bulan 1 halaman. Di dialog cetak pastikan Orientasi = Landscape.",
   },
   bkt: {
     title: "Cetak Buku Kas Tunai (BKT)",
-    hint: "Hanya BKT — A4 landscape, tiap bulan 1 halaman.",
+    hint: "Hanya BKT — A4 landscape, tiap bulan 1 halaman. Di dialog cetak pastikan Orientasi = Landscape.",
   },
 } as const;
 
@@ -68,6 +69,7 @@ export default async function AdminLpjCetakBookPage({
 
   return (
     <div className="lpj-export-print">
+      <ForcePrintLandscape />
       <div className="print:hidden">
         <PageHeader
           title={info.title}
@@ -80,7 +82,7 @@ export default async function AdminLpjCetakBookPage({
               >
                 ← Laporan LPJ
               </Link>
-              <PrintButton label="Cetak / PDF" />
+              <LpjPrintButton label="Cetak / PDF" />
             </div>
           }
         />

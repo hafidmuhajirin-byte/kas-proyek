@@ -152,7 +152,9 @@ select,
     margin: 12mm;
   }
 
-  /* Laporan LPJ export: A4 landscape (Bank / BKU / BKT / Pajak) */
+  /* Laporan LPJ export: A4 landscape (Bank / BKU / BKT / Pajak)
+     Juga di-inject ulang oleh ForcePrintLandscape di halaman /cetak/*
+     karena beberapa browser mengabaikan named page. */
   @page lpj-export-landscape {
     size: A4 landscape;
     margin: 8mm;
