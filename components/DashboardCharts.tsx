@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 
@@ -169,12 +170,22 @@ export function DashboardCharts({
       </div>
 
       <div className="rounded-xl border border-[var(--line-soft)] bg-[var(--surface)] p-4 sm:p-5">
-        <h3 className="text-sm font-medium text-[var(--ink)]">
-          Keuntungan per proyek
-        </h3>
-        <p className="mt-0.5 text-sm text-[var(--ink-faint)]">
-          Realisasi proyek aktif
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-[var(--ink)]">
+              Keuntungan per proyek
+            </h3>
+            <p className="mt-0.5 text-sm text-[var(--ink-faint)]">
+              Realisasi proyek aktif · ketuk nama untuk detail
+            </p>
+          </div>
+          <Link
+            href="/dashboard/keuntungan"
+            className="shrink-0 text-sm text-[var(--accent)] hover:underline"
+          >
+            Sistem hitung
+          </Link>
+        </div>
         <div className="mt-4 space-y-3">
           {profitBars.length === 0 ? (
             <p className="text-sm text-[var(--ink-faint)]">
@@ -190,18 +201,23 @@ export function DashboardCharts({
               return (
                 <div key={bar.id}>
                   <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
-                    <span className="truncate text-[var(--ink)]/85">
+                    <Link
+                      href={`/projects/${bar.id}`}
+                      className="min-w-0 truncate font-medium text-[var(--ink)] hover:text-[var(--accent)] hover:underline"
+                    >
                       {tidyCase(bar.name)}
-                    </span>
-                    <span
-                      className={`shrink-0 tabular-nums ${
+                    </Link>
+                    <Link
+                      href={`/projects/${bar.id}#keuntungan`}
+                      className={`shrink-0 tabular-nums hover:underline ${
                         positive
                           ? "text-[var(--emerald-ink)]"
                           : "text-[var(--rose-ink)]"
                       }`}
+                      title="Lihat rincian perhitungan"
                     >
                       {formatRupiah(bar.value)}
-                    </span>
+                    </Link>
                   </div>
                   <div className="h-2 overflow-hidden rounded bg-[var(--paper-tint)]">
                     <div
