@@ -16,6 +16,7 @@ import {
   BktPreview,
 } from "@/components/lpj/LpjBookPreviews";
 import { RekapitulasiPembayaranPajak } from "@/components/lpj/RekapitulasiPembayaranPajak";
+import { LpjExcelDownloadButton } from "@/components/lpj/LpjExcelDownloadButton";
 
 const CETAK_LINKS = [
   {
@@ -120,12 +121,15 @@ export default async function AdminLpjExportPage({
         title="Laporan LPJ"
         description={`${project.name.trim().toUpperCase()} · ${tidyCase(project.location)} · SPK ${formatRupiah(project.contractValue)}`}
         actions={
-          <Link
-            href={`/admin/lpj/${project.id}`}
-            className="rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--paper-tint)]"
-          >
-            ← Menu proyek
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/admin/lpj/${project.id}`}
+              className="rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--paper-tint)]"
+            >
+              ← Menu proyek
+            </Link>
+            <LpjExcelDownloadButton projectId={project.id} />
+          </div>
         }
       />
 
@@ -136,8 +140,8 @@ export default async function AdminLpjExportPage({
           cetak/PDF, pastikan <strong>Orientasi = Landscape</strong>.
         </p>
         <p>
-          Export Excel workbook (Bank / BKU / BKT + rumus seperti template LPJ)
-          menyusul — template acuan sudah ada.
+          <strong>Unduh Excel Workbook</strong> berisi sheet BUKU BANK, BKU per
+          bulan, dan BKT per bulan — lengkap rumus saldo &amp; jumlah (SUM).
         </p>
       </Card>
 
