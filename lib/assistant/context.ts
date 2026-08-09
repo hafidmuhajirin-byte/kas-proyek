@@ -93,6 +93,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
             amount: true,
             isOwnerPersonal: true,
             isFeeTransfer: true,
+            isMandorExpense: true,
             category: { select: { name: true } },
           },
         },
@@ -130,6 +131,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
         tx.type === "EXPENSE" &&
         !tx.isOwnerPersonal &&
         !tx.isFeeTransfer &&
+        !tx.isMandorExpense &&
         tx.category.name !== SCHOOL_RESIDUAL_CATEGORY
       ) {
         operatingExpense += tx.amount;
@@ -138,13 +140,20 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
       }
     }
 
-    const contractorAdvances = project.contractor
-      ? project.contractor.advances.reduce((s, a) => s + a.amount, 0)
-      : 0;
+    const contractorAdvances = 0; // Termin digabung ke Dana ke Mandor
     const remainingPlannedFunds = projectFundKinds.reduce((sum, kind) => {
       const planned =
         project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0;
       return sum + Math.max(0, planned - (spentByKind[kind] ?? 0));
+    }, 0);
+    const operationalFunds = projectFundKinds.reduce((sum, kind) => {
+      return (
+        sum +
+        Math.max(
+          0,
+          project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0,
+        )
+      );
     }, 0);
     const workCompletedValue = project.workItems.reduce(
       (s, i) => s + i.amount,
@@ -157,6 +166,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
       clientIncome,
       operatingExpense,
       contractorAdvances,
+      operationalFunds,
       remainingPlannedFunds,
       contingencyPercent: 0,
     });

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import {
   Alert,
@@ -28,8 +29,10 @@ import { getOverspendAlarms } from "@/lib/mandor-fund";
 
 export default async function DashboardPage() {
   const user = await requireSession();
+  if (isAdmin(user)) {
+    redirect("/admin/lpj");
+  }
   const owner = isOwner(user);
-  const adminView = isAdmin(user);
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
@@ -113,37 +116,6 @@ export default async function DashboardPage() {
       value: row.profit.realizedProfit,
     }));
 
-  // —— Admin: hanya pelaksanaan on track ——
-  if (adminView) {
-    return (
-      <div>
-        <PageHeader
-          title="Dashboard"
-          description="Pengawasan pelaksanaan proyek on track."
-        />
-        <div className="mt-2">
-          <DashboardCharts
-            cash={0}
-            bank={0}
-            profitBars={[]}
-            onTrackContractTotal={onTrackContractTotal}
-            onTrackPaidTotal={onTrackPaidTotal}
-            onTrackRemaining={onTrackRemaining}
-            onTrackCount={onTrackSchedule.length}
-            variant="onTrackOnly"
-          />
-        </div>
-        <div className="mt-6">
-          <ProjectSchedule
-            items={scheduleItems}
-            totalCount={allSchedule.length}
-            focusLabel="on track"
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div>
       <PageHeader
@@ -204,7 +176,7 @@ export default async function DashboardPage() {
           tone="balance"
         />
         <StatCard
-          label={`Target fee ${PROJECT_FEE_PERCENT}%`}
+          label={`Estimasi ${PROJECT_FEE_PERCENT}%`}
           value={formatRupiah(profitTotals.feeTargetProfit)}
           tone="neutral"
         />
@@ -212,6 +184,8 @@ export default async function DashboardPage() {
           label="Keuntungan realisasi"
           value={formatRupiah(profitTotals.realizedProfit)}
           tone={profitTotals.realizedProfit >= 0 ? "income" : "expense"}
+          href="/dashboard/keuntungan"
+          hint="Ketuk untuk sistem hitung"
         />
         <StatCard
           label="Biaya bulan ini"
