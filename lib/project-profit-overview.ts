@@ -51,6 +51,7 @@ export async function getProjectsProfitOverview(options?: {
         amount: true,
         isOwnerPersonal: true,
         isFeeTransfer: true,
+        isMandorExpense: true,
         category: { select: { name: true } },
       },
     }),
@@ -100,6 +101,7 @@ export async function getProjectsProfitOverview(options?: {
         tx.type === "EXPENSE" &&
         !tx.isOwnerPersonal &&
         !tx.isFeeTransfer &&
+        !tx.isMandorExpense &&
         tx.category.name !== SCHOOL_RESIDUAL_CATEGORY
       ) {
         operatingExpense += tx.amount;
@@ -110,13 +112,22 @@ export async function getProjectsProfitOverview(options?: {
       }
     }
 
-    const contractorAdvances = advanceByProject.get(project.id) ?? 0;
+    const contractorAdvances = 0; // Termin → Dana ke Mandor (sudah di operatingExpense)
 
     const remainingPlannedFunds = projectFundKinds.reduce((sum, kind) => {
       const planned =
         project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0;
       const spent = spentByKind[kind] ?? 0;
       return sum + Math.max(0, planned - spent);
+    }, 0);
+    const operationalFunds = projectFundKinds.reduce((sum, kind) => {
+      return (
+        sum +
+        Math.max(
+          0,
+          project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0,
+        )
+      );
     }, 0);
 
     const workCompletedValue = project.workItems.reduce(
@@ -131,6 +142,7 @@ export async function getProjectsProfitOverview(options?: {
       clientIncome,
       operatingExpense,
       contractorAdvances,
+      operationalFunds,
       remainingPlannedFunds,
       contingencyPercent: 0,
     });
