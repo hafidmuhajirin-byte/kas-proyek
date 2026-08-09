@@ -42,3 +42,5 @@ export const billingModeHints: Record<string, string> = {
   PAY_AT_END:
     "Tanpa kontrak. Pengeluaran dari kas besar; jika habis wajib setor dana pribadi. Bayar di akhir dari pekerjaan selesai.",
 };
+
+export { SPK_CATEGORY_LABELS as spkCategoryLabels } from "@/lib/lpj/smart-estimator";
