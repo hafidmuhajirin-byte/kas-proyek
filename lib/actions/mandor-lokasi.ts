@@ -56,9 +56,6 @@ function parseOptionalFloat(raw: FormDataEntryValue | null): number | null {
   if (raw == null || raw === "") return null;
   const n = Number(String(raw));
   if (!Number.isFinite(n)) return null;
-  if (n < -90 || n > 90) {
-    // latitude check first; longitude validated separately by caller range
-  }
   return n;
 }
 
