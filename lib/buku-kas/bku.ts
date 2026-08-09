@@ -109,14 +109,18 @@ export function formatBkuQty(qty: number | null | undefined) {
   }).format(qty);
 }
 
-function lineStatus(
+/** Status kolom pengeluaran BKU/BKT. */
+export function cashBookLineStatus(
   kind: string | undefined,
   description: string,
+  categoryName?: string | null,
 ): string {
   if (kind === "LABOR") return "Bayar Ongkos";
-  const d = description.trim();
-  if (/^bayar\b/i.test(d)) return "Bayar";
-  if (/^jasa\b/i.test(d)) return "Jasa";
+  const blob = `${description} ${categoryName ?? ""}`.trim();
+  // Jasa perencana / Pengawas → status khusus (sebelum aturan "Bayar" umum)
+  if (/perencana|pengawas/i.test(blob)) return "Bayar jasa";
+  if (/^bayar\b/i.test(blob)) return "Bayar";
+  if (/^jasa\b/i.test(blob)) return "Jasa";
   return "Beli";
 }
 
@@ -336,7 +340,11 @@ export function buildBkuMonthBlocks(
             amount: lineAmt,
             proofNo: idx === 0 ? buktiNo : "",
             costType: mapExpenseCostType(tx.categoryName, line.kind),
-            status: lineStatus(line.kind, line.description),
+            status: cashBookLineStatus(
+              line.kind,
+              line.description || tx.description,
+              tx.categoryName,
+            ),
             quantity: line.quantity ?? null,
             unit: line.unit ?? (line.kind === "LABOR" ? "hari" : null),
           });
@@ -356,7 +364,7 @@ export function buildBkuMonthBlocks(
           amount,
           proofNo: buktiNo,
           costType: mapExpenseCostType(tx.categoryName, kindHint),
-          status: lineStatus(kindHint, tx.description),
+          status: cashBookLineStatus(kindHint, tx.description, tx.categoryName),
           quantity: null,
           unit: null,
         });

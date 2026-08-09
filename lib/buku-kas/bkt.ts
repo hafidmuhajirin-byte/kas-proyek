@@ -7,7 +7,7 @@
  * langsung setelah nota terkait.
  */
 
-import { formatBkuQty } from "@/lib/buku-kas/bku";
+import { cashBookLineStatus, formatBkuQty } from "@/lib/buku-kas/bku";
 import type { BkuExpenseLineInput } from "@/lib/buku-kas/bku";
 import { resolveExpenseLinesForCashBook } from "@/lib/buku-kas/labor-summary";
 import { rewriteJasaPerencanaanPengawasan } from "@/lib/lpj/jasa-labels";
@@ -73,14 +73,6 @@ function monthTitle(year: number, month: number) {
     month: "long",
     year: "numeric",
   });
-}
-
-function lineStatus(kind: string | undefined, description: string): string {
-  if (kind === "LABOR") return "Bayar Ongkos";
-  const d = description.trim();
-  if (/^bayar\b/i.test(d)) return "Bayar";
-  if (/^jasa\b/i.test(d)) return "Jasa";
-  return "Beli";
 }
 
 function pushBalance(balance: number): Pick<BktRow, "saldoDebet" | "saldoKredit"> {
@@ -303,7 +295,11 @@ export function buildBktMonthBlocks(
           rows.push({
             date: idx === 0 ? tx.date : null,
             proofNo: idx === 0 ? buktiNo : "",
-            status: lineStatus(line.kind, line.description),
+            status: cashBookLineStatus(
+              line.kind,
+              line.description || tx.description,
+              tx.categoryName,
+            ),
             quantity: qty,
             unit: line.unit ?? (line.kind === "LABOR" ? "hari" : null),
             description: uraian(line.description || tx.description, "Pengeluaran"),
@@ -324,7 +320,7 @@ export function buildBktMonthBlocks(
         rows.push({
           date: tx.date,
           proofNo: buktiNo,
-          status: lineStatus(kindHint, tx.description),
+          status: cashBookLineStatus(kindHint, tx.description, tx.categoryName),
           quantity: null,
           unit: null,
           description: uraian(tx.description, "Pengeluaran"),

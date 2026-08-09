@@ -371,10 +371,9 @@ function assert(cond: boolean, msg: string) {
     bkk1Idx >= 0 && bku[0].expenses[bkk1Idx + 1]?.proofNo === "",
     "baris lanjut tanpa nomor",
   );
-  assert(
-    bku[0].expenses.some((e) => e.proofNo === "BKK.2"),
-    "bukti BKK.2",
-  );
+  const bkk2 = bku[0].expenses.find((e) => e.proofNo === "BKK.2");
+  assert(Boolean(bkk2), "bukti BKK.2");
+  assert(bkk2?.status === "Bayar jasa", "status Bayar jasa untuk pengawasan");
 
   const taxPay = bku[0].expenses.filter((e) => e.isTaxRow);
   const taxRecv = bku[0].incomes.filter((e) => e.isTaxRow);
