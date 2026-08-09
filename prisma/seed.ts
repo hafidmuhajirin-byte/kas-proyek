@@ -37,32 +37,31 @@ async function main() {
     },
   });
 
-  // Migrasi akun lama admin → pastikan jadi OWNER jika masih ada
-  const legacyAdmin = await prisma.user.findUnique({
-    where: { username: "admin" },
-  });
-  if (legacyAdmin) {
-    await prisma.user.update({
-      where: { id: legacyAdmin.id },
-      data: { role: "OWNER", name: legacyAdmin.name || "Owner (admin)" },
-    });
-  }
-
+  // Admin produksi = username adminok (bukan "admin")
   await prisma.user.upsert({
-    where: { username: "admin" },
-    update: { role: "ADMIN", name: "Admin Pengawas" },
+    where: { username: "adminok" },
+    update: { role: "ADMIN", name: "Admin Proyek" },
     create: {
-      username: "admin",
-      name: "Admin Pengawas",
+      username: "adminok",
+      name: "Admin Proyek",
       passwordHash: hashSync("admin123", 10),
       role: "ADMIN",
     },
   });
 
-  // Jika admin di-update jadi ADMIN tapi kita butuh owner terpisah —
-  // pastikan user 'admin' adalah ADMIN baca-saja; owner pakai 'owner'
-  // Re-fix: setelah upsert di atas, admin = ADMIN. Legacy yang jadi OWNER sudah di-overwrite.
-  // Restore: jika hanya ada satu user yang tadinya owner via migrate, keep owner user.
+  // Akun seed lama "admin" (opsional, legacy lokal)
+  await prisma.user.upsert({
+    where: { username: "admin" },
+    update: { role: "ADMIN", name: "Admin Pengawas (legacy)" },
+    create: {
+      username: "admin",
+      name: "Admin Pengawas (legacy)",
+      passwordHash: hashSync("admin123", 10),
+      role: "ADMIN",
+    },
+  });
+
+  // Owner terpisah: 'owner'; Admin produksi: 'adminok'
 
   const mandor = await prisma.user.upsert({
     where: { username: "mandor" },
@@ -135,10 +134,14 @@ async function main() {
     });
   }
 
-  // Pastikan admin role benar (baca-saja) setelah upsert
+  // Pastikan role adminok benar
+  await prisma.user.updateMany({
+    where: { username: "adminok" },
+    data: { role: "ADMIN", name: "Admin Proyek" },
+  });
   await prisma.user.updateMany({
     where: { username: "admin" },
-    data: { role: "ADMIN", name: "Admin Pengawas" },
+    data: { role: "ADMIN" },
   });
   await prisma.user.updateMany({
     where: { username: "owner" },
@@ -150,7 +153,8 @@ async function main() {
 
   console.log("Seed selesai.");
   console.log("  owner / owner123  (OWNER)");
-  console.log("  admin / admin123  (ADMIN baca)");
+  console.log("  adminok / admin123  (ADMIN — sama username produksi)");
+  console.log("  admin / admin123  (ADMIN legacy, opsional)");
   console.log("  mandor / mandor123 (MANDOR)");
 }
 
