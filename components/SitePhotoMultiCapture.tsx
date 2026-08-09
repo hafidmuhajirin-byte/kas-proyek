@@ -21,6 +21,15 @@ export type QueuedSitePhoto = {
 };
 
 const MAX_PHOTOS = 20;
+/** Lebih kecil = lebih ringan di HP (masih cukup jelas untuk dokumentasi). */
+const SITE_MAX_EDGE = 800;
+const SITE_MAX_BYTES = 180 * 1024;
+
+function yieldToUi() {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
 
 function FilePickButton({
   label,
@@ -75,6 +84,7 @@ export function SitePhotoMultiCapture({
   longitude?: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -95,7 +105,8 @@ export function SitePhotoMultiCapture({
   async function addFiles(list: FileList | null) {
     if (!list?.length) return;
     setError(null);
-    const room = MAX_PHOTOS - itemsRef.current.length;
+    const base = itemsRef.current;
+    const room = MAX_PHOTOS - base.length;
     if (room <= 0) {
       setError(`Maksimal ${MAX_PHOTOS} foto sekaligus.`);
       return;
@@ -103,16 +114,19 @@ export function SitePhotoMultiCapture({
 
     const picked = Array.from(list).slice(0, room);
     setBusy(true);
+    const added: QueuedSitePhoto[] = [];
     try {
-      const next: QueuedSitePhoto[] = [];
-      for (const raw of picked) {
+      for (let i = 0; i < picked.length; i++) {
+        const raw = picked[i]!;
         if (!raw.type.startsWith("image/") && raw.type !== "") {
           continue;
         }
+        setProgress(`Memproses ${i + 1}/${picked.length}…`);
         try {
           const file = await compressImageFileSquare(raw, {
-            maxEdge: 1200,
-            maxBytes: 400 * 1024,
+            maxEdge: SITE_MAX_EDGE,
+            maxBytes: SITE_MAX_BYTES,
+            quality: 0.65,
             stamp: {
               at: new Date(),
               latitude:
@@ -121,25 +135,31 @@ export function SitePhotoMultiCapture({
                 lngNum != null && Number.isFinite(lngNum) ? lngNum : null,
             },
           });
-          next.push({
+          const item: QueuedSitePhoto = {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             file,
             previewUrl: URL.createObjectURL(file),
-          });
+          };
+          added.push(item);
+          onChange([...base, ...added]);
         } catch {
-          // skip file yang gagal
+          // skip file gagal
         }
+        await yieldToUi();
       }
-      if (next.length === 0) {
+
+      if (added.length === 0) {
         setError("Tidak ada foto yang bisa ditambahkan.");
         return;
       }
-      onChange([...itemsRef.current, ...next]);
       if (list.length > room) {
-        setError(`Hanya ${room} foto lagi yang ditambahkan (batas ${MAX_PHOTOS}).`);
+        setError(
+          `Hanya ${room} foto lagi yang ditambahkan (batas ${MAX_PHOTOS}).`,
+        );
       }
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -191,13 +211,14 @@ export function SitePhotoMultiCapture({
 
       {busy ? (
         <p className="text-sm text-[var(--ink-faint)]">
-          Memproses foto 1:1…
+          {progress ?? "Memproses foto…"}
         </p>
       ) : (
         <p className="text-xs text-[var(--ink-faint)]">
-          Ambil berkali-kali dulu, lalu unggah sekaligus. Foto 1:1, stempel
-          waktu{latNum != null && lngNum != null ? " + GPS" : ""} di foto.
-          Maks. {MAX_PHOTOS} foto.
+          Ambil berkali-kali, lalu unggah. Foto diperkecil agar HP tidak berat
+          (1:1 + stempel waktu
+          {latNum != null && lngNum != null ? " + GPS" : ""}). Maks.{" "}
+          {MAX_PHOTOS} foto — unggah otomatis per 5 foto.
         </p>
       )}
 
@@ -217,6 +238,7 @@ export function SitePhotoMultiCapture({
                 src={item.previewUrl}
                 alt={`Foto ${index + 1}`}
                 className="aspect-square w-full object-cover"
+                loading="lazy"
               />
               <button
                 type="button"

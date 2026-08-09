@@ -122,7 +122,7 @@ function isProbablyImage(file: File): boolean {
 async function encodeJpegCanvas(
   canvas: HTMLCanvasElement,
   file: File,
-  options: CompressImageOptions,
+  options: CompressImageOptions & { forceEncoded?: boolean },
   defaultName: string,
 ): Promise<File> {
   const maxBytes = options.maxBytes ?? 400 * 1024;
@@ -135,6 +135,7 @@ async function encodeJpegCanvas(
   }
 
   if (
+    !options.forceEncoded &&
     blob.size >= file.size &&
     (file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name)) &&
     file.size <= maxBytes
@@ -208,7 +209,12 @@ export async function compressImageFileSquare(
     drawTimestampStamp(ctx, out, out, options.stamp ?? {});
   }
 
-  return encodeJpegCanvas(canvas, file, options, "lokasi");
+  return encodeJpegCanvas(
+    canvas,
+    file,
+    { ...options, forceEncoded: true },
+    "lokasi",
+  );
 }
 
 export function formatFileSize(bytes: number): string {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useState, type FormEvent } from "react";
-import { createSitePhotoAction } from "@/lib/actions/mandor-lokasi";
+import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { uploadSitePhotosBatchAction } from "@/lib/actions/mandor-lokasi";
 import {
   SitePhotoMultiCapture,
   type QueuedSitePhoto,
@@ -15,6 +16,8 @@ import {
 
 type ProjectOption = { id: string; name: string };
 
+const UPLOAD_BATCH = 5;
+
 export function MandorSitePhotoForm({
   projects,
   defaultProjectId,
@@ -22,7 +25,10 @@ export function MandorSitePhotoForm({
   projects: ProjectOption[];
   defaultProjectId?: string;
 }) {
-  const [state, formAction, pending] = useActionState(createSitePhotoAction, {});
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [projectId, setProjectId] = useState(
     defaultProjectId ?? projects[0]?.id ?? "",
   );
@@ -52,23 +58,70 @@ export function MandorSitePhotoForm({
         setLongitude("");
         setGpsStatus("denied");
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60_000 },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 120_000 },
     );
   }, []);
 
-  function onSubmit(e: FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (photos.length === 0) return;
-    const fd = new FormData(e.currentTarget);
-    for (const item of photos) {
-      fd.append("photos", item.file);
+    if (photos.length === 0 || pending) return;
+
+    const form = e.currentTarget;
+    setPending(true);
+    setError(null);
+
+    let uploaded = 0;
+    const total = photos.length;
+    const batches = Math.ceil(total / UPLOAD_BATCH);
+
+    try {
+      for (let b = 0; b < batches; b++) {
+        const slice = photos.slice(b * UPLOAD_BATCH, (b + 1) * UPLOAD_BATCH);
+        setUploadProgress(
+          `Mengunggah ${Math.min((b + 1) * UPLOAD_BATCH, total)}/${total}…`,
+        );
+
+        const fd = new FormData(form);
+        fd.delete("photos");
+        for (const item of slice) {
+          fd.append("photos", item.file);
+        }
+
+        const result = await uploadSitePhotosBatchAction({}, fd);
+        if (result.error) {
+          setError(
+            uploaded > 0
+              ? `${result.error} (${uploaded} foto sudah tersimpan.)`
+              : result.error,
+          );
+          return;
+        }
+        uploaded += result.count ?? slice.length;
+      }
+
+      for (const item of photos) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+      setPhotos([]);
+      router.push(
+        `/mandor/lokasi?projectId=${encodeURIComponent(projectId)}&ok=1&n=${uploaded}`,
+      );
+      router.refresh();
+    } catch {
+      setError(
+        uploaded > 0
+          ? `Koneksi terputus. ${uploaded} foto mungkin sudah tersimpan — cek daftar di bawah.`
+          : "Gagal mengunggah. Coba lagi dengan lebih sedikit foto.",
+      );
+    } finally {
+      setPending(false);
+      setUploadProgress(null);
     }
-    formAction(fd);
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {state.error ? <Alert>{state.error}</Alert> : null}
+    <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
+      {error ? <Alert>{error}</Alert> : null}
 
       <input type="hidden" name="latitude" value={latitude} />
       <input type="hidden" name="longitude" value={longitude} />
@@ -81,6 +134,7 @@ export function MandorSitePhotoForm({
           required
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
+          disabled={pending}
         >
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
@@ -98,6 +152,7 @@ export function MandorSitePhotoForm({
           className={inputClass}
           required
           defaultValue={today}
+          disabled={pending}
         />
       </Field>
 
@@ -108,6 +163,7 @@ export function MandorSitePhotoForm({
           className={inputClass}
           placeholder="Mis. progress dinding, tapak, dll."
           maxLength={500}
+          disabled={pending}
         />
       </Field>
 
@@ -130,7 +186,6 @@ export function MandorSitePhotoForm({
         ) : gpsStatus === "denied" ? (
           <p>
             Izin lokasi ditolak — foto tetap bisa disimpan tanpa koordinat.
-            Aktifkan lokasi di browser untuk menyertakan GPS.
           </p>
         ) : gpsStatus === "unavailable" ? (
           <p>GPS tidak tersedia di perangkat ini.</p>
@@ -139,13 +194,19 @@ export function MandorSitePhotoForm({
         )}
       </div>
 
+      {uploadProgress ? (
+        <p className="text-center text-sm font-medium text-teal-900">
+          {uploadProgress}
+        </p>
+      ) : null}
+
       <button
         type="submit"
         className={`${btnPrimaryClass} w-full min-h-14 text-base !bg-teal-700 hover:!bg-teal-800`}
         disabled={pending || photos.length === 0}
       >
         {pending
-          ? "Mengunggah…"
+          ? uploadProgress ?? "Mengunggah…"
           : photos.length > 1
             ? `Unggah ${photos.length} foto`
             : "Unggah foto"}

@@ -13,7 +13,8 @@ import {
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
 
-const MAX_PHOTOS = 20;
+/** Maks per request batch (client mengirim bertahap). */
+const MAX_PHOTOS_PER_BATCH = 5;
 
 async function saveSitePhoto(file: File): Promise<string> {
   if (file.size === 0) {
@@ -56,13 +57,11 @@ function collectPhotoFiles(formData: FormData): File[] {
     .filter((f): f is File => f instanceof File && f.size > 0);
 }
 
-/**
- * Upload satu atau banyak foto lokasi proyek (Mandor) — disimpan di VPS.
- */
-export async function createSitePhotoAction(
-  _prev: FormState,
+type UploadResult = FormState & { count?: number };
+
+async function savePhotosFromForm(
   formData: FormData,
-): Promise<FormState> {
+): Promise<UploadResult> {
   const user = await requireSession();
   if (!isMandor(user)) {
     return { error: "Hanya Mandor yang dapat mengunggah foto lokasi." };
@@ -81,8 +80,10 @@ export async function createSitePhotoAction(
   if (photos.length === 0) {
     return { error: "Tambahkan minimal satu foto sebelum mengunggah." };
   }
-  if (photos.length > MAX_PHOTOS) {
-    return { error: `Maksimal ${MAX_PHOTOS} foto sekaligus.` };
+  if (photos.length > MAX_PHOTOS_PER_BATCH) {
+    return {
+      error: `Maksimal ${MAX_PHOTOS_PER_BATCH} foto per pengiriman. Coba lagi.`,
+    };
   }
 
   await requireProjectAccess(user, projectId);
@@ -110,20 +111,30 @@ export async function createSitePhotoAction(
   if (!project) return { error: "Proyek tidak ditemukan." };
 
   try {
+    const rows: {
+      projectId: string;
+      createdById: string;
+      takenAt: Date;
+      caption: string | null;
+      photoUrl: string;
+      latitude: number | null;
+      longitude: number | null;
+    }[] = [];
+
     for (const file of photos) {
       const photoUrl = await saveSitePhoto(file);
-      await prisma.projectSitePhoto.create({
-        data: {
-          projectId,
-          createdById: user.id,
-          takenAt,
-          caption,
-          photoUrl,
-          latitude,
-          longitude,
-        },
+      rows.push({
+        projectId,
+        createdById: user.id,
+        takenAt,
+        caption,
+        photoUrl,
+        latitude,
+        longitude,
       });
     }
+
+    await prisma.projectSitePhoto.createMany({ data: rows });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Gagal unggah foto." };
   }
@@ -132,8 +143,32 @@ export async function createSitePhotoAction(
   revalidatePath("/mandor/lokasi");
   revalidatePath("/foto-proyek");
   revalidatePath(`/projects/${projectId}`);
+  return { success: "ok", count: photos.length };
+}
+
+/**
+ * Upload batch foto (tanpa redirect) — dipanggil bertahap dari client.
+ */
+export async function uploadSitePhotosBatchAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<UploadResult> {
+  return savePhotosFromForm(formData);
+}
+
+/**
+ * Upload + redirect (kompatibel form tunggal).
+ */
+export async function createSitePhotoAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const result = await savePhotosFromForm(formData);
+  if (result.error) return { error: result.error };
+
+  const projectId = String(formData.get("projectId") ?? "");
   redirect(
-    `/mandor/lokasi?projectId=${projectId}&ok=1&n=${photos.length}`,
+    `/mandor/lokasi?projectId=${projectId}&ok=1&n=${result.count ?? 1}`,
   );
 }
 
