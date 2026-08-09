@@ -11,10 +11,7 @@ import {
 } from "@/lib/lpj/build-tax-rekap";
 import { TaxCeilingBar } from "@/components/lpj/TaxCeilingBar";
 import { RekapitulasiPembayaranPajak } from "@/components/lpj/RekapitulasiPembayaranPajak";
-import {
-  PajakKeteranganEditor,
-  PajakRekapToolbar,
-} from "@/components/lpj/PajakRekapToolbar";
+import { PajakRekapToolbar } from "@/components/lpj/PajakRekapToolbar";
 import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
 
 export default async function AdminLpjPajakPage({
@@ -175,8 +172,7 @@ export default async function AdminLpjPajakPage({
         <Card className="mt-4 text-sm text-[var(--ink-muted)]">
           Rekapitulasi diisi otomatis dari nota (PPN 11% + PPh 22 untuk belanja
           manufaktur &gt; Rp 2 jt; PPh Final 3,5% perencanaan/pengawasan). Judul
-          = catatan proyek. Sesuaikan NPWP & keterangan bulan di bawah, lalu
-          cetak.
+          = catatan proyek. Sesuaikan NPWP di bawah, lalu cetak.
         </Card>
 
         <div className="mt-4">
@@ -196,12 +192,6 @@ export default async function AdminLpjPajakPage({
           projectTitle={projectTitle}
         />
       </div>
-
-      <PajakKeteranganEditor
-        projectId={project.id}
-        year={year}
-        months={rekap.months}
-      />
     </div>
   );
 }

@@ -4,11 +4,7 @@ import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { PrintButton } from "@/components/PrintButton";
-import {
-  updateLpjNpwpAction,
-  updateTaxMonthNoteAction,
-} from "@/lib/actions/lpj-tax-rekap";
-import type { TaxRekapMonthRow } from "@/lib/lpj/build-tax-rekap";
+import { updateLpjNpwpAction } from "@/lib/actions/lpj-tax-rekap";
 import { Alert } from "@/components/ui";
 
 function SaveBtn({ label }: { label: string }) {
@@ -82,58 +78,6 @@ export function PajakRekapToolbar({
           <p className="text-xs text-emerald-800">{npwpState.success}</p>
         ) : null}
       </form>
-    </div>
-  );
-}
-
-export function PajakKeteranganEditor({
-  projectId,
-  year,
-  months,
-}: {
-  projectId: string;
-  year: number;
-  months: TaxRekapMonthRow[];
-}) {
-  const [state, action] = useActionState(updateTaxMonthNoteAction, {});
-
-  return (
-    <div className="mt-4 print:hidden">
-      <h3 className="mb-2 text-sm font-medium text-[var(--ink)]">
-        Sesuaikan keterangan per bulan
-      </h3>
-      <ul className="space-y-2">
-        {months.map((m) => (
-          <li key={m.month}>
-            <form
-              action={action}
-              className="flex flex-wrap items-center gap-2 rounded border border-[var(--line-soft)] bg-white px-2 py-1.5"
-            >
-              <input type="hidden" name="projectId" value={projectId} />
-              <input type="hidden" name="year" value={year} />
-              <input type="hidden" name="month" value={m.month} />
-              <span className="w-28 shrink-0 text-xs text-[var(--ink-muted)]">
-                {m.label.split(" - ")[0]}
-              </span>
-              <input
-                name="keterangan"
-                defaultValue={m.keterangan}
-                placeholder="Keterangan…"
-                className="min-w-0 flex-1 rounded border border-[var(--line)] px-2 py-1 text-sm"
-              />
-              <SaveBtn label="Simpan" />
-            </form>
-          </li>
-        ))}
-      </ul>
-      {state.error ? (
-        <div className="mt-2">
-          <Alert>{state.error}</Alert>
-        </div>
-      ) : null}
-      {state.success ? (
-        <p className="mt-2 text-xs text-emerald-800">{state.success}</p>
-      ) : null}
     </div>
   );
 }
