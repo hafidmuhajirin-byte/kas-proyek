@@ -157,7 +157,7 @@ function assert(cond: boolean, msg: string) {
   );
 }
 
-// Label Bayar Jasa Perencanaan / Pengawasan (+ hapus CV)
+// Label Bayar jasa perencana / Pengawas (+ hapus CV)
 {
   assert(
     rewriteJasaPerencanaanPengawasan("Penyerahan ke perencanaan CV") ===

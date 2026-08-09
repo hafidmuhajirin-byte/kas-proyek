@@ -162,8 +162,8 @@ export default async function MandorHomePage() {
               ) : (
                 <div className="rounded-lg border border-dashed border-[var(--line)] px-3 py-2 text-center text-[11px] text-[var(--ink-faint)]">
                   Estimasi borongan belum tersedia — Admin belum mengisi pagu
-                  Bayar Jasa Perencanaan, Bayar jasa Pengawasan, dan
-                  Pengelolaan di Ringkasan SPK.
+                  Bayar jasa perencana, Bayar jasa Pengawas, dan Pengelolaan di
+                  Ringkasan SPK.
                 </div>
               )}
 

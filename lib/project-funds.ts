@@ -40,8 +40,20 @@ export const projectFundCategoryNames: Record<ProjectFundKind, string> = {
 const LEGACY_PROJECT_FUND_CATEGORY_NAMES: Partial<
   Record<ProjectFundKind, string[]>
 > = {
-  PLANNING: ["Dana Perencanaan", "Dana perencanaan", "Perencanaan"],
-  SUPERVISION: ["Dana Pengawasan", "Dana pengawasan", "Pengawasan"],
+  PLANNING: [
+    "Dana Perencanaan",
+    "Dana perencanaan",
+    "Perencanaan",
+    "Bayar Jasa Perencanaan",
+    "Bayar jasa Perencanaan",
+  ],
+  SUPERVISION: [
+    "Dana Pengawasan",
+    "Dana pengawasan",
+    "Pengawasan",
+    "Bayar jasa Pengawasan",
+    "Bayar Jasa Pengawasan",
+  ],
 };
 
 export function calcProjectSaveAmount(contractValue: number) {

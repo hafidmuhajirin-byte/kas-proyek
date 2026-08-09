@@ -20,8 +20,8 @@ export function MandorBoronganCalcTable({
     return (
       <div className="mt-3 rounded-lg border border-dashed border-[var(--line)] px-3 py-3 text-xs text-[var(--ink-muted)]">
         Detail perhitungan belum tersedia. Admin harus mengisi pagu{" "}
-        <strong>Bayar Jasa Perencanaan</strong>,{" "}
-        <strong>Bayar jasa Pengawasan</strong>, dan{" "}
+        <strong>Bayar jasa perencana</strong>,{" "}
+        <strong>Bayar jasa Pengawas</strong>, dan{" "}
         <strong>Pengelolaan</strong> di Ringkasan SPK terlebih dahulu.
       </div>
     );
@@ -38,8 +38,8 @@ export function MandorBoronganCalcTable({
 
   const rows: Array<{ label: string; amount: number; strong?: boolean }> = [
     { label: "Nilai kontrak (SPK)", amount: estimate.contractValue },
-    { label: "Bayar Jasa Perencanaan", amount: -estimate.perencanaan },
-    { label: "Bayar jasa Pengawasan", amount: -estimate.pengawasan },
+    { label: "Bayar jasa perencana", amount: -estimate.perencanaan },
+    { label: "Bayar jasa Pengawas", amount: -estimate.pengawasan },
     { label: "Dana pengelolaan", amount: -estimate.pengelolaan },
     {
       label: "Dasar (kontrak − manajemen)",

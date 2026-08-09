@@ -39,9 +39,9 @@ Catatan umum:
 
 ## Estimasi borongan Mandor
 
-Setelah pagu **Bayar Jasa Perencanaan**, **Bayar jasa Pengawasan**, dan **Pengelolaan** diisi di Ringkasan SPK, beranda Mandor menampilkan estimasi:
+Setelah pagu **Bayar jasa perencana**, **Bayar jasa Pengawas**, dan **Pengelolaan** diisi di Ringkasan SPK, beranda Mandor menampilkan estimasi:
 
-`ROUNDDOWN( (nilai kontrak − Bayar Jasa Perencanaan − Bayar jasa Pengawasan − pengelolaan) × 70% ; -3 )`
+`ROUNDDOWN( (nilai kontrak − Bayar jasa perencana − Bayar jasa Pengawas − pengelolaan) × 70% ; -3 )`
 
 (bulat ke bawah ke kelipatan Rp1.000). Jika salah satu dari ketiga pagu belum diisi, estimasi **tidak** ditampilkan.
 
