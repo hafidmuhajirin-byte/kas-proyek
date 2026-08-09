@@ -86,6 +86,10 @@ export function SitePhotoMultiCapture({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Stempel waktu/GPS di foto — bisa dicentang atau tidak. */
+  const [useTimestamp, setUseTimestamp] = useState(true);
+  const stampRef = useRef(useTimestamp);
+  stampRef.current = useTimestamp;
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -123,17 +127,20 @@ export function SitePhotoMultiCapture({
         }
         setProgress(`Memproses ${i + 1}/${picked.length}…`);
         try {
+          const withStamp = stampRef.current;
           const file = await compressImageFileSquare(raw, {
             maxEdge: SITE_MAX_EDGE,
             maxBytes: SITE_MAX_BYTES,
             quality: 0.65,
-            stamp: {
-              at: new Date(),
-              latitude:
-                latNum != null && Number.isFinite(latNum) ? latNum : null,
-              longitude:
-                lngNum != null && Number.isFinite(lngNum) ? lngNum : null,
-            },
+            stamp: withStamp
+              ? {
+                  at: new Date(),
+                  latitude:
+                    latNum != null && Number.isFinite(latNum) ? latNum : null,
+                  longitude:
+                    lngNum != null && Number.isFinite(lngNum) ? lngNum : null,
+                }
+              : false,
           });
           const item: QueuedSitePhoto = {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -176,6 +183,24 @@ export function SitePhotoMultiCapture({
 
   return (
     <div className="space-y-3">
+      <label className="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border border-[var(--line-soft)] bg-[#fffcf7] px-3 py-3">
+        <input
+          type="checkbox"
+          className="mt-1 h-5 w-5 shrink-0 accent-teal-700"
+          checked={useTimestamp}
+          disabled={busy}
+          onChange={(e) => setUseTimestamp(e.target.checked)}
+        />
+        <span className="text-sm text-[var(--ink)]">
+          <span className="font-medium">Stempel waktu (timestamp)</span>
+          <span className="mt-0.5 block text-xs text-[var(--ink-faint)]">
+            {useTimestamp
+              ? `Centang aktif — tanggal/jam${latNum != null && lngNum != null ? " + GPS" : ""} ditulis di foto.`
+              : "Tidak dicentang — foto tanpa stempel waktu."}
+          </span>
+        </span>
+      </label>
+
       <div className="flex flex-wrap gap-2">
         <FilePickButton
           label="Ambil foto"
@@ -215,10 +240,8 @@ export function SitePhotoMultiCapture({
         </p>
       ) : (
         <p className="text-xs text-[var(--ink-faint)]">
-          Ambil berkali-kali, lalu unggah. Foto diperkecil agar HP tidak berat
-          (1:1 + stempel waktu
-          {latNum != null && lngNum != null ? " + GPS" : ""}). Maks.{" "}
-          {MAX_PHOTOS} foto — unggah otomatis per 5 foto.
+          Ambil berkali-kali, lalu unggah. Foto 1:1 diperkecil agar HP tidak
+          berat. Maks. {MAX_PHOTOS} foto — unggah per 5 foto.
         </p>
       )}
 
