@@ -181,3 +181,122 @@ export function emptySpkBudgetFromContract(contractValue: number): SpkBudgetInpu
     };
   });
 }
+
+/** Kelompok tabel ringkasan SPK (mirip rekap LPJ A / B / C). */
+export type SpkRingkasanSectionKey = "FISIK" | "MANAJEMEN" | "MEBELAIR";
+
+export const SPK_RINGKASAN_SECTIONS: Array<{
+  key: SpkRingkasanSectionKey;
+  letter: "A" | "B" | "C";
+  title: string;
+  categories: SpkCategoryKey[];
+}> = [
+  {
+    key: "FISIK",
+    letter: "A",
+    title: "PEKERJAAN FISIK",
+    categories: [
+      "REHAB_FISIK",
+      "PEMBANGUNAN_BARU",
+      "PEMBANGUNAN_APE_LUAR",
+      "SANITASI",
+      "PENGELOLAAN_LINGKUNGAN",
+    ],
+  },
+  {
+    key: "MANAJEMEN",
+    letter: "B",
+    title: "BIAYA MANAJEMEN",
+    categories: ["PERENCANAAN", "PENGAWASAN", "PENGELOLAAN"],
+  },
+  {
+    key: "MEBELAIR",
+    letter: "C",
+    title: "MEBELAIR",
+    categories: ["REHAB_MEBELAIR", "MEBELAIR_BARU"],
+  },
+];
+
+export type SpkRingkasanRow = {
+  kind: "item" | "subtotal" | "total" | "rounded";
+  label: string;
+  amount: number;
+  laborTarget?: number;
+  materialTarget?: number;
+  percentOfSpk?: number | null;
+};
+
+export type SpkRingkasanTable = {
+  sections: Array<{
+    letter: "A" | "B" | "C";
+    title: string;
+    rows: SpkRingkasanRow[];
+    subtotal: number;
+  }>;
+  total: number;
+  rounded: number;
+  totalLaborTarget: number;
+  totalMaterialTarget: number;
+};
+
+/** Susun baris tabel ringkasan dari pagu yang sudah tersimpan (amount > 0). */
+export function buildSpkRingkasanTable(
+  lines: SpkTargetLine[],
+  contractValue: number,
+): SpkRingkasanTable {
+  const byCat = new Map(lines.map((l) => [l.category, l]));
+  const sections: SpkRingkasanTable["sections"] = [];
+  let total = 0;
+  let totalLaborTarget = 0;
+  let totalMaterialTarget = 0;
+
+  for (const sec of SPK_RINGKASAN_SECTIONS) {
+    const rows: SpkRingkasanRow[] = [];
+    let subtotal = 0;
+    for (const cat of sec.categories) {
+      const line = byCat.get(cat);
+      if (!line || line.amount <= 0) continue;
+      const percentOfSpk =
+        contractValue > 0
+          ? Math.round((line.amount / contractValue) * 10000) / 100
+          : null;
+      const label =
+        sec.key === "MANAJEMEN" && percentOfSpk != null
+          ? `Biaya ${line.label} (${percentOfSpk.toLocaleString("id-ID")}%)`
+          : line.label;
+      rows.push({
+        kind: "item",
+        label,
+        amount: line.amount,
+        laborTarget: line.laborTarget,
+        materialTarget: line.materialTarget,
+        percentOfSpk,
+      });
+      subtotal += line.amount;
+      totalLaborTarget += line.laborTarget;
+      totalMaterialTarget += line.materialTarget;
+    }
+    if (rows.length === 0) continue;
+    rows.push({
+      kind: "subtotal",
+      label: `SUBTOTAL ${sec.letter} (${sec.title})`,
+      amount: subtotal,
+    });
+    sections.push({
+      letter: sec.letter,
+      title: sec.title,
+      rows,
+      subtotal,
+    });
+    total += subtotal;
+  }
+
+  const rounded = Math.round(total / 1000) * 1000;
+  return {
+    sections,
+    total,
+    rounded,
+    totalLaborTarget,
+    totalMaterialTarget,
+  };
+}

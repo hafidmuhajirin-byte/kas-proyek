@@ -7,6 +7,7 @@ import {
   TAX_CEILING_OF_SPK,
 } from "../lib/lpj/tax-compliance";
 import {
+  buildSpkRingkasanTable,
   computeSpkTargets,
   defaultLaborMaterialPercent,
 } from "../lib/lpj/smart-estimator";
@@ -124,6 +125,27 @@ function assert(cond: boolean, msg: string) {
   ]);
   assert(t.totalLaborTarget === 40_000_000, "labor target 40jt");
   assert(t.totalMaterialTarget === 60_000_000, "material target 60jt");
+}
+
+// Tabel ringkasan SPK A/B/C
+{
+  const t = computeSpkTargets([
+    { category: "REHAB_FISIK", amount: 200_000_000 },
+    { category: "PERENCANAAN", amount: 5_000_000, laborPercent: 100, materialPercent: 0 },
+    { category: "PENGAWASAN", amount: 6_000_000, laborPercent: 100, materialPercent: 0 },
+    { category: "MEBELAIR_BARU", amount: 10_000_500 },
+  ]);
+  const table = buildSpkRingkasanTable(t.lines, 276_200_000);
+  assert(table.sections.length === 3, "3 section A/B/C");
+  assert(table.sections[0].letter === "A", "fisik = A");
+  assert(table.sections[1].letter === "B", "manajemen = B");
+  assert(table.sections[2].letter === "C", "mebelair = C");
+  assert(table.total === 221_000_500, "total pagu");
+  assert(table.rounded === 221_001_000, "dibulatkan ke ribuan");
+  assert(
+    table.sections[1].rows[0].label.includes("%"),
+    "manajemen tampilkan % dari SPK",
+  );
 }
 
 // Bank 70/30 + pengambilan dari penerimaan Owner
