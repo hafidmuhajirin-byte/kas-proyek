@@ -60,7 +60,7 @@ export async function requireSession(): Promise<SessionUser> {
 export async function requireOwner(): Promise<SessionUser> {
   const session = await requireSession();
   if (session.role !== "OWNER") {
-    redirect(homePathForRole(session.role));
+    redirect(homePathForUser(session));
   }
   return session;
 }
@@ -74,7 +74,7 @@ export async function requireAdmin(): Promise<SessionUser> {
 export async function requireRoleAdmin(): Promise<SessionUser> {
   const session = await requireSession();
   if (session.role !== "ADMIN") {
-    redirect(homePathForRole(session.role));
+    redirect(homePathForUser(session));
   }
   return session;
 }
@@ -89,6 +89,11 @@ export function isAdmin(user: SessionUser): boolean {
 
 export function isMandor(user: SessionUser): boolean {
   return user.role === "MANDOR";
+}
+
+/** Mandor yang hanya boleh foto proyek (tanpa status dana/bukti). */
+export function isFotoOnlyMandor(user: SessionUser): boolean {
+  return user.role === "MANDOR" && Boolean(user.fotoOnly);
 }
 
 export function canMutateCash(user: SessionUser): boolean {
@@ -111,15 +116,24 @@ export function canBreakDownMandorExpense(user: SessionUser): boolean {
 export async function requireBreakdownAccess(): Promise<SessionUser> {
   const session = await requireSession();
   if (!canBreakDownMandorExpense(session)) {
-    redirect(homePathForRole(session.role));
+    redirect(homePathForUser(session));
   }
   return session;
 }
 
-export function homePathForRole(role: SessionRole): string {
-  if (role === "MANDOR") return "/mandor";
+export function homePathForRole(
+  role: SessionRole,
+  fotoOnly = false,
+): string {
+  if (role === "MANDOR") return fotoOnly ? "/mandor/lokasi" : "/mandor";
   if (role === "ADMIN") return "/admin/lpj";
   return "/dashboard";
+}
+
+export function homePathForUser(
+  user: Pick<SessionUser, "role" | "fotoOnly">,
+): string {
+  return homePathForRole(user.role, Boolean(user.fotoOnly));
 }
 
 export async function getAccessibleProjectIds(
@@ -147,5 +161,5 @@ export async function requireProjectAccess(
   projectId: string,
 ): Promise<void> {
   const ok = await assertProjectAccess(user, projectId);
-  if (!ok) redirect(homePathForRole(user.role));
+  if (!ok) redirect(homePathForUser(user));
 }

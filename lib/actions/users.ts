@@ -16,7 +16,14 @@ function revalidateUsersAndMandor() {
   revalidatePath("/users");
   revalidatePath("/mandor");
   revalidatePath("/mandor/upload");
+  revalidatePath("/mandor/lokasi");
   revalidatePath("/projects");
+}
+
+function parseFotoOnly(formData: FormData, role: SessionRole): boolean {
+  if (role !== "MANDOR") return false;
+  const raw = formData.get("fotoOnly");
+  return raw === "1" || raw === "on" || raw === "true";
 }
 
 export async function createUserAction(
@@ -60,12 +67,15 @@ export async function createUserAction(
     }
   }
 
+  const fotoOnly = parseFotoOnly(formData, role);
+
   const user = await prisma.user.create({
     data: {
       username,
       name,
       passwordHash: hashSync(password, 10),
       role,
+      fotoOnly,
     },
   });
 
@@ -129,11 +139,14 @@ export async function updateUserAction(
     }
   }
 
+  const fotoOnly = parseFotoOnly(formData, role);
+
   await prisma.user.update({
     where: { id },
     data: {
       name,
       role,
+      fotoOnly,
       ...(password.length >= 6
         ? { passwordHash: hashSync(password, 10) }
         : {}),

@@ -23,6 +23,7 @@ type UserRow = {
   name: string;
   role: string;
   projectIds: string[];
+  fotoOnly?: boolean;
 };
 
 export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
@@ -71,23 +72,42 @@ export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
         </Field>
       </div>
       {role === "MANDOR" ? (
-        <Field
-          label="Proyek ditugaskan"
-          hint="Wajib pilih minimal 1 — tanpa ini Mandor tidak melihat proyek saat login"
-        >
-          <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
-            {projects.length === 0 ? (
-              <p className="text-sm text-[var(--ink-faint)]">Belum ada proyek.</p>
-            ) : (
-              projects.map((p) => (
-                <label key={p.id} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="projectIds" value={p.id} />
-                  {p.name}
-                </label>
-              ))
-            )}
-          </div>
-        </Field>
+        <>
+          <label className="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border border-[var(--line-soft)] bg-[#fffcf7] px-3 py-3">
+            <input
+              type="checkbox"
+              name="fotoOnly"
+              value="1"
+              className="mt-1 h-5 w-5 shrink-0 accent-teal-700"
+            />
+            <span className="text-sm text-[var(--ink)]">
+              <span className="font-medium">Hanya foto proyek</span>
+              <span className="mt-0.5 block text-xs text-[var(--ink-faint)]">
+                Login hanya untuk ambil/unggah foto. Tidak melihat status dana,
+                sisa, atau upload bukti belanja.
+              </span>
+            </span>
+          </label>
+          <Field
+            label="Proyek ditugaskan"
+            hint="Wajib pilih minimal 1 — tanpa ini Mandor tidak melihat proyek saat login"
+          >
+            <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
+              {projects.length === 0 ? (
+                <p className="text-sm text-[var(--ink-faint)]">
+                  Belum ada proyek.
+                </p>
+              ) : (
+                projects.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="projectIds" value={p.id} />
+                    {p.name}
+                  </label>
+                ))
+              )}
+            </div>
+          </Field>
+        </>
       ) : null}
       <button type="submit" className={btnPrimaryClass} disabled={pending}>
         {pending ? "Menyimpan..." : "Tambah pengguna"}
@@ -150,25 +170,43 @@ export function UserEditForm({
         </Field>
       </div>
       {role === "MANDOR" ? (
-        <Field
-          label="Proyek ditugaskan"
-          hint="Wajib minimal 1 proyek. Centang ulang sebelum simpan."
-        >
-          <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
-            {projects.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-sm">
-                <input type="hidden" name="formProjectIds" value={p.id} />
-                <input
-                  type="checkbox"
-                  name="projectIds"
-                  value={p.id}
-                  defaultChecked={assigned.has(p.id)}
-                />
-                {p.name}
-              </label>
-            ))}
-          </div>
-        </Field>
+        <>
+          <label className="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border border-[var(--line-soft)] bg-[#fffcf7] px-3 py-3">
+            <input
+              type="checkbox"
+              name="fotoOnly"
+              value="1"
+              defaultChecked={Boolean(user.fotoOnly)}
+              className="mt-1 h-5 w-5 shrink-0 accent-teal-700"
+            />
+            <span className="text-sm text-[var(--ink)]">
+              <span className="font-medium">Hanya foto proyek</span>
+              <span className="mt-0.5 block text-xs text-[var(--ink-faint)]">
+                Login hanya untuk ambil/unggah foto. Tidak melihat status dana
+                atau upload bukti.
+              </span>
+            </span>
+          </label>
+          <Field
+            label="Proyek ditugaskan"
+            hint="Wajib minimal 1 proyek. Centang ulang sebelum simpan."
+          >
+            <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
+              {projects.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 text-sm">
+                  <input type="hidden" name="formProjectIds" value={p.id} />
+                  <input
+                    type="checkbox"
+                    name="projectIds"
+                    value={p.id}
+                    defaultChecked={assigned.has(p.id)}
+                  />
+                  {p.name}
+                </label>
+              ))}
+            </div>
+          </Field>
+        </>
       ) : null}
       <button type="submit" className={btnSecondaryClass} disabled={pending}>
         {pending ? "Menyimpan..." : "Simpan perubahan"}

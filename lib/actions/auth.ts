@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import {
   clearSessionCookie,
   createSessionToken,
-  homePathForRole,
+  homePathForUser,
   setSessionCookie,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -34,15 +34,18 @@ export async function loginAction(
   }
 
   const role = user.role as SessionRole;
-  const token = await createSessionToken({
+  const fotoOnly = role === "MANDOR" && Boolean(user.fotoOnly);
+  const sessionUser = {
     id: user.id,
     username: user.username,
     name: user.name,
     role,
-  });
+    fotoOnly,
+  };
+  const token = await createSessionToken(sessionUser);
   await setSessionCookie(token);
 
-  redirect(homePathForRole(role));
+  redirect(homePathForUser(sessionUser));
 }
 
 export async function logoutAction() {

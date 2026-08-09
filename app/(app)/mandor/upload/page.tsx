@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import {
   getAccessibleProjectIds,
+  isFotoOnlyMandor,
   isMandor,
   requireSession,
 } from "@/lib/auth";
@@ -16,6 +17,7 @@ export default async function MandorUploadPage({
 }) {
   const user = await requireSession();
   if (!isMandor(user)) redirect("/dashboard");
+  if (isFotoOnlyMandor(user)) redirect("/mandor/lokasi");
 
   const params = await searchParams;
   const ids = await getAccessibleProjectIds(user);

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import {
+  isFotoOnlyMandor,
   isMandor,
   requireProjectAccess,
   requireSession,
@@ -56,6 +57,12 @@ export async function createMandorExpenseAction(
   const user = await requireSession();
   if (!isMandor(user)) {
     return { error: "Hanya Mandor yang dapat mengunggah bukti belanja di sini." };
+  }
+  if (isFotoOnlyMandor(user)) {
+    return {
+      error:
+        "Akun ini mode hanya foto proyek. Tidak dapat mengunggah bukti belanja.",
+    };
   }
 
   const projectId = String(formData.get("projectId") ?? "");

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   getAccessibleProjectIds,
+  isFotoOnlyMandor,
   isMandor,
   requireSession,
 } from "@/lib/auth";
@@ -19,6 +20,7 @@ function googleMapsSearchUrl(name: string, location: string) {
 export default async function MandorHomePage() {
   const user = await requireSession();
   if (!isMandor(user)) redirect("/dashboard");
+  if (isFotoOnlyMandor(user)) redirect("/mandor/lokasi");
 
   const ids = await getAccessibleProjectIds(user);
   if (ids === "all" || ids.length === 0) {
