@@ -43,7 +43,6 @@ export default async function FotoProyekPage({
       takenAt: true,
       latitude: true,
       longitude: true,
-      driveWebViewLink: true,
       project: { select: { id: true, name: true } },
       createdBy: { select: { name: true } },
     },
@@ -129,16 +128,6 @@ export default async function FotoProyekPage({
                       className="text-teal-800 underline"
                     >
                       Lihat di peta
-                    </a>
-                  ) : null}
-                  {photo.driveWebViewLink ? (
-                    <a
-                      href={photo.driveWebViewLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-teal-800 underline"
-                    >
-                      Buka di Drive
                     </a>
                   ) : null}
                 </div>

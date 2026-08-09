@@ -9,19 +9,10 @@ import {
   requireProjectAccess,
   requireSession,
 } from "@/lib/auth";
-import {
-  isGoogleDriveConfigured,
-  uploadSitePhotoToDrive,
-} from "@/lib/google-drive";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
 
-async function saveSitePhoto(file: File | null): Promise<{
-  photoUrl: string;
-  buffer: Buffer;
-  mimeType: string;
-  filename: string;
-}> {
+async function saveSitePhoto(file: File | null): Promise<string> {
   if (!file || file.size === 0) {
     throw new Error("Foto proyek wajib diunggah.");
   }
@@ -42,14 +33,11 @@ async function saveSitePhoto(file: File | null): Promise<{
         ? ".webp"
         : ".jpg";
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(uploadsDir, filename), buffer);
-  return {
-    photoUrl: `/uploads/lokasi/${filename}`,
-    buffer,
-    mimeType: file.type,
-    filename,
-  };
+  await writeFile(
+    path.join(uploadsDir, filename),
+    Buffer.from(await file.arrayBuffer()),
+  );
+  return `/uploads/lokasi/${filename}`;
 }
 
 function parseOptionalFloat(raw: FormDataEntryValue | null): number | null {
@@ -60,7 +48,7 @@ function parseOptionalFloat(raw: FormDataEntryValue | null): number | null {
 }
 
 /**
- * Upload foto lokasi proyek (Mandor) — VPS + sync Google Drive.
+ * Upload foto lokasi proyek (Mandor) — disimpan di VPS.
  */
 export async function createSitePhotoAction(
   _prev: FormState,
@@ -99,51 +87,18 @@ export async function createSitePhotoAction(
     longitude = null;
   }
 
-  let saved: Awaited<ReturnType<typeof saveSitePhoto>>;
+  let photoUrl: string;
   try {
-    saved = await saveSitePhoto(formData.get("proof") as File | null);
+    photoUrl = await saveSitePhoto(formData.get("proof") as File | null);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Gagal unggah foto." };
   }
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, name: true, driveProjectFolderId: true },
+    select: { id: true },
   });
   if (!project) return { error: "Proyek tidak ditemukan." };
-
-  let driveFileId: string | null = null;
-  let driveWebViewLink: string | null = null;
-  let driveSyncError: string | null = null;
-
-  if (isGoogleDriveConfigured()) {
-    try {
-      const driveResult = await uploadSitePhotoToDrive({
-        projectName: project.name,
-        takenAt,
-        filename: saved.filename,
-        buffer: saved.buffer,
-        mimeType: saved.mimeType,
-        existingProjectFolderId: project.driveProjectFolderId,
-      });
-      driveFileId = driveResult.fileId;
-      driveWebViewLink = driveResult.webViewLink;
-      if (
-        !project.driveProjectFolderId ||
-        project.driveProjectFolderId !== driveResult.projectFolderId
-      ) {
-        await prisma.project.update({
-          where: { id: project.id },
-          data: { driveProjectFolderId: driveResult.projectFolderId },
-        });
-      }
-    } catch (e) {
-      driveSyncError =
-        e instanceof Error ? e.message.slice(0, 500) : "Gagal sync Google Drive.";
-    }
-  } else {
-    driveSyncError = "Google Drive belum dikonfigurasi di server.";
-  }
 
   await prisma.projectSitePhoto.create({
     data: {
@@ -151,10 +106,7 @@ export async function createSitePhotoAction(
       createdById: user.id,
       takenAt,
       caption,
-      photoUrl: saved.photoUrl,
-      driveFileId,
-      driveWebViewLink,
-      driveSyncError,
+      photoUrl,
       latitude,
       longitude,
     },
@@ -162,6 +114,7 @@ export async function createSitePhotoAction(
 
   revalidatePath("/mandor");
   revalidatePath("/mandor/lokasi");
+  revalidatePath("/foto-proyek");
   revalidatePath(`/projects/${projectId}`);
   redirect(`/mandor/lokasi?projectId=${projectId}&ok=1`);
 }

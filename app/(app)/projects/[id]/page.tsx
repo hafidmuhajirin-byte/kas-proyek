@@ -221,7 +221,6 @@ export default async function ProjectDetailPage({
         takenAt: true,
         latitude: true,
         longitude: true,
-        driveWebViewLink: true,
         createdBy: { select: { name: true } },
       },
     }),
@@ -612,7 +611,6 @@ export default async function ProjectDetailPage({
             takenAt: p.takenAt,
             latitude: p.latitude,
             longitude: p.longitude,
-            driveWebViewLink: p.driveWebViewLink,
             createdByName: p.createdBy.name,
           }))}
         />

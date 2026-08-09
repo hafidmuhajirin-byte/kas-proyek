@@ -54,7 +54,6 @@ export default async function MandorLokasiPage({
       takenAt: true,
       latitude: true,
       longitude: true,
-      driveWebViewLink: true,
       project: { select: { name: true } },
     },
   });
@@ -64,8 +63,8 @@ export default async function MandorLokasiPage({
       <div>
         <h1 className="font-serif text-2xl text-[var(--ink)]">Foto proyek</h1>
         <p className="mt-1 text-sm text-[var(--ink-muted)]">
-          Ambil foto lokasi. Disimpan di aplikasi dan disalin ke Google Drive
-          (folder proyek → tanggal).
+          Ambil foto lokasi. Disimpan di aplikasi (bisa dilihat Owner/Admin di
+          menu Foto Proyek).
         </p>
       </div>
 
@@ -118,16 +117,6 @@ export default async function MandorLokasiPage({
                         className="text-teal-800 underline"
                       >
                         Lihat di peta
-                      </a>
-                    ) : null}
-                    {photo.driveWebViewLink ? (
-                      <a
-                        href={photo.driveWebViewLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-teal-800 underline"
-                      >
-                        Buka di Drive
                       </a>
                     ) : null}
                   </div>

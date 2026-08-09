@@ -9,7 +9,6 @@ export type SitePhotoRow = {
   takenAt: Date;
   latitude: number | null;
   longitude: number | null;
-  driveWebViewLink: string | null;
   createdByName: string;
 };
 
@@ -19,7 +18,7 @@ export function ProjectSitePhotoGallery({ photos }: { photos: SitePhotoRow[] }) 
       <div>
         <h3 className="font-serif text-xl text-[var(--ink)]">Foto Lokasi</h3>
         <p className="text-sm text-[var(--ink-faint)]">
-          Foto lapangan dari Mandor (disimpan di server; salinan di Google Drive).
+          Foto lapangan dari Mandor (disimpan di server aplikasi).
         </p>
       </div>
 
@@ -58,16 +57,6 @@ export function ProjectSitePhotoGallery({ photos }: { photos: SitePhotoRow[] }) 
                       className="text-teal-800 underline"
                     >
                       Lihat di peta
-                    </a>
-                  ) : null}
-                  {photo.driveWebViewLink ? (
-                    <a
-                      href={photo.driveWebViewLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-teal-800 underline"
-                    >
-                      Buka di Drive
                     </a>
                   ) : null}
                 </div>
