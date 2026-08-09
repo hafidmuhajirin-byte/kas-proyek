@@ -6,7 +6,7 @@ const publicPaths = ["/login"];
 
 function homeForRole(role: string) {
   if (role === "MANDOR") return "/mandor";
-  if (role === "ADMIN") return "/dashboard";
+  if (role === "ADMIN") return "/admin/lpj";
   return "/dashboard";
 }
 
@@ -65,22 +65,11 @@ export async function middleware(request: NextRequest) {
 
   if (session?.role === "ADMIN") {
     const allowed =
-      pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/projects") ||
-      pathname.startsWith("/transactions") ||
-      pathname.startsWith("/api/");
-    const blockedWrite =
-      pathname.startsWith("/transactions/new") ||
-      pathname.includes("/edit") ||
-      pathname.startsWith("/users") ||
-      pathname.startsWith("/sources") ||
-      pathname.startsWith("/transfers") ||
-      pathname.startsWith("/categories") ||
-      pathname.startsWith("/reports") ||
-      pathname.startsWith("/mandor");
-    if (blockedWrite || !allowed) {
+      pathname.startsWith("/admin") || pathname.startsWith("/api/");
+    // Admin hanya modul LPJ (+ API); tanpa kas/mutasi Owner
+    if (!allowed) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/admin/lpj";
       return NextResponse.redirect(url);
     }
   }
