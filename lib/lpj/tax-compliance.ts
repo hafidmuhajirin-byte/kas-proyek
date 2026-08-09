@@ -22,7 +22,7 @@ export type TaxLineInput = {
   /** Code uraian Excel (GaJ / MoP) — opsional */
   code?: string | null;
   isMaterialAlam?: boolean;
-  /** Nama kategori transaksi (mis. Dana Pengawasan, Upah) */
+  /** Nama kategori transaksi (mis. Bayar jasa Pengawasan, Upah) */
   categoryName?: string | null;
   /** MATERIAL | LABOR | … */
   lineKind?: string | null;
