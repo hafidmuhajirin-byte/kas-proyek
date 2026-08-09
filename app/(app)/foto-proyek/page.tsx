@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { redirect } from "next/navigation";
 import { isMandor, isOwner, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deleteSitePhotoAction } from "@/lib/actions/mandor-lokasi";
+import { DeleteSitePhotoButton } from "@/components/DeleteSitePhotoButton";
+import { FotoProyekProjectFilter } from "@/components/FotoProyekProjectFilter";
 import { EmptyState } from "@/components/ui";
 
 export default async function FotoProyekPage({
@@ -36,7 +36,6 @@ export default async function FotoProyekPage({
       id: true,
       photoUrl: true,
       caption: true,
-      takenAt: true,
       createdAt: true,
       project: { select: { id: true, name: true } },
     },
@@ -52,44 +51,22 @@ export default async function FotoProyekPage({
         Foto Proyek
       </h1>
 
-      {/* Filter proyek sederhana */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <Link
-          href="/foto-proyek"
-          className={`shrink-0 rounded-lg px-3 py-2 text-sm ${
-            !projectId
-              ? "bg-teal-700 font-medium text-white"
-              : "bg-[var(--paper-tint)] text-[var(--ink)]"
-          }`}
-        >
-          Semua
-        </Link>
-        {projects.map((p) => (
-          <Link
-            key={p.id}
-            href={`/foto-proyek?projectId=${p.id}`}
-            className={`shrink-0 rounded-lg px-3 py-2 text-sm ${
-              projectId === p.id
-                ? "bg-teal-700 font-medium text-white"
-                : "bg-[var(--paper-tint)] text-[var(--ink)]"
-            }`}
-          >
-            {p.name}
-          </Link>
-        ))}
-      </div>
+      <FotoProyekProjectFilter projects={projects} projectId={projectId} />
 
       {photos.length === 0 ? (
         <EmptyState message="Belum ada foto." />
       ) : (
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {photos.map((photo) => (
-            <li key={photo.id} className="min-w-0">
+            <li
+              key={photo.id}
+              className="overflow-hidden rounded-xl border border-[var(--line-soft)] bg-[#fffcf7]"
+            >
               <a
                 href={photo.photoUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="block overflow-hidden rounded-lg bg-[var(--paper-tint)]"
+                className="block bg-[var(--paper-tint)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -98,26 +75,20 @@ export default async function FotoProyekPage({
                   className="aspect-square w-full object-cover"
                 />
               </a>
-              <div className="mt-1 space-y-0.5 px-0.5">
-                <p className="truncate text-xs font-medium text-[var(--ink)]">
+              <div className="space-y-2 p-3">
+                <p className="truncate text-sm font-medium text-[var(--ink)]">
                   {photo.project.name}
                 </p>
-                <p className="text-[11px] text-[var(--ink-faint)]">
+                <p className="text-xs text-[var(--ink-faint)]">
                   {format(photo.createdAt, "d MMM yyyy · HH:mm", {
                     locale: localeId,
                   })}
                 </p>
                 {owner ? (
-                  <form action={deleteSitePhotoAction}>
-                    <input type="hidden" name="id" value={photo.id} />
-                    <input type="hidden" name="returnTo" value={returnTo} />
-                    <button
-                      type="submit"
-                      className="text-[11px] text-[var(--rose-ink)] underline"
-                    >
-                      Hapus
-                    </button>
-                  </form>
+                  <DeleteSitePhotoButton
+                    photoId={photo.id}
+                    returnTo={returnTo}
+                  />
                 ) : null}
               </div>
             </li>
