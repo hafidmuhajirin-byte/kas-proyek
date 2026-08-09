@@ -15,48 +15,73 @@ export default async function UsersPage() {
       },
     }),
     prisma.project.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      orderBy: [{ status: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, status: true },
     }),
   ]);
+
+  const activeProjects = projects.filter((p) => p.status === "ACTIVE");
 
   return (
     <div>
       <PageHeader
         title="Pengguna"
-        description="Kelola Owner, Admin, dan Mandor. Mandor ditugaskan ke proyek."
+        description="Kelola Owner, Admin, dan Mandor. Mandor wajib ditugaskan ke proyek agar muncul di login Mandor."
       />
 
       <Card className="mb-6">
         <h3 className="mb-3 font-medium text-[var(--ink)]">Tambah pengguna</h3>
-        <UserCreateForm projects={projects} />
+        <UserCreateForm projects={activeProjects} />
       </Card>
 
       <div className="space-y-4">
-        {users.map((u) => (
-          <Card key={u.id}>
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="font-medium text-[var(--ink)]">{u.name}</p>
-                <p className="text-sm text-[var(--ink-faint)]">
-                  @{u.username} · {roleLabels[u.role] ?? u.role}
-                </p>
+        {users.map((u) => {
+          const assignedIds = new Set(
+            u.projectAssignments.map((a) => a.projectId),
+          );
+          // Tampilkan ACTIVE + proyek yang sudah ditugaskan (meski selesai)
+          const formProjects = projects.filter(
+            (p) => p.status === "ACTIVE" || assignedIds.has(p.id),
+          );
+          return (
+            <Card key={u.id}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium text-[var(--ink)]">{u.name}</p>
+                  <p className="text-sm text-[var(--ink-faint)]">
+                    @{u.username} · {roleLabels[u.role] ?? u.role}
+                    {u.role === "MANDOR" && u.fotoOnly ? (
+                      <span className="ml-2 text-teal-800">· hanya foto</span>
+                    ) : null}
+                    {u.role === "MANDOR" && assignedIds.size === 0 ? (
+                      <span className="ml-2 text-amber-700">
+                        · belum ada proyek
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+                <DeleteUserButton userId={u.id} username={u.username} />
               </div>
-              <DeleteUserButton userId={u.id} username={u.username} />
-            </div>
-            <UserEditForm
-              user={{
-                id: u.id,
-                username: u.username,
-                name: u.name,
-                role: u.role,
-                projectIds: u.projectAssignments.map((a) => a.projectId),
-              }}
-              projects={projects}
-            />
-          </Card>
-        ))}
+              <UserEditForm
+                user={{
+                  id: u.id,
+                  username: u.username,
+                  name: u.name,
+                  role: u.role,
+                  fotoOnly: u.fotoOnly,
+                  projectIds: u.projectAssignments.map((a) => a.projectId),
+                }}
+                projects={formProjects.map((p) => ({
+                  id: p.id,
+                  name:
+                    p.status === "ACTIVE"
+                      ? p.name
+                      : `${p.name} (${p.status})`,
+                }))}
+              />
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

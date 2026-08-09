@@ -9,6 +9,8 @@ export type SessionUser = {
   username: string;
   name: string;
   role: SessionRole;
+  /** Mandor mode hanya foto (tanpa status kas). Default false. */
+  fotoOnly?: boolean;
 };
 
 function getSecret() {
@@ -29,6 +31,7 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
     username: user.username,
     name: user.name,
     role: user.role,
+    fotoOnly: Boolean(user.fotoOnly),
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -54,6 +57,7 @@ export async function verifySessionToken(
       username: payload.username,
       name: payload.name,
       role: payload.role,
+      fotoOnly: Boolean(payload.fotoOnly),
     };
   } catch {
     return null;
