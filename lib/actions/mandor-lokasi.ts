@@ -2,22 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import {
   isMandor,
+  isOwner,
   requireProjectAccess,
   requireSession,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
 
-async function saveSitePhoto(file: File | null): Promise<string> {
-  if (!file || file.size === 0) {
-    throw new Error("Foto proyek wajib diunggah.");
+const MAX_PHOTOS = 20;
+
+async function saveSitePhoto(file: File): Promise<string> {
+  if (file.size === 0) {
+    throw new Error("Ada foto kosong.");
   }
   if (file.size > 5 * 1024 * 1024) {
-    throw new Error("Ukuran foto maksimal 5 MB.");
+    throw new Error("Ukuran tiap foto maksimal 5 MB.");
   }
   const allowed = ["image/jpeg", "image/png", "image/webp"];
   if (!allowed.includes(file.type)) {
@@ -47,8 +50,14 @@ function parseOptionalFloat(raw: FormDataEntryValue | null): number | null {
   return n;
 }
 
+function collectPhotoFiles(formData: FormData): File[] {
+  return formData
+    .getAll("photos")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+}
+
 /**
- * Upload foto lokasi proyek (Mandor) — disimpan di VPS.
+ * Upload satu atau banyak foto lokasi proyek (Mandor) — disimpan di VPS.
  */
 export async function createSitePhotoAction(
   _prev: FormState,
@@ -64,9 +73,16 @@ export async function createSitePhotoAction(
   const dateRaw = String(formData.get("date") ?? "");
   const latRaw = formData.get("latitude");
   const lngRaw = formData.get("longitude");
+  const photos = collectPhotoFiles(formData);
 
   if (!projectId || !dateRaw) {
     return { error: "Proyek dan tanggal wajib diisi." };
+  }
+  if (photos.length === 0) {
+    return { error: "Tambahkan minimal satu foto sebelum mengunggah." };
+  }
+  if (photos.length > MAX_PHOTOS) {
+    return { error: `Maksimal ${MAX_PHOTOS} foto sekaligus.` };
   }
 
   await requireProjectAccess(user, projectId);
@@ -87,34 +103,77 @@ export async function createSitePhotoAction(
     longitude = null;
   }
 
-  let photoUrl: string;
-  try {
-    photoUrl = await saveSitePhoto(formData.get("proof") as File | null);
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Gagal unggah foto." };
-  }
-
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: { id: true },
   });
   if (!project) return { error: "Proyek tidak ditemukan." };
 
-  await prisma.projectSitePhoto.create({
-    data: {
-      projectId,
-      createdById: user.id,
-      takenAt,
-      caption,
-      photoUrl,
-      latitude,
-      longitude,
-    },
-  });
+  try {
+    for (const file of photos) {
+      const photoUrl = await saveSitePhoto(file);
+      await prisma.projectSitePhoto.create({
+        data: {
+          projectId,
+          createdById: user.id,
+          takenAt,
+          caption,
+          photoUrl,
+          latitude,
+          longitude,
+        },
+      });
+    }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Gagal unggah foto." };
+  }
 
   revalidatePath("/mandor");
   revalidatePath("/mandor/lokasi");
   revalidatePath("/foto-proyek");
   revalidatePath(`/projects/${projectId}`);
-  redirect(`/mandor/lokasi?projectId=${projectId}&ok=1`);
+  redirect(
+    `/mandor/lokasi?projectId=${projectId}&ok=1&n=${photos.length}`,
+  );
+}
+
+/** Hapus foto lokasi — hanya Owner. */
+export async function deleteSitePhotoAction(
+  formData: FormData,
+): Promise<void> {
+  const user = await requireSession();
+  if (!isOwner(user)) {
+    redirect("/foto-proyek");
+  }
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) redirect("/foto-proyek");
+
+  const photo = await prisma.projectSitePhoto.findUnique({
+    where: { id },
+    select: { id: true, photoUrl: true, projectId: true },
+  });
+  if (!photo) redirect("/foto-proyek");
+
+  await prisma.projectSitePhoto.delete({ where: { id: photo.id } });
+
+  if (photo.photoUrl.startsWith("/uploads/")) {
+    const rel = photo.photoUrl.replace(/^\//, "");
+    const abs = path.join(process.cwd(), "public", rel);
+    const uploadsRoot = path.join(process.cwd(), "public", "uploads");
+    if (abs.startsWith(uploadsRoot + path.sep)) {
+      try {
+        await unlink(abs);
+      } catch {
+        // file mungkin sudah tidak ada
+      }
+    }
+  }
+
+  revalidatePath("/foto-proyek");
+  revalidatePath("/mandor/lokasi");
+  revalidatePath(`/projects/${photo.projectId}`);
+
+  const back = String(formData.get("returnTo") ?? "/foto-proyek");
+  redirect(back.startsWith("/") ? back : "/foto-proyek");
 }

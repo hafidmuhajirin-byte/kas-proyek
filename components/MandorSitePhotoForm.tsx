@@ -1,8 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type FormEvent } from "react";
 import { createSitePhotoAction } from "@/lib/actions/mandor-lokasi";
-import { ProofCapture } from "@/components/ProofCapture";
+import {
+  SitePhotoMultiCapture,
+  type QueuedSitePhoto,
+} from "@/components/SitePhotoMultiCapture";
 import {
   Alert,
   btnPrimaryClass,
@@ -19,10 +22,11 @@ export function MandorSitePhotoForm({
   projects: ProjectOption[];
   defaultProjectId?: string;
 }) {
-  const [state, action, pending] = useActionState(createSitePhotoAction, {});
+  const [state, formAction, pending] = useActionState(createSitePhotoAction, {});
   const [projectId, setProjectId] = useState(
     defaultProjectId ?? projects[0]?.id ?? "",
   );
+  const [photos, setPhotos] = useState<QueuedSitePhoto[]>([]);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [gpsStatus, setGpsStatus] = useState<
@@ -52,8 +56,18 @@ export function MandorSitePhotoForm({
     );
   }, []);
 
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (photos.length === 0) return;
+    const fd = new FormData(e.currentTarget);
+    for (const item of photos) {
+      fd.append("photos", item.file);
+    }
+    formAction(fd);
+  }
+
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       {state.error ? <Alert>{state.error}</Alert> : null}
 
       <input type="hidden" name="latitude" value={latitude} />
@@ -87,7 +101,7 @@ export function MandorSitePhotoForm({
         />
       </Field>
 
-      <Field label="Catatan (opsional)" htmlFor="caption">
+      <Field label="Catatan (opsional, untuk semua foto)" htmlFor="caption">
         <input
           id="caption"
           name="caption"
@@ -97,8 +111,8 @@ export function MandorSitePhotoForm({
         />
       </Field>
 
-      <Field label="Foto lokasi (wajib)">
-        <ProofCapture imagesOnly />
+      <Field label="Foto lokasi (wajib, 1:1)">
+        <SitePhotoMultiCapture items={photos} onChange={setPhotos} />
       </Field>
 
       <div className="rounded-lg border border-teal-200/80 bg-teal-50/70 px-3 py-2 text-sm text-teal-950">
@@ -123,9 +137,13 @@ export function MandorSitePhotoForm({
       <button
         type="submit"
         className={`${btnPrimaryClass} w-full min-h-14 text-base !bg-teal-700 hover:!bg-teal-800`}
-        disabled={pending}
+        disabled={pending || photos.length === 0}
       >
-        {pending ? "Mengirim…" : "Simpan foto proyek"}
+        {pending
+          ? "Mengunggah…"
+          : photos.length > 1
+            ? `Unggah ${photos.length} foto`
+            : "Unggah foto"}
       </button>
     </form>
   );

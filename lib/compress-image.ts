@@ -55,6 +55,35 @@ function isProbablyImage(file: File): boolean {
   return false;
 }
 
+async function encodeJpegCanvas(
+  canvas: HTMLCanvasElement,
+  file: File,
+  options: CompressImageOptions,
+  defaultName: string,
+): Promise<File> {
+  const maxBytes = options.maxBytes ?? 400 * 1024;
+  let quality = options.quality ?? 0.7;
+  let blob = await canvasToBlob(canvas, "image/jpeg", quality);
+
+  while (blob.size > maxBytes && quality > 0.4) {
+    quality = Math.round((quality - 0.08) * 100) / 100;
+    blob = await canvasToBlob(canvas, "image/jpeg", quality);
+  }
+
+  if (
+    blob.size >= file.size &&
+    (file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name)) &&
+    file.size <= maxBytes
+  ) {
+    return file;
+  }
+
+  return new File([blob], `${baseName(file.name) || defaultName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
 /**
  * Resize + JPEG compress. PDF / non-image dikembalikan apa adanya.
  * Hasil selalu `image/jpeg` agar ringan dan konsisten.
@@ -67,9 +96,6 @@ export async function compressImageFile(
   if (!isProbablyImage(file)) return file;
 
   const maxEdge = options.maxEdge ?? 1600;
-  const maxBytes = options.maxBytes ?? 400 * 1024;
-  let quality = options.quality ?? 0.7;
-
   const img = await loadImage(file);
   const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
   const width = Math.max(1, Math.round(img.width * scale));
@@ -85,27 +111,36 @@ export async function compressImageFile(
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, 0, 0, width, height);
 
-  let blob = await canvasToBlob(canvas, "image/jpeg", quality);
+  return encodeJpegCanvas(canvas, file, options, "bukti");
+}
 
-  // Turunkan quality bertahap jika masih terlalu besar (foto kamera HP sering 3–12 MB)
-  while (blob.size > maxBytes && quality > 0.4) {
-    quality = Math.round((quality - 0.08) * 100) / 100;
-    blob = await canvasToBlob(canvas, "image/jpeg", quality);
-  }
+/**
+ * Crop tengah 1:1 lalu kompres JPEG (foto lokasi proyek).
+ */
+export async function compressImageFileSquare(
+  file: File,
+  options: CompressImageOptions = {},
+): Promise<File> {
+  if (!isProbablyImage(file)) return file;
 
-  // Jika setelah resize+compress masih lebih besar dari asli dan asli sudah JPEG kecil, pakai asli
-  if (
-    blob.size >= file.size &&
-    (file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name)) &&
-    file.size <= maxBytes
-  ) {
-    return file;
-  }
+  const maxEdge = options.maxEdge ?? 1200;
+  const img = await loadImage(file);
+  const side = Math.min(img.width, img.height);
+  const sx = Math.max(0, Math.floor((img.width - side) / 2));
+  const sy = Math.max(0, Math.floor((img.height - side) / 2));
+  const out = Math.min(side, maxEdge);
 
-  return new File([blob], `${baseName(file.name) || "bukti"}.jpg`, {
-    type: "image/jpeg",
-    lastModified: Date.now(),
-  });
+  const canvas = document.createElement("canvas");
+  canvas.width = out;
+  canvas.height = out;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, out, out);
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, out, out);
+
+  return encodeJpegCanvas(canvas, file, options, "lokasi");
 }
 
 export function formatFileSize(bytes: number): string {

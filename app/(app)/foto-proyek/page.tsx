@@ -2,8 +2,9 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { redirect } from "next/navigation";
-import { isAdmin, isMandor, requireSession } from "@/lib/auth";
+import { isAdmin, isMandor, isOwner, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { DeleteSitePhotoButton } from "@/components/DeleteSitePhotoButton";
 import {
   Card,
   EmptyState,
@@ -19,6 +20,7 @@ export default async function FotoProyekPage({
   const user = await requireSession();
   if (isMandor(user)) redirect("/mandor");
   const admin = isAdmin(user);
+  const owner = isOwner(user);
 
   const params = await searchParams;
 
@@ -52,7 +54,11 @@ export default async function FotoProyekPage({
     <div className="space-y-5">
       <PageHeader
         title="Foto Proyek"
-        description="Galeri foto lokasi dari Mandor. Klik gambar untuk memperbesar."
+        description={
+          owner
+            ? "Galeri foto 1:1 dari Mandor. Hanya Owner yang dapat menghapus foto."
+            : "Galeri foto 1:1 dari Mandor. Klik gambar untuk memperbesar."
+        }
       />
 
       <Card>
@@ -95,10 +101,10 @@ export default async function FotoProyekPage({
                 <img
                   src={photo.photoUrl}
                   alt={photo.caption || photo.project.name}
-                  className="h-48 w-full object-cover"
+                  className="aspect-square w-full object-cover"
                 />
               </a>
-              <div className="space-y-1 px-3 py-2 text-sm">
+              <div className="space-y-2 px-3 py-2 text-sm">
                 <p className="font-medium text-[var(--ink)]">
                   <Link
                     href={
@@ -131,6 +137,16 @@ export default async function FotoProyekPage({
                     </a>
                   ) : null}
                 </div>
+                {owner ? (
+                  <DeleteSitePhotoButton
+                    photoId={photo.id}
+                    returnTo={
+                      projectId
+                        ? `/foto-proyek?projectId=${projectId}`
+                        : "/foto-proyek"
+                    }
+                  />
+                ) : null}
               </div>
             </li>
           ))}

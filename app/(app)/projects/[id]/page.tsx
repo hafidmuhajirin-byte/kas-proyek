@@ -604,6 +604,8 @@ export default async function ProjectDetailPage({
 
       <Card className="mb-6 mt-4">
         <ProjectSitePhotoGallery
+          canDelete={admin}
+          returnTo={`/projects/${project.id}`}
           photos={sitePhotos.map((p) => ({
             id: p.id,
             photoUrl: p.photoUrl,

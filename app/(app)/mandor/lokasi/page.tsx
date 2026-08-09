@@ -14,7 +14,7 @@ import { Card } from "@/components/ui";
 export default async function MandorLokasiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ projectId?: string; ok?: string }>;
+  searchParams: Promise<{ projectId?: string; ok?: string; n?: string }>;
 }) {
   const user = await requireSession();
   if (!isMandor(user)) redirect("/dashboard");
@@ -63,14 +63,16 @@ export default async function MandorLokasiPage({
       <div>
         <h1 className="font-serif text-2xl text-[var(--ink)]">Foto proyek</h1>
         <p className="mt-1 text-sm text-[var(--ink-muted)]">
-          Ambil foto lokasi. Disimpan di aplikasi (bisa dilihat Owner/Admin di
-          menu Foto Proyek).
+          Ambil beberapa foto (1:1), lalu unggah sekaligus. Owner/Admin melihat
+          di menu Foto Proyek.
         </p>
       </div>
 
       {params.ok === "1" ? (
         <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-950">
-          Foto berhasil disimpan.
+          {params.n && Number(params.n) > 1
+            ? `${params.n} foto berhasil diunggah.`
+            : "Foto berhasil diunggah."}
         </div>
       ) : null}
 
@@ -97,7 +99,7 @@ export default async function MandorLokasiPage({
                   <img
                     src={photo.photoUrl}
                     alt={photo.caption || "Foto proyek"}
-                    className="h-40 w-full object-cover"
+                    className="aspect-square w-full object-cover"
                   />
                 </a>
                 <div className="space-y-1 px-3 py-2 text-sm">

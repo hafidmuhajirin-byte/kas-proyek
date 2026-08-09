@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { DeleteSitePhotoButton } from "@/components/DeleteSitePhotoButton";
 import { EmptyState } from "@/components/ui";
 
 export type SitePhotoRow = {
@@ -12,13 +13,22 @@ export type SitePhotoRow = {
   createdByName: string;
 };
 
-export function ProjectSitePhotoGallery({ photos }: { photos: SitePhotoRow[] }) {
+export function ProjectSitePhotoGallery({
+  photos,
+  canDelete = false,
+  returnTo,
+}: {
+  photos: SitePhotoRow[];
+  canDelete?: boolean;
+  returnTo?: string;
+}) {
   return (
     <section className="space-y-3">
       <div>
         <h3 className="font-serif text-xl text-[var(--ink)]">Foto Lokasi</h3>
         <p className="text-sm text-[var(--ink-faint)]">
-          Foto lapangan dari Mandor (disimpan di server aplikasi).
+          Foto lapangan dari Mandor (rasio 1:1).
+          {canDelete ? " Hanya Owner yang dapat menghapus." : ""}
         </p>
       </div>
 
@@ -36,10 +46,10 @@ export function ProjectSitePhotoGallery({ photos }: { photos: SitePhotoRow[] }) 
                 <img
                   src={photo.photoUrl}
                   alt={photo.caption || "Foto lokasi"}
-                  className="h-44 w-full object-cover"
+                  className="aspect-square w-full object-cover"
                 />
               </a>
-              <div className="space-y-1 px-3 py-2 text-sm">
+              <div className="space-y-2 px-3 py-2 text-sm">
                 <p className="text-[var(--ink-faint)]">
                   {format(photo.takenAt, "d MMM yyyy", { locale: localeId })}
                   {" · "}
@@ -60,6 +70,12 @@ export function ProjectSitePhotoGallery({ photos }: { photos: SitePhotoRow[] }) 
                     </a>
                   ) : null}
                 </div>
+                {canDelete ? (
+                  <DeleteSitePhotoButton
+                    photoId={photo.id}
+                    returnTo={returnTo}
+                  />
+                ) : null}
               </div>
             </li>
           ))}
