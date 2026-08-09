@@ -2,15 +2,10 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { redirect } from "next/navigation";
-import { isAdmin, isMandor, isOwner, requireSession } from "@/lib/auth";
+import { isMandor, isOwner, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { DeleteSitePhotoButton } from "@/components/DeleteSitePhotoButton";
-import {
-  Card,
-  EmptyState,
-  PageHeader,
-  inputClass,
-} from "@/components/ui";
+import { deleteSitePhotoAction } from "@/lib/actions/mandor-lokasi";
+import { EmptyState } from "@/components/ui";
 
 export default async function FotoProyekPage({
   searchParams,
@@ -19,7 +14,6 @@ export default async function FotoProyekPage({
 }) {
   const user = await requireSession();
   if (isMandor(user)) redirect("/mandor");
-  const admin = isAdmin(user);
   const owner = isOwner(user);
 
   const params = await searchParams;
@@ -36,67 +30,67 @@ export default async function FotoProyekPage({
 
   const photos = await prisma.projectSitePhoto.findMany({
     where: projectId ? { projectId } : undefined,
-    orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
-    take: 200,
+    orderBy: [{ createdAt: "desc" }, { takenAt: "desc" }],
+    take: 300,
     select: {
       id: true,
       photoUrl: true,
       caption: true,
       takenAt: true,
-      latitude: true,
-      longitude: true,
+      createdAt: true,
       project: { select: { id: true, name: true } },
-      createdBy: { select: { name: true } },
     },
   });
 
-  return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Foto Proyek"
-        description={
-          owner
-            ? "Galeri foto 1:1 dari Mandor. Hanya Owner yang dapat menghapus foto."
-            : "Galeri foto 1:1 dari Mandor. Klik gambar untuk memperbesar."
-        }
-      />
+  const returnTo = projectId
+    ? `/foto-proyek?projectId=${projectId}`
+    : "/foto-proyek";
 
-      <Card>
-        <form className="flex flex-wrap items-end gap-3">
-          <label className="min-w-[200px] flex-1 text-sm">
-            <span className="mb-1 block text-[var(--ink-faint)]">Proyek</span>
-            <select
-              name="projectId"
-              className={inputClass}
-              defaultValue={projectId ?? ""}
-            >
-              <option value="">Semua proyek</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-medium text-[#f7f4ee] hover:bg-teal-800"
+  return (
+    <div className="space-y-4">
+      <h1 className="font-serif text-2xl text-[var(--ink)] sm:text-3xl">
+        Foto Proyek
+      </h1>
+
+      {/* Filter proyek sederhana */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        <Link
+          href="/foto-proyek"
+          className={`shrink-0 rounded-lg px-3 py-2 text-sm ${
+            !projectId
+              ? "bg-teal-700 font-medium text-white"
+              : "bg-[var(--paper-tint)] text-[var(--ink)]"
+          }`}
+        >
+          Semua
+        </Link>
+        {projects.map((p) => (
+          <Link
+            key={p.id}
+            href={`/foto-proyek?projectId=${p.id}`}
+            className={`shrink-0 rounded-lg px-3 py-2 text-sm ${
+              projectId === p.id
+                ? "bg-teal-700 font-medium text-white"
+                : "bg-[var(--paper-tint)] text-[var(--ink)]"
+            }`}
           >
-            Filter
-          </button>
-        </form>
-      </Card>
+            {p.name}
+          </Link>
+        ))}
+      </div>
 
       {photos.length === 0 ? (
-        <EmptyState message="Belum ada foto proyek." />
+        <EmptyState message="Belum ada foto." />
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {photos.map((photo) => (
-            <li
-              key={photo.id}
-              className="overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[#fffcf7]"
-            >
-              <a href={photo.photoUrl} target="_blank" rel="noreferrer">
+            <li key={photo.id} className="min-w-0">
+              <a
+                href={photo.photoUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block overflow-hidden rounded-lg bg-[var(--paper-tint)]"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={photo.photoUrl}
@@ -104,48 +98,26 @@ export default async function FotoProyekPage({
                   className="aspect-square w-full object-cover"
                 />
               </a>
-              <div className="space-y-2 px-3 py-2 text-sm">
-                <p className="font-medium text-[var(--ink)]">
-                  <Link
-                    href={
-                      admin
-                        ? `/admin/lpj/${photo.project.id}`
-                        : `/projects/${photo.project.id}`
-                    }
-                    className="hover:underline"
-                  >
-                    {photo.project.name}
-                  </Link>
+              <div className="mt-1 space-y-0.5 px-0.5">
+                <p className="truncate text-xs font-medium text-[var(--ink)]">
+                  {photo.project.name}
                 </p>
-                <p className="text-[var(--ink-faint)]">
-                  {format(photo.takenAt, "d MMM yyyy", { locale: localeId })}
-                  {" · "}
-                  {photo.createdBy.name}
+                <p className="text-[11px] text-[var(--ink-faint)]">
+                  {format(photo.createdAt, "d MMM yyyy · HH:mm", {
+                    locale: localeId,
+                  })}
                 </p>
-                {photo.caption ? (
-                  <p className="text-[var(--ink)]">{photo.caption}</p>
-                ) : null}
-                <div className="flex flex-wrap gap-3 pt-1 text-xs">
-                  {photo.latitude != null && photo.longitude != null ? (
-                    <a
-                      href={`https://maps.google.com/?q=${photo.latitude},${photo.longitude}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-teal-800 underline"
-                    >
-                      Lihat di peta
-                    </a>
-                  ) : null}
-                </div>
                 {owner ? (
-                  <DeleteSitePhotoButton
-                    photoId={photo.id}
-                    returnTo={
-                      projectId
-                        ? `/foto-proyek?projectId=${projectId}`
-                        : "/foto-proyek"
-                    }
-                  />
+                  <form action={deleteSitePhotoAction}>
+                    <input type="hidden" name="id" value={photo.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <button
+                      type="submit"
+                      className="text-[11px] text-[var(--rose-ink)] underline"
+                    >
+                      Hapus
+                    </button>
+                  </form>
                 ) : null}
               </div>
             </li>
