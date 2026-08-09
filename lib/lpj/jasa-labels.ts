@@ -13,10 +13,13 @@ export function isDanaPengelolaanText(text: string): boolean {
     /dana\s*pengelolaan/.test(t) ||
     /bayar\s*(dana\s*)?pengelolaan/.test(t) ||
     /\bpengelolaan\b/.test(t) ||
-    /diberikan\s+ke\s+sekolah/.test(t) ||
-    /sisa\s+(dana\s+)?(proyek\s+)?(untuk\s+|ke\s+)?sekolah/.test(t) ||
-    /untuk\s+sekolah/.test(t) ||
-    /ke\s+sekolah/.test(t)
+    // "Diberikan ke sekolah" / typo tanpa spasi "Diberikan Kesekolah"
+    /diberikan\s*ke\s*sekolah/.test(t) ||
+    /diberikan\s*kesekolah/.test(t) ||
+    /kesekolah/.test(t) ||
+    /sisa\s*(dana\s*)?(proyek\s*)?(untuk\s*|ke\s*)?sekolah/.test(t) ||
+    /untuk\s*sekolah/.test(t) ||
+    /ke\s*sekolah/.test(t)
   );
 }
 

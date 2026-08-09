@@ -186,6 +186,10 @@ function assert(cond: boolean, msg: string) {
     "diberikan ke sekolah → Dana pengelolaan",
   );
   assert(
+    rewriteCashBookUraian("Diberikan Kesekolah") === LABEL_DANA_PENGELOLAAN,
+    "Diberikan Kesekolah (tanpa spasi) → Dana pengelolaan",
+  );
+  assert(
     rewriteCashBookUraian("Bayar Dana Pengelolaan") === LABEL_DANA_PENGELOLAAN,
     "bayar dana pengelolaan → Dana pengelolaan",
   );
