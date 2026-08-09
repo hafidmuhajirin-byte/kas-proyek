@@ -1,30 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import {
+  computeMandorFund,
+  namesMatch,
+  type MandorFundSummary,
+} from "@/lib/mandor-fund-math";
 
-export type MandorFundSummary = {
-  projectId: string;
-  mandorId: string;
-  totalCair: number;
-  totalBukti: number;
-  /** cair - bukti; >0 tanggungan mandor; <0 overspend */
-  sisa: number;
-};
+export type { MandorFundSummary };
+export { computeMandorFund, namesMatch } from "@/lib/mandor-fund-math";
 
-function key(projectId: string, mandorId: string) {
+function pairKey(projectId: string, mandorId: string) {
   return `${projectId}::${mandorId}`;
-}
-
-/** Samakan "Bpk Istiadi" dengan nama user Mandor. */
-export function namesMatch(a: string, b: string): boolean {
-  const n = (s: string) =>
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  const x = n(a);
-  const y = n(b);
-  if (!x || !y) return false;
-  return x === y || x.includes(y) || y.includes(x);
 }
 
 export async function getMandorFundSummary(
@@ -33,7 +18,7 @@ export async function getMandorFundSummary(
 ): Promise<MandorFundSummary> {
   const map = await getMandorFundSummariesFor([{ projectId, mandorId }]);
   return (
-    map.get(key(projectId, mandorId)) ?? {
+    map.get(pairKey(projectId, mandorId)) ?? {
       projectId,
       mandorId,
       totalCair: 0,
@@ -43,7 +28,7 @@ export async function getMandorFundSummary(
   );
 }
 
-/** Batch: pencairan MandorDisbursement + termin pemborong (nama cocok). */
+/** Batch ringkasan dana Mandor per pasangan proyek–mandor. */
 export async function getMandorFundSummariesFor(
   pairs: Array<{ projectId: string; mandorId: string }>,
 ): Promise<Map<string, MandorFundSummary>> {
@@ -53,72 +38,47 @@ export async function getMandorFundSummariesFor(
   const projectIds = [...new Set(pairs.map((p) => p.projectId))];
   const mandorIds = [...new Set(pairs.map((p) => p.mandorId))];
 
-  const [cairRows, buktiRows, mandors, contractors] = await Promise.all([
-    prisma.mandorDisbursement.groupBy({
-      by: ["projectId", "mandorId"],
+  const [disbursements, proofs] = await Promise.all([
+    prisma.mandorDisbursement.findMany({
       where: { projectId: { in: projectIds }, mandorId: { in: mandorIds } },
-      _sum: { amount: true },
+      select: {
+        id: true,
+        projectId: true,
+        mandorId: true,
+        amount: true,
+        transactionId: true,
+      },
     }),
-    prisma.transaction.groupBy({
-      by: ["projectId", "createdById"],
+    prisma.transaction.findMany({
       where: {
         projectId: { in: projectIds },
-        createdById: { in: mandorIds },
         type: "EXPENSE",
         isMandorExpense: true,
+        // Nota Admin LPJ tidak masuk Ringkasan dana Owner / totalBukti Mandor
+        isAdminLpjNota: false,
+        // BKK hasil split tidak dihitung — dana Mandor dari upload asli saja
+        splitParentId: null,
       },
-      _sum: { amount: true },
-    }),
-    prisma.user.findMany({
-      where: { id: { in: mandorIds } },
-      select: { id: true, name: true },
-    }),
-    prisma.contractor.findMany({
-      where: { projectId: { in: projectIds } },
       select: {
+        amount: true,
         projectId: true,
-        name: true,
-        advances: { select: { amount: true } },
-        expenses: { select: { amount: true } },
+        createdById: true,
+        linkedMandorDisbursementId: true,
+        linkedContractorAdvanceId: true,
       },
     }),
   ]);
 
-  const cairMap = new Map(
-    cairRows.map((r) => [key(r.projectId, r.mandorId), r._sum.amount ?? 0]),
-  );
-  const buktiMap = new Map(
-    buktiRows.map((r) => [
-      key(r.projectId!, r.createdById),
-      r._sum.amount ?? 0,
-    ]),
-  );
-  const nameById = new Map(mandors.map((m) => [m.id, m.name]));
-
   for (const p of pairs) {
-    const k = key(p.projectId, p.mandorId);
-    const mandorName = nameById.get(p.mandorId) ?? "";
-    const contractor = contractors.find(
-      (c) =>
-        c.projectId === p.projectId && namesMatch(c.name, mandorName),
-    );
-    const fromTermin = contractor
-      ? contractor.advances.reduce((s, a) => s + a.amount, 0)
-      : 0;
-    const fromBuktiPemborong = contractor
-      ? contractor.expenses.reduce((s, e) => s + e.amount, 0)
-      : 0;
-
-    const totalCair = (cairMap.get(k) ?? 0) + fromTermin;
-    const totalBukti = (buktiMap.get(k) ?? 0) + fromBuktiPemborong;
-    map.set(k, {
+    const summary = computeMandorFund({
       projectId: p.projectId,
       mandorId: p.mandorId,
-      totalCair,
-      totalBukti,
-      sisa: totalCair - totalBukti,
+      disbursements,
+      proofs,
     });
+    map.set(pairKey(p.projectId, p.mandorId), summary);
   }
+
   return map;
 }
 

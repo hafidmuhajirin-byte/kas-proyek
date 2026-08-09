@@ -48,38 +48,34 @@ export function ProjectFeeTransferPanel({
     admin && active && remainingFee > 0 && projectCash > 0 && sources.length > 0;
 
   return (
-    <Card className="mt-5 sm:mt-6">
+    <Card className="mt-2">
       <details>
         <summary className="cursor-pointer list-none">
-          <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-medium text-[var(--ink)]">
-                Transfer fee ke bank pribadi
+              <h3 className="text-sm font-medium text-[var(--ink)]">
+                Transfer fee
               </h3>
-              <p className="mt-0.5 text-sm text-[var(--ink-muted)]">
-                Jarang dipakai · kuota sisa {formatRupiah(remainingFee)}
-                {ownerPersonalDraws > 0
-                  ? ` · ambil pribadi ${formatRupiah(ownerPersonalDraws)}`
-                  : ""}
+              <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">
+                Sisa {formatRupiah(remainingFee)}
                 {feeTransferred > 0
                   ? ` · transfer ${formatRupiah(feeTransferred)}`
                   : ""}
               </p>
             </div>
-            <span className="text-sm text-[var(--accent)]">Buka</span>
+            <span className="text-xs text-[var(--accent)]">Buka</span>
           </div>
         </summary>
 
-        <div className="mt-4 border-t border-[var(--line-soft)] pt-4">
-          <p className="text-sm text-[var(--ink-muted)]">
-            Fee maksimal {PROJECT_FEE_PERCENT}% dari pendapatan acuan. Sisa
-            kuota berkurang oleh transfer fee dan ambil pribadi owner.
+        <div className="mt-2 border-t border-[var(--line-soft)] pt-2">
+          <p className="text-xs text-[var(--ink-faint)]">
+            Estimasi (kontrak − ops) × {PROJECT_FEE_PERCENT}%.
           </p>
 
           <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-[var(--line-soft)] bg-[#fffcf7] px-3 py-3">
               <p className="text-[11px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase">
-                Target fee {PROJECT_FEE_PERCENT}%
+                Estimasi {PROJECT_FEE_PERCENT}%
               </p>
               <p className="mt-1 font-serif text-lg tabular-nums text-[var(--ink)]">
                 {formatRupiah(feeTargetProfit)}
