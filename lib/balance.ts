@@ -24,24 +24,9 @@ export function calcStageStatus(
   return "LEBIH";
 }
 
+/** Termin digabung ke Dana ke Mandor — tidak ada lagi potongan advance terpisah. */
 async function getProjectAdvanceTotals() {
-  const [contractors, advanceGroups] = await Promise.all([
-    prisma.contractor.findMany({
-      select: { id: true, projectId: true },
-    }),
-    prisma.contractorAdvance.groupBy({
-      by: ["contractorId"],
-      _sum: { amount: true },
-    }),
-  ]);
-  const sumByContractor = new Map(
-    advanceGroups.map((g) => [g.contractorId, g._sum.amount ?? 0]),
-  );
-  const map = new Map<string, number>();
-  for (const c of contractors) {
-    map.set(c.projectId, (map.get(c.projectId) ?? 0) + (sumByContractor.get(c.id) ?? 0));
-  }
-  return map;
+  return new Map<string, number>();
 }
 
 export async function getProjectCashBalance(
@@ -63,16 +48,7 @@ export async function getProjectCashBalance(
           isMandorExpense: true,
         },
       },
-      contractor: {
-        include: {
-          advances: {
-            where: options?.excludeAdvanceId
-              ? { NOT: { id: options.excludeAdvanceId } }
-              : undefined,
-            select: { amount: true },
-          },
-        },
-      },
+      // Termin digabung ke Dana ke Mandor (Transaction isMandorDisbursement)
     },
   });
   if (!project) return 0;
@@ -84,10 +60,7 @@ export async function getProjectCashBalance(
     if (tx.isMandorExpense) return sum;
     return sum + signedAmount(tx.type, tx.amount);
   }, 0);
-  const advances = project.contractor
-    ? project.contractor.advances.reduce((sum, a) => sum + a.amount, 0)
-    : 0;
-  return project.openingBalance + movement - advances;
+  return project.openingBalance + movement;
 }
 
 export async function getProjectBalances() {
@@ -172,7 +145,7 @@ export async function getProjectBalances() {
       agg.expense += amount;
     }
     if (isOwnerPersonalDraw(tx)) agg.ownerPersonalExpense += amount;
-    if (g.type === "EXPENSE" && !g.isOwnerPersonal && !g.isFeeTransfer) {
+    if (g.type === "EXPENSE" && !g.isOwnerPersonal && !g.isFeeTransfer && !g.isMandorExpense) {
       agg.projectExpense += amount;
     }
     if (!isOwnerPersonalDraw(tx) && !g.isMandorExpense) {
@@ -323,12 +296,7 @@ export async function getGlobalCashBreakdown(
     else cash += signed;
   }
 
-  for (const g of advanceGroups) {
-    const amount = g._sum.amount ?? 0;
-    const channel = sourceType.get(g.cashSourceId);
-    if (channel && isBankChannel(channel)) bank -= amount;
-    else cash -= amount;
-  }
+  // Termin digabung ke Dana ke Mandor (sudah masuk Transaction)
 
   // Transfer antar saluran: total tetap, Tunai/Bank berpindah
   for (const transfer of transfers) {
@@ -390,7 +358,13 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
 
   const [txGroups, advanceSum] = await Promise.all([
     prisma.transaction.groupBy({
-      by: ["type", "isOwnerPersonal", "isFeeTransfer", "isFromGlobalCash"],
+      by: [
+        "type",
+        "isOwnerPersonal",
+        "isFeeTransfer",
+        "isFromGlobalCash",
+        "isMandorExpense",
+      ],
       where: dateFilter,
       _sum: { amount: true },
     }),
@@ -406,6 +380,7 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
   let ownerPersonalExpense = 0;
   let feeTransferExpense = 0;
   let cashAffectingExpense = 0;
+  let mandorExpense = 0;
 
   for (const g of txGroups) {
     const amount = g._sum.amount ?? 0;
@@ -421,12 +396,18 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
     if (g.type === "EXPENSE") expense += amount;
     if (isOwnerPersonalDraw(tx)) ownerPersonalExpense += amount;
     if (g.type === "EXPENSE" && g.isFeeTransfer) feeTransferExpense += amount;
-    if (g.type === "EXPENSE" && !g.isFromGlobalCash) {
+    if (g.type === "EXPENSE" && g.isMandorExpense) mandorExpense += amount;
+    if (
+      g.type === "EXPENSE" &&
+      !g.isFromGlobalCash &&
+      !g.isMandorExpense
+    ) {
       cashAffectingExpense += amount;
     }
   }
 
-  const contractorAdvances = advanceSum._sum.amount ?? 0;
+  // Termin digabung ke Dana ke Mandor — biaya masuk via isMandorDisbursement
+  const contractorAdvances = 0;
 
   return {
     income,
@@ -434,11 +415,11 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
     ownerPersonalExpense,
     ownerPersonalInjection,
     contractorAdvances,
-    projectExpense: expense - ownerPersonalExpense - feeTransferExpense,
+    projectExpense:
+      expense - ownerPersonalExpense - feeTransferExpense - mandorExpense,
     net:
       income +
       ownerPersonalInjection -
-      cashAffectingExpense -
-      contractorAdvances,
+      cashAffectingExpense,
   };
 }
