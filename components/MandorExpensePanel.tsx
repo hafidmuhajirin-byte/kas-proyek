@@ -64,10 +64,24 @@ export function MandorExpensePanel({
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [fundsOpen, setFundsOpen] = useState(false);
+  const totalBukti = rows.reduce((s, r) => s + (r.amount || 0), 0);
 
   return (
     <div className="space-y-3">
-      <h3 className="font-medium text-[var(--ink)]">Bukti belanja Mandor</h3>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h3 className="font-medium text-[var(--ink)]">Bukti belanja Mandor</h3>
+        <p className="text-sm tabular-nums text-[var(--ink)]">
+          <span className="text-[var(--ink-muted)]">Total </span>
+          <span className="font-semibold text-[var(--rose-ink)]">
+            {formatRupiah(totalBukti)}
+          </span>
+          {rows.length > 0 ? (
+            <span className="ml-1.5 text-xs text-[var(--ink-faint)]">
+              · {rows.length} nota
+            </span>
+          ) : null}
+        </p>
+      </div>
 
       {fundBriefs.length > 0 ? (
         <div>
