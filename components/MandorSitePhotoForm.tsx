@@ -112,7 +112,12 @@ export function MandorSitePhotoForm({
       </Field>
 
       <Field label="Foto lokasi (wajib, 1:1)">
-        <SitePhotoMultiCapture items={photos} onChange={setPhotos} />
+        <SitePhotoMultiCapture
+          items={photos}
+          onChange={setPhotos}
+          latitude={latitude}
+          longitude={longitude}
+        />
       </Field>
 
       <div className="rounded-lg border border-teal-200/80 bg-teal-50/70 px-3 py-2 text-sm text-teal-950">

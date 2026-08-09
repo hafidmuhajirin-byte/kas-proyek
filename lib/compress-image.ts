@@ -9,6 +9,70 @@ export type CompressImageOptions = {
   maxBytes?: number;
 };
 
+export type SitePhotoStamp = {
+  /** Stempel waktu (default: sekarang, zona WIB). */
+  at?: Date;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
+function formatStampWib(date: Date): string {
+  const parts = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("day")} ${get("month")} ${get("year")}  ${get("hour")}:${get("minute")} WIB`;
+}
+
+/** Gambar stempel waktu (+ GPS) di bagian bawah canvas. */
+function drawTimestampStamp(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  stamp: SitePhotoStamp,
+) {
+  const line1 = formatStampWib(stamp.at ?? new Date());
+  const hasGps =
+    stamp.latitude != null &&
+    stamp.longitude != null &&
+    Number.isFinite(stamp.latitude) &&
+    Number.isFinite(stamp.longitude);
+  const line2 = hasGps
+    ? `${stamp.latitude!.toFixed(5)}, ${stamp.longitude!.toFixed(5)}`
+    : null;
+
+  const pad = Math.max(8, Math.round(width * 0.03));
+  const fontSize = Math.max(14, Math.round(width * 0.035));
+  const lineH = Math.round(fontSize * 1.25);
+  const barH = pad * 2 + lineH * (line2 ? 2 : 1);
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.fillRect(0, height - barH, width, barH);
+
+  ctx.font = `600 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillStyle = "#ffffff";
+  ctx.textBaseline = "top";
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = 2;
+
+  let y = height - barH + pad;
+  ctx.fillText(line1, pad, y, width - pad * 2);
+  if (line2) {
+    y += lineH;
+    ctx.font = `500 ${Math.round(fontSize * 0.92)}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.fillText(line2, pad, y, width - pad * 2);
+  }
+  ctx.restore();
+}
+
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -115,11 +179,11 @@ export async function compressImageFile(
 }
 
 /**
- * Crop tengah 1:1 lalu kompres JPEG (foto lokasi proyek).
+ * Crop tengah 1:1, stempel waktu/GPS, lalu kompres JPEG (foto lokasi proyek).
  */
 export async function compressImageFileSquare(
   file: File,
-  options: CompressImageOptions = {},
+  options: CompressImageOptions & { stamp?: SitePhotoStamp | false } = {},
 ): Promise<File> {
   if (!isProbablyImage(file)) return file;
 
@@ -139,6 +203,10 @@ export async function compressImageFileSquare(
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, out, out);
   ctx.drawImage(img, sx, sy, side, side, 0, 0, out, out);
+
+  if (options.stamp !== false) {
+    drawTimestampStamp(ctx, out, out, options.stamp ?? {});
+  }
 
   return encodeJpegCanvas(canvas, file, options, "lokasi");
 }

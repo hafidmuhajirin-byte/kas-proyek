@@ -66,14 +66,23 @@ function FilePickButton({
 export function SitePhotoMultiCapture({
   items,
   onChange,
+  latitude,
+  longitude,
 }: {
   items: QueuedSitePhoto[];
   onChange: (next: QueuedSitePhoto[]) => void;
+  latitude?: string;
+  longitude?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
+
+  const latNum =
+    latitude && latitude !== "" ? Number(latitude) : null;
+  const lngNum =
+    longitude && longitude !== "" ? Number(longitude) : null;
 
   useEffect(() => {
     return () => {
@@ -104,6 +113,13 @@ export function SitePhotoMultiCapture({
           const file = await compressImageFileSquare(raw, {
             maxEdge: 1200,
             maxBytes: 400 * 1024,
+            stamp: {
+              at: new Date(),
+              latitude:
+                latNum != null && Number.isFinite(latNum) ? latNum : null,
+              longitude:
+                lngNum != null && Number.isFinite(lngNum) ? lngNum : null,
+            },
           });
           next.push({
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -179,8 +195,9 @@ export function SitePhotoMultiCapture({
         </p>
       ) : (
         <p className="text-xs text-[var(--ink-faint)]">
-          Ambil berkali-kali dulu, lalu unggah sekaligus. Foto dipotong
-          kotak (1:1) dan dikompres otomatis. Maks. {MAX_PHOTOS} foto.
+          Ambil berkali-kali dulu, lalu unggah sekaligus. Foto 1:1, stempel
+          waktu{latNum != null && lngNum != null ? " + GPS" : ""} di foto.
+          Maks. {MAX_PHOTOS} foto.
         </p>
       )}
 
