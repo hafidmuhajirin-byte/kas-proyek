@@ -609,9 +609,9 @@ export function BkuPreview({
                       <tr key={i} className="h-7">
                         {incEmpty ? (
                           <>
-                            <BkuEmptyCell className="w-[4.5rem]" />
                             <BkuEmptyCell />
-                            <BkuEmptyCell className="w-[6.5rem]" />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell />
                           </>
                         ) : (
                           <>
@@ -628,14 +628,14 @@ export function BkuPreview({
                         )}
                         {expEmpty ? (
                           <>
-                            <BkuEmptyCell className="w-[4.5rem]" />
-                            <BkuEmptyCell className="w-16" />
-                            <BkuEmptyCell className="w-12" />
-                            <BkuEmptyCell className="w-10" />
                             <BkuEmptyCell />
-                            <BkuEmptyCell className="w-14" />
-                            <BkuEmptyCell className="w-12" />
-                            <BkuEmptyCell className="w-[6.5rem]" />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell />
+                            <BkuEmptyCell />
                           </>
                         ) : (
                           <>

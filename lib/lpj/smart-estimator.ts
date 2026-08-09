@@ -23,7 +23,7 @@ export type SpkCategoryKey =
 export const SPK_CATEGORY_LABELS: Record<SpkCategoryKey, string> = {
   PERENCANAAN: LABEL_BAYAR_JASA_PERENCANAAN,
   PENGAWASAN: LABEL_BAYAR_JASA_PENGAWASAN,
-  PENGELOLAAN: "Pengelolaan",
+  PENGELOLAAN: LABEL_DANA_PENGELOLAAN,
   REHAB_FISIK: "Rehab Fisik",
   REHAB_MEBELAIR: "Rehab Mebelair",
   PEMBANGUNAN_BARU: "Pembangunan Baru",
