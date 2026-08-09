@@ -1,14 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Figtree, Fraunces } from "next/font/google";
+import { Jost } from "next/font/google";
 import "./globals.css";
 
-const figtree = Figtree({
-  variable: "--font-figtree",
-  subsets: ["latin"],
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const jost = Jost({
+  variable: "--font-jost",
   subsets: ["latin"],
 });
 
@@ -31,10 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="id"
-      className={`${figtree.variable} ${fraunces.variable} h-full`}
-    >
+    <html lang="id" className={`${jost.variable} h-full`}>
       <body className="min-h-full overflow-x-clip antialiased text-[15px] leading-relaxed">
         {children}
       </body>
