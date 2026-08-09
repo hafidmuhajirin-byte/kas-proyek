@@ -25,6 +25,7 @@ function navForRole(role: SessionUser["role"]): {
   if (role === "ADMIN") {
     const primary = [
       { href: "/admin/lpj", label: "Proyek LPJ", short: "LPJ" },
+      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
     ];
     return { primary, secondary: [], mobile: primary, showAssistant: false };
   }
@@ -36,6 +37,7 @@ function navForRole(role: SessionUser["role"]): {
   const primary = [
     { href: "/dashboard", label: "Dashboard", short: "Home" },
     { href: "/projects", label: "Proyek", short: "Proyek" },
+    { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
     { href: "/transactions", label: "Kas Besar", short: "Besar" },
     { href: "/transactions/project", label: "Kas Proyek", short: "Proyek" },
     { href: "/reports", label: "Laporan", short: "Lapor" },
@@ -49,7 +51,13 @@ function navForRole(role: SessionUser["role"]): {
   return {
     primary,
     secondary,
-    mobile: primary,
+    mobile: [
+      { href: "/dashboard", label: "Dashboard", short: "Home" },
+      { href: "/projects", label: "Proyek", short: "Proyek" },
+      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
+      { href: "/transactions", label: "Kas Besar", short: "Besar" },
+      { href: "/reports", label: "Laporan", short: "Lapor" },
+    ],
     showAssistant: true,
   };
 }

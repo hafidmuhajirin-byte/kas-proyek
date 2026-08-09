@@ -13,12 +13,15 @@ function homeForRole(role: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // File unggahan: rewrite ke API agar file baru (setelah start) tetap bisa dibaca
+  if (pathname.startsWith("/uploads/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/api/uploads/${pathname.slice("/uploads/".length)}`;
+    return NextResponse.rewrite(url);
+  }
+
   // Matcher sudah mengecualikan aset statis; guard ekstra untuk path internal
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/uploads") ||
-    pathname === "/favicon.ico"
-  ) {
+  if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {
     return NextResponse.next();
   }
 
@@ -65,8 +68,10 @@ export async function middleware(request: NextRequest) {
 
   if (session?.role === "ADMIN") {
     const allowed =
-      pathname.startsWith("/admin") || pathname.startsWith("/api/");
-    // Admin hanya modul LPJ (+ API); tanpa kas/mutasi Owner
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/api/") ||
+      pathname.startsWith("/foto-proyek");
+    // Admin: LPJ + foto proyek (+ API); tanpa kas/mutasi Owner
     if (!allowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin/lpj";
@@ -79,6 +84,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|uploads/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|woff2?)$).*)",
+    // Sertakan /uploads/* agar rewrite ke API jalan; kecualikan aset build Next
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|css|js|map|txt|woff2?)$).*)",
   ],
 };
