@@ -158,10 +158,6 @@ export default async function MandorHomePage() {
                   <p className="mt-0.5 text-lg font-medium tabular-nums text-[var(--ink)]">
                     {formatRupiah(estimate.amount)}
                   </p>
-                  <p className="mt-1 text-[11px] text-[var(--ink-faint)]">
-                    (Kontrak − perencanaan − pengawasan − pengelolaan) × 70% ·
-                    estimasi saja, bukan dana cair
-                  </p>
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-[var(--line)] px-3 py-2 text-center text-[11px] text-[var(--ink-faint)]">
