@@ -54,6 +54,8 @@ export async function getMandorFundSummariesFor(
         projectId: { in: projectIds },
         type: "EXPENSE",
         isMandorExpense: true,
+        // Nota Admin LPJ tidak masuk Ringkasan dana Owner / totalBukti Mandor
+        isAdminLpjNota: false,
         // BKK hasil split tidak dihitung — dana Mandor dari upload asli saja
         splitParentId: null,
       },

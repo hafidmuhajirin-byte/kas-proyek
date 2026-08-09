@@ -19,11 +19,23 @@ Alur:
 4. Lanjut pecah isi di BKK baru sampai jumlah semua BKK = total Mandor.
 5. **Setujui** per BKK (total baris = nominal BKK; sum BKK = upload Mandor), atau **Tolak** → Mandor mendapat notifikasi ganti bukti.
 
-Catatan:
+### Nota Admin LPJ
+
+Tombol **+ Tambah nota Admin LPJ** membuat transaksi `isAdminLpjNota=true` (+ `isMandorExpense`):
+
+| Tempat | Perilaku |
+|--------|----------|
+| **Admin LPJ** (Review Nota, BKU/BKT/Pajak) | Nilai penuh di DB — ikut pecah isi / pajak seperti nota biasa |
+| **Owner** — panel Bukti belanja Mandor | Muncul sebagai bukti tambahan **Rp 0**; label “LPJ admin”; **tidak** dijumlahkan ke Total / Ringkasan dana |
+| Kas proyek Owner | Tidak terpotong (sudah dikecualikan lewat `isMandorExpense`) |
+
+Catatan: nota Admin LPJ **bukan** bukti belanja Mandor untuk dana Owner. Tidak wajib tautan pencairan. Flag ikut ke BKK anak saat Split Nota.
+
+Catatan umum:
 
 - Pecah isi ≠ Split Nota. Satu nota di bawah 2 jt cukup dipecah isinya (contoh Hebel/besi).
 - Split **manual**, maksimal 3 BKK; bukan auto-evasi pajak.
-- Dana Mandor (`totalBukti`) tetap dari upload asli; LPJ memakai tiap BKK (bukan shell).
+- Dana Mandor (`totalBukti`) tetap dari upload asli Mandor (skip `isAdminLpjNota`); LPJ memakai tiap BKK (bukan shell).
 
 ## Fitur lain
 

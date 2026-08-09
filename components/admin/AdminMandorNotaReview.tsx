@@ -39,6 +39,7 @@ export type AdminNotaGroup = {
   description: string;
   proofUrl: string | null;
   mandorName: string;
+  isAdminLpjNota?: boolean;
   isSplit: boolean;
   parentStatus: BreakdownStatus;
   parentNote: string | null;
@@ -101,10 +102,16 @@ export function AdminMandorNotaReview({
                 <div className="min-w-0">
                   <p className="font-medium text-[var(--ink)]">
                     {tidyCase(g.description) || "Tanpa uraian"}
+                    {g.isAdminLpjNota ? (
+                      <span className="ml-2 inline-block rounded border border-[var(--line)] px-1.5 py-0.5 text-[11px] font-normal text-[var(--ink-muted)]">
+                        Admin LPJ
+                      </span>
+                    ) : null}
                   </p>
                   <p className="mt-1 text-sm text-[var(--ink-muted)]">
-                    {format(date, "dd/MM/yyyy")} · Mandor {g.mandorName} · Total{" "}
-                    {formatRupiah(g.mandorTotal)} · Status:{" "}
+                    {format(date, "dd/MM/yyyy")} ·{" "}
+                    {g.isAdminLpjNota ? "Admin" : `Mandor ${g.mandorName}`} ·
+                    Total {formatRupiah(g.mandorTotal)} · Status:{" "}
                     <span className={st.className}>{st.text}</span>
                     {g.isSplit ? " · di-split" : ""}
                   </p>

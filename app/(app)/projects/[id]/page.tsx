@@ -127,6 +127,7 @@ export default async function ProjectDetailPage({
             isOwnerPersonal: true,
             isFeeTransfer: true,
             isMandorExpense: true,
+            isAdminLpjNota: true,
             isSplitParent: true,
             splitParentId: true,
             splitIndex: true,
@@ -409,10 +410,13 @@ export default async function ProjectDetailPage({
     .map((tx) => ({
       id: tx.id,
       date: tx.date,
-      amount: tx.amount,
+      // Owner: nota Admin LPJ tampil Rp 0 (nilai penuh hanya di LPJ)
+      amount: tx.isAdminLpjNota ? 0 : tx.amount,
+      proofAmount: tx.amount,
+      isAdminLpjNota: tx.isAdminLpjNota,
       description: tx.description,
       proofUrl: tx.proofUrl,
-      mandorName: tx.createdBy.name,
+      mandorName: tx.isAdminLpjNota ? "Admin LPJ" : tx.createdBy.name,
       pencairanLabel: tx.linkedMandorDisbursement
         ? tidyCase(tx.linkedMandorDisbursement.label)
         : tx.linkedContractorAdvance

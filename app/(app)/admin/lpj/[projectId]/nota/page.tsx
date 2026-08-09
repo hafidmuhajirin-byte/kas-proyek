@@ -7,6 +7,7 @@ import {
   AdminMandorNotaReview,
   type AdminNotaGroup,
 } from "@/components/admin/AdminMandorNotaReview";
+import { AdminAddLpjNotaForm } from "@/components/admin/AdminAddLpjNotaForm";
 import { EmptyState, PageHeader } from "@/components/ui";
 
 export default async function AdminLpjNotaPage({
@@ -23,7 +24,7 @@ export default async function AdminLpjNotaPage({
   });
   if (!project || project.status !== "ACTIVE") notFound();
 
-  const [notas, workers] = await Promise.all([
+  const [notas, workers, categories] = await Promise.all([
     prisma.transaction.findMany({
     where: {
       projectId,
@@ -43,6 +44,7 @@ export default async function AdminLpjNotaPage({
       breakdownNote: true,
       breakdownVendor: true,
       isMaterialAlam: true,
+      isAdminLpjNota: true,
       isSplitParent: true,
       laborPeriodStart: true,
       laborPeriodEnd: true,
@@ -101,6 +103,11 @@ export default async function AdminLpjNotaPage({
       where: { projectId, active: true },
       orderBy: { name: "asc" },
       select: { name: true, role: true, dailyWage: true },
+    }),
+    prisma.category.findMany({
+      where: { type: "EXPENSE" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -195,6 +202,7 @@ export default async function AdminLpjNotaPage({
       description: n.description,
       proofUrl: n.proofUrl,
       mandorName: n.createdBy.name,
+      isAdminLpjNota: n.isAdminLpjNota,
       isSplit,
       parentStatus: n.breakdownStatus,
       parentNote: n.breakdownNote,
@@ -220,8 +228,10 @@ export default async function AdminLpjNotaPage({
         }
       />
 
+      <AdminAddLpjNotaForm projectId={project.id} categories={categories} />
+
       {groups.length === 0 ? (
-        <EmptyState message="Belum ada nota Mandor untuk proyek ini." />
+        <EmptyState message="Belum ada nota Mandor / Admin LPJ untuk proyek ini." />
       ) : (
         <AdminMandorNotaReview groups={groups} knownWorkers={knownWorkers} />
       )}

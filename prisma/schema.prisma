@@ -362,6 +362,8 @@ model Transaction {
   isFeeTransfer   Boolean     @default(false)
   isMandorDisbursement Boolean @default(false)
   isMandorExpense      Boolean @default(false)
+  /// Nota dibuat Admin untuk LPJ (nilai penuh di BKU/BKT); di Owner tampil Rp 0.
+  isAdminLpjNota       Boolean @default(false)
   isMaterialAlam       Boolean @default(false)
   taxExemptReason      String?
   spkCategory          SpkCategory?
@@ -416,6 +418,7 @@ model Transaction {
   @@index([isFeeTransfer])
   @@index([isMandorDisbursement])
   @@index([isMandorExpense])
+  @@index([isAdminLpjNota])
   @@index([isMaterialAlam])
   @@index([linkedMandorDisbursementId])
   @@index([linkedContractorAdvanceId])

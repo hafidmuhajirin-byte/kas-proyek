@@ -15,7 +15,11 @@ import { ProofReviewLink } from "@/components/ProofReviewLink";
 export type MandorExpenseRow = {
   id: string;
   date: Date | string;
+  /** Nominal untuk tampilan / Total di Owner (Admin LPJ = 0). */
   amount: number;
+  /** Nominal asli bukti — dipakai pecah isi jika beda dari amount. */
+  proofAmount?: number;
+  isAdminLpjNota?: boolean;
   description: string;
   proofUrl: string | null;
   mandorName: string;
@@ -127,6 +131,11 @@ export function MandorExpensePanel({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-[var(--ink)]">
                       {tidyCase(r.description)}
+                      {r.isAdminLpjNota ? (
+                        <span className="ml-1.5 text-[11px] font-normal text-[var(--ink-muted)]">
+                          LPJ admin
+                        </span>
+                      ) : null}
                       {st ? (
                         <span
                           className={`ml-1.5 text-[11px] font-normal ${st.className}`}
@@ -166,9 +175,9 @@ export function MandorExpensePanel({
                 {open ? (
                   <MandorExpenseBreakdownForm
                     transactionId={r.id}
-                    proofAmount={r.amount}
+                    proofAmount={r.proofAmount ?? r.amount}
                     lines={r.lines}
-                    canEdit={canBreakDown}
+                    canEdit={canBreakDown && !r.isAdminLpjNota}
                     vendor={r.vendor}
                     status={r.breakdownStatus ?? "PENDING"}
                     rejectNote={r.breakdownNote}
