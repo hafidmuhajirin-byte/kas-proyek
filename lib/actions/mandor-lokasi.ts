@@ -10,6 +10,7 @@ import {
   requireProjectAccess,
   requireSession,
 } from "@/lib/auth";
+import { normalizeSourceName } from "@/lib/site-photo-name";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
 
@@ -55,6 +56,19 @@ function collectPhotoFiles(formData: FormData): File[] {
   return formData
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
+}
+
+function collectSourceNames(formData: FormData, count: number): string[] {
+  const named = formData
+    .getAll("sourceNames")
+    .map((v) => normalizeSourceName(String(v)))
+    .filter(Boolean);
+  if (named.length === count) return named;
+  // Fallback: pakai nama File (galeri)
+  return collectPhotoFiles(formData).map((f, i) => {
+    const n = normalizeSourceName(f.name);
+    return n || `upload-${Date.now()}-${i}.jpg`;
+  });
 }
 
 type UploadResult = FormState & { count?: number };
@@ -110,6 +124,33 @@ async function savePhotosFromForm(
   });
   if (!project) return { error: "Proyek tidak ditemukan." };
 
+  const sourceNames = collectSourceNames(formData, photos.length);
+  if (sourceNames.length !== photos.length) {
+    return { error: "Data nama foto tidak lengkap." };
+  }
+
+  const uniqueNames = new Set(sourceNames);
+  if (uniqueNames.size !== sourceNames.length) {
+    return { error: "Ada nama foto yang sama dalam unggahan." };
+  }
+
+  const existing = await prisma.projectSitePhoto.findMany({
+    where: {
+      projectId,
+      sourceName: { in: sourceNames },
+    },
+    select: { sourceName: true },
+  });
+  if (existing.length > 0) {
+    const sample = existing[0]!.sourceName;
+    return {
+      error:
+        existing.length === 1
+          ? `Foto "${sample}" sudah pernah diunggah.`
+          : `${existing.length} foto sudah pernah diunggah (nama sama).`,
+    };
+  }
+
   try {
     const rows: {
       projectId: string;
@@ -117,11 +158,14 @@ async function savePhotosFromForm(
       takenAt: Date;
       caption: string | null;
       photoUrl: string;
+      sourceName: string;
       latitude: number | null;
       longitude: number | null;
     }[] = [];
 
-    for (const file of photos) {
+    for (let i = 0; i < photos.length; i++) {
+      const file = photos[i]!;
+      const sourceName = sourceNames[i]!;
       const photoUrl = await saveSitePhoto(file);
       rows.push({
         projectId,
@@ -129,6 +173,7 @@ async function savePhotosFromForm(
         takenAt,
         caption,
         photoUrl,
+        sourceName,
         latitude,
         longitude,
       });
@@ -136,7 +181,11 @@ async function savePhotosFromForm(
 
     await prisma.projectSitePhoto.createMany({ data: rows });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Gagal unggah foto." };
+    const msg = e instanceof Error ? e.message : "Gagal unggah foto.";
+    if (/Unique constraint|sourceName/i.test(msg)) {
+      return { error: "Ada foto dengan nama yang sudah dipakai." };
+    }
+    return { error: msg };
   }
 
   revalidatePath("/mandor");

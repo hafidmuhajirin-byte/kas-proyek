@@ -47,7 +47,7 @@ export default async function MandorLokasiPage({
       createdById: user.id,
     },
     orderBy: { takenAt: "desc" },
-    take: 20,
+    take: 40,
     select: {
       id: true,
       photoUrl: true,
@@ -80,16 +80,16 @@ export default async function MandorLokasiPage({
         />
       </Card>
 
-      <section className="space-y-3">
+      <section className="space-y-2">
         <h2 className="font-serif text-xl text-[var(--ink)]">Terbaru</h2>
         {recent.length === 0 ? (
           <p className="text-sm text-[var(--ink-faint)]">Belum ada foto.</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="grid grid-cols-4 gap-1.5">
             {recent.map((photo) => (
               <li
                 key={photo.id}
-                className="overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[#fffcf7]"
+                className="overflow-hidden rounded border border-[var(--line-soft)] bg-[#fffcf7]"
               >
                 <a href={photo.photoUrl} target="_blank" rel="noreferrer">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -97,27 +97,13 @@ export default async function MandorLokasiPage({
                     src={photo.photoUrl}
                     alt={photo.caption || "Foto proyek"}
                     className="aspect-square w-full object-cover"
+                    loading="lazy"
                   />
                 </a>
-                <div className="space-y-1 px-3 py-2 text-sm">
-                  <p className="font-medium text-[var(--ink)]">
-                    {photo.project.name}
-                  </p>
-                  <p className="text-[var(--ink-faint)]">
-                    {format(photo.takenAt, "d MMM yyyy", { locale: localeId })}
-                    {photo.caption ? ` · ${photo.caption}` : ""}
-                  </p>
-                  {photo.latitude != null && photo.longitude != null ? (
-                    <a
-                      href={`https://maps.google.com/?q=${photo.latitude},${photo.longitude}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-teal-800 underline"
-                    >
-                      Peta
-                    </a>
-                  ) : null}
-                </div>
+                <p className="truncate px-1 py-0.5 text-[9px] leading-tight text-[var(--ink-faint)]">
+                  {format(photo.takenAt, "d/M", { locale: localeId })}
+                  {photo.caption ? ` · ${photo.caption}` : ""}
+                </p>
               </li>
             ))}
           </ul>

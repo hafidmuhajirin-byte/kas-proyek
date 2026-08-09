@@ -120,12 +120,14 @@ model ProjectAssignment {
   @@index([projectId])
 }
 
-/// Foto lokasi proyek (Mandor) — arsip VPS + salinan Google Drive
+/// Foto lokasi proyek (Mandor / ADM Foto) — arsip VPS
 model ProjectSitePhoto {
   id               String   @id @default(cuid())
   takenAt          DateTime @default(now())
   caption          String?  @db.Text
   photoUrl         String   @db.Text
+  /// Nama file asli (unik per proyek) — cegah unggah dobel
+  sourceName       String   @db.VarChar(255)
   driveFileId      String?
   driveWebViewLink String?  @db.Text
   driveSyncError   String?  @db.Text
@@ -138,6 +140,7 @@ model ProjectSitePhoto {
   createdById String
   createdBy   User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
+  @@unique([projectId, sourceName])
   @@index([projectId, takenAt])
   @@index([createdById])
 }

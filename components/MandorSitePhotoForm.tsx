@@ -89,9 +89,11 @@ export function MandorSitePhotoForm({
 
         const fd = new FormData(form);
         fd.delete("photos");
+        fd.delete("sourceNames");
         fd.set("date", photoDate);
         for (const item of slice) {
           fd.append("photos", item.file);
+          fd.append("sourceNames", item.sourceName);
         }
 
         const result = await uploadSitePhotosBatchAction({}, fd);

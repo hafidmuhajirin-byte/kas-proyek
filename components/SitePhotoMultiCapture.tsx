@@ -12,12 +12,15 @@ import {
   compressImageFileSquare,
   formatFileSize,
 } from "@/lib/compress-image";
+import { sourceNameFromFile } from "@/lib/site-photo-name";
 import { btnSecondaryClass } from "@/components/ui";
 
 export type QueuedSitePhoto = {
   id: string;
   file: File;
   previewUrl: string;
+  /** Nama sumber unik per proyek (cegah dobel). */
+  sourceName: string;
 };
 
 export const MAX_SITE_PHOTOS = 20;
@@ -75,7 +78,6 @@ function FilePickButton({
 function stampAtFromDate(photoDate: string): Date {
   const d = new Date(`${photoDate}T12:00:00`);
   if (Number.isNaN(d.getTime())) return new Date();
-  // Pakai jam sekarang pada tanggal yang dipilih
   const now = new Date();
   d.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
   return d;
@@ -119,7 +121,7 @@ export function SitePhotoMultiCapture({
     };
   }, []);
 
-  async function addFiles(list: FileList | null) {
+  async function addFiles(list: FileList | null, fromCamera: boolean) {
     if (!list?.length) return;
     setError(null);
     const base = itemsRef.current;
@@ -129,15 +131,29 @@ export function SitePhotoMultiCapture({
       return;
     }
 
+    const seen = new Set(base.map((i) => i.sourceName));
     const picked = Array.from(list).slice(0, room);
     setBusy(true);
     const added: QueuedSitePhoto[] = [];
+    let skippedDup = 0;
     try {
       for (let i = 0; i < picked.length; i++) {
         const raw = picked[i]!;
         if (!raw.type.startsWith("image/") && raw.type !== "") {
           continue;
         }
+
+        const sourceName = await sourceNameFromFile(raw, fromCamera);
+        if (!sourceName) {
+          skippedDup += 1;
+          continue;
+        }
+        if (seen.has(sourceName)) {
+          skippedDup += 1;
+          continue;
+        }
+        seen.add(sourceName);
+
         setProgress(`${i + 1}/${picked.length}`);
         try {
           const withStamp = stampRef.current;
@@ -159,20 +175,27 @@ export function SitePhotoMultiCapture({
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             file,
             previewUrl: URL.createObjectURL(file),
+            sourceName,
           };
           added.push(item);
           onChange([...base, ...added]);
         } catch {
-          // skip file gagal
+          seen.delete(sourceName);
         }
         await yieldToUi();
       }
 
       if (added.length === 0) {
-        setError("Tidak ada foto yang bisa ditambahkan.");
+        setError(
+          skippedDup > 0
+            ? "Foto dengan nama sama sudah ada di daftar."
+            : "Tidak ada foto yang bisa ditambahkan.",
+        );
         return;
       }
-      if (list.length > room) {
+      if (skippedDup > 0) {
+        setError(`${skippedDup} foto dilewati (nama sama).`);
+      } else if (list.length > room) {
         setError(`Maks. ${MAX_SITE_PHOTOS} foto.`);
       }
     } finally {
@@ -212,7 +235,7 @@ export function SitePhotoMultiCapture({
           accept="image/*"
           capture="environment"
           onChange={(e) => {
-            void addFiles(e.target.files);
+            void addFiles(e.target.files, true);
             e.target.value = "";
           }}
         />
@@ -222,7 +245,7 @@ export function SitePhotoMultiCapture({
           accept="image/*"
           multiple
           onChange={(e) => {
-            void addFiles(e.target.files);
+            void addFiles(e.target.files, false);
             e.target.value = "";
           }}
         />
@@ -239,9 +262,7 @@ export function SitePhotoMultiCapture({
       </div>
 
       {busy ? (
-        <p className="text-sm text-[var(--ink-faint)]">
-          {progress ?? "…"}
-        </p>
+        <p className="text-sm text-[var(--ink-faint)]">{progress ?? "…"}</p>
       ) : null}
 
       {error ? (
@@ -249,11 +270,11 @@ export function SitePhotoMultiCapture({
       ) : null}
 
       {items.length > 0 ? (
-        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        <ul className="grid grid-cols-4 gap-1">
           {items.map((item, index) => (
             <li
               key={item.id}
-              className="relative overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[#fffcf7]"
+              className="relative overflow-hidden rounded border border-[var(--line-soft)] bg-[#fffcf7]"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -264,12 +285,12 @@ export function SitePhotoMultiCapture({
               />
               <button
                 type="button"
-                className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white"
+                className="absolute right-0.5 top-0.5 rounded bg-black/60 px-1 py-0.5 text-[10px] leading-none text-white"
                 onClick={() => removeOne(item.id)}
               >
-                Hapus
+                ×
               </button>
-              <p className="truncate px-1 py-0.5 text-[10px] text-[var(--ink-faint)]">
+              <p className="truncate px-0.5 py-0.5 text-[9px] text-[var(--ink-faint)]">
                 {formatFileSize(item.file.size)}
               </p>
             </li>

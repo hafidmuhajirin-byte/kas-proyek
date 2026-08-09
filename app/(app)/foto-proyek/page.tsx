@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeleteSitePhotoButton } from "@/components/DeleteSitePhotoButton";
+import { FotoProyekDownload } from "@/components/FotoProyekDownload";
 import { FotoProyekProjectFilter } from "@/components/FotoProyekProjectFilter";
 import { EmptyState } from "@/components/ui";
 
@@ -57,6 +58,8 @@ export default async function FotoProyekPage({
       </h1>
 
       <FotoProyekProjectFilter projects={projects} projectId={projectId} />
+
+      {projectId ? <FotoProyekDownload projectId={projectId} /> : null}
 
       {photos.length === 0 ? (
         <EmptyState message="Belum ada foto." />
