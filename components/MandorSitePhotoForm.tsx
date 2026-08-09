@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { uploadSitePhotosBatchAction } from "@/lib/actions/mandor-lokasi";
 import {
+  MAX_SITE_PHOTOS,
   SitePhotoMultiCapture,
   type QueuedSitePhoto,
 } from "@/components/SitePhotoMultiCapture";
@@ -17,6 +18,10 @@ import {
 type ProjectOption = { id: string; name: string };
 
 const UPLOAD_BATCH = 5;
+
+function todayYmd() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function MandorSitePhotoForm({
   projects,
@@ -32,14 +37,13 @@ export function MandorSitePhotoForm({
   const [projectId, setProjectId] = useState(
     defaultProjectId ?? projects[0]?.id ?? "",
   );
+  const [photoDate, setPhotoDate] = useState(todayYmd);
   const [photos, setPhotos] = useState<QueuedSitePhoto[]>([]);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [gpsStatus, setGpsStatus] = useState<
     "idle" | "loading" | "ok" | "denied" | "unavailable"
   >("idle");
-
-  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -65,6 +69,10 @@ export function MandorSitePhotoForm({
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (photos.length === 0 || pending) return;
+    if (photos.length > MAX_SITE_PHOTOS) {
+      setError(`Maks. ${MAX_SITE_PHOTOS} foto.`);
+      return;
+    }
 
     const form = e.currentTarget;
     setPending(true);
@@ -77,12 +85,11 @@ export function MandorSitePhotoForm({
     try {
       for (let b = 0; b < batches; b++) {
         const slice = photos.slice(b * UPLOAD_BATCH, (b + 1) * UPLOAD_BATCH);
-        setUploadProgress(
-          `Mengunggah ${Math.min((b + 1) * UPLOAD_BATCH, total)}/${total}…`,
-        );
+        setUploadProgress(`${Math.min((b + 1) * UPLOAD_BATCH, total)}/${total}`);
 
         const fd = new FormData(form);
         fd.delete("photos");
+        fd.set("date", photoDate);
         for (const item of slice) {
           fd.append("photos", item.file);
         }
@@ -91,7 +98,7 @@ export function MandorSitePhotoForm({
         if (result.error) {
           setError(
             uploaded > 0
-              ? `${result.error} (${uploaded} foto sudah tersimpan.)`
+              ? `${result.error} (${uploaded} tersimpan)`
               : result.error,
           );
           return;
@@ -103,15 +110,16 @@ export function MandorSitePhotoForm({
         URL.revokeObjectURL(item.previewUrl);
       }
       setPhotos([]);
-      router.push(
+      setPhotoDate(todayYmd());
+      router.replace(
         `/mandor/lokasi?projectId=${encodeURIComponent(projectId)}&ok=1&n=${uploaded}`,
       );
       router.refresh();
     } catch {
       setError(
         uploaded > 0
-          ? `Koneksi terputus. ${uploaded} foto mungkin sudah tersimpan — cek daftar di bawah.`
-          : "Gagal mengunggah. Coba lagi dengan lebih sedikit foto.",
+          ? `${uploaded} tersimpan. Coba lagi untuk sisanya.`
+          : "Gagal mengunggah. Coba lagi.",
       );
     } finally {
       setPending(false);
@@ -151,48 +159,36 @@ export function MandorSitePhotoForm({
           type="date"
           className={inputClass}
           required
-          defaultValue={today}
+          value={photoDate}
+          onChange={(e) => setPhotoDate(e.target.value)}
           disabled={pending}
         />
       </Field>
 
-      <Field label="Catatan (opsional, untuk semua foto)" htmlFor="caption">
+      <Field label="Catatan" htmlFor="caption">
         <input
           id="caption"
           name="caption"
           className={inputClass}
-          placeholder="Mis. progress dinding, tapak, dll."
+          placeholder="Opsional"
           maxLength={500}
           disabled={pending}
         />
       </Field>
 
-      <Field label="Foto lokasi (wajib, 1:1)">
+      <Field label="Foto">
         <SitePhotoMultiCapture
           items={photos}
           onChange={setPhotos}
           latitude={latitude}
           longitude={longitude}
+          photoDate={photoDate}
         />
       </Field>
 
-      <div className="rounded-lg border border-teal-200/80 bg-teal-50/70 px-3 py-2 text-sm text-teal-950">
-        {gpsStatus === "loading" ? (
-          <p>Mengambil koordinat GPS…</p>
-        ) : gpsStatus === "ok" ? (
-          <p>
-            GPS: {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
-          </p>
-        ) : gpsStatus === "denied" ? (
-          <p>
-            Izin lokasi ditolak — foto tetap bisa disimpan tanpa koordinat.
-          </p>
-        ) : gpsStatus === "unavailable" ? (
-          <p>GPS tidak tersedia di perangkat ini.</p>
-        ) : (
-          <p>Koordinat GPS akan diambil saat halaman dibuka.</p>
-        )}
-      </div>
+      {gpsStatus === "denied" || gpsStatus === "unavailable" ? (
+        <p className="text-xs text-[var(--ink-faint)]">Tanpa GPS</p>
+      ) : null}
 
       {uploadProgress ? (
         <p className="text-center text-sm font-medium text-teal-900">
@@ -206,7 +202,7 @@ export function MandorSitePhotoForm({
         disabled={pending || photos.length === 0}
       >
         {pending
-          ? uploadProgress ?? "Mengunggah…"
+          ? uploadProgress ?? "…"
           : photos.length > 1
             ? `Unggah ${photos.length} foto`
             : "Unggah foto"}

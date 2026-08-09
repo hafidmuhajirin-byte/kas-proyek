@@ -5,7 +5,7 @@ import { COOKIE_NAME, verifySessionToken, type SessionUser } from "@/lib/session
 const publicPaths = ["/login"];
 
 function homeForSession(session: SessionUser) {
-  if (session.role === "MANDOR" && session.fotoOnly) return "/mandor/lokasi";
+  if (session.role === "ADM_FOTO") return "/mandor/lokasi";
   if (session.role === "MANDOR") return "/mandor";
   if (session.role === "ADMIN") return "/admin/lpj";
   return "/dashboard";
@@ -61,19 +61,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (session?.role === "ADM_FOTO") {
+    const allowed =
+      pathname.startsWith("/mandor/lokasi") || pathname.startsWith("/api/");
+    if (!allowed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/mandor/lokasi";
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (session?.role === "MANDOR") {
     if (!pathname.startsWith("/mandor")) {
       const url = request.nextUrl.clone();
       url.pathname = homeForSession(session);
-      return NextResponse.redirect(url);
-    }
-    // Mode hanya foto: blok beranda status & upload bukti
-    if (
-      session.fotoOnly &&
-      (pathname === "/mandor" || pathname.startsWith("/mandor/upload"))
-    ) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/mandor/lokasi";
       return NextResponse.redirect(url);
     }
   }

@@ -8,8 +8,19 @@ import type { FormState } from "@/lib/actions/projects";
 import type { SessionRole } from "@/lib/session";
 
 function parseRole(raw: string): SessionRole | null {
-  if (raw === "OWNER" || raw === "ADMIN" || raw === "MANDOR") return raw;
+  if (
+    raw === "OWNER" ||
+    raw === "ADMIN" ||
+    raw === "MANDOR" ||
+    raw === "ADM_FOTO"
+  ) {
+    return raw;
+  }
   return null;
+}
+
+function needsProjectAssignment(role: SessionRole): boolean {
+  return role === "MANDOR" || role === "ADM_FOTO";
 }
 
 function revalidateUsersAndMandor() {
@@ -18,12 +29,6 @@ function revalidateUsersAndMandor() {
   revalidatePath("/mandor/upload");
   revalidatePath("/mandor/lokasi");
   revalidatePath("/projects");
-}
-
-function parseFotoOnly(formData: FormData, role: SessionRole): boolean {
-  if (role !== "MANDOR") return false;
-  const raw = formData.get("fotoOnly");
-  return raw === "1" || raw === "on" || raw === "true";
 }
 
 export async function createUserAction(
@@ -48,10 +53,12 @@ export async function createUserAction(
   if (password.length < 6) {
     return { error: "Password minimal 6 karakter." };
   }
-  if (role === "MANDOR" && projectIds.length === 0) {
+  if (needsProjectAssignment(role) && projectIds.length === 0) {
     return {
       error:
-        "Mandor wajib ditugaskan ke minimal 1 proyek agar muncul di login Mandor.",
+        role === "ADM_FOTO"
+          ? "ADM Foto wajib ditugaskan ke minimal 1 proyek."
+          : "Mandor wajib ditugaskan ke minimal 1 proyek agar muncul di login Mandor.",
     };
   }
 
@@ -67,19 +74,16 @@ export async function createUserAction(
     }
   }
 
-  const fotoOnly = parseFotoOnly(formData, role);
-
   const user = await prisma.user.create({
     data: {
       username,
       name,
       passwordHash: hashSync(password, 10),
       role,
-      fotoOnly,
     },
   });
 
-  if (role === "MANDOR" && projectIds.length > 0) {
+  if (needsProjectAssignment(role) && projectIds.length > 0) {
     await prisma.projectAssignment.createMany({
       data: projectIds.map((projectId) => ({
         userId: user.id,
@@ -123,7 +127,7 @@ export async function updateUserAction(
   if (!existing) return { error: "Pengguna tidak ditemukan." };
 
   let nextAssignmentIds: string[] = [];
-  if (role === "MANDOR") {
+  if (needsProjectAssignment(role)) {
     const previous = new Set(
       existing.projectAssignments.map((a) => a.projectId),
     );
@@ -134,19 +138,18 @@ export async function updateUserAction(
     if (nextAssignmentIds.length === 0) {
       return {
         error:
-          "Mandor wajib ditugaskan ke minimal 1 proyek. Centang proyek di bawah.",
+          role === "ADM_FOTO"
+            ? "ADM Foto wajib ditugaskan ke minimal 1 proyek. Centang proyek di bawah."
+            : "Mandor wajib ditugaskan ke minimal 1 proyek. Centang proyek di bawah.",
       };
     }
   }
-
-  const fotoOnly = parseFotoOnly(formData, role);
 
   await prisma.user.update({
     where: { id },
     data: {
       name,
       role,
-      fotoOnly,
       ...(password.length >= 6
         ? { passwordHash: hashSync(password, 10) }
         : {}),
@@ -154,7 +157,7 @@ export async function updateUserAction(
   });
 
   await prisma.projectAssignment.deleteMany({ where: { userId: id } });
-  if (role === "MANDOR" && nextAssignmentIds.length > 0) {
+  if (needsProjectAssignment(role) && nextAssignmentIds.length > 0) {
     await prisma.projectAssignment.createMany({
       data: nextAssignmentIds.map((projectId) => ({
         userId: id,

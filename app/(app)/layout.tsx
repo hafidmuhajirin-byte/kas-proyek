@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { MandorShell } from "@/components/MandorShell";
-import { isMandor, requireSession } from "@/lib/auth";
+import { isMandorLike, requireSession } from "@/lib/auth";
 
 export default async function AppLayout({
   children,
@@ -9,7 +9,7 @@ export default async function AppLayout({
 }) {
   const user = await requireSession();
 
-  if (isMandor(user)) {
+  if (isMandorLike(user)) {
     return <MandorShell user={user}>{children}</MandorShell>;
   }
 

@@ -20,7 +20,7 @@ export type QueuedSitePhoto = {
   previewUrl: string;
 };
 
-const MAX_PHOTOS = 20;
+export const MAX_SITE_PHOTOS = 20;
 /** Lebih kecil = lebih ringan di HP (masih cukup jelas untuk dokumentasi). */
 const SITE_MAX_EDGE = 800;
 const SITE_MAX_BYTES = 180 * 1024;
@@ -72,24 +72,37 @@ function FilePickButton({
   );
 }
 
+function stampAtFromDate(photoDate: string): Date {
+  const d = new Date(`${photoDate}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return new Date();
+  // Pakai jam sekarang pada tanggal yang dipilih
+  const now = new Date();
+  d.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
+  return d;
+}
+
 export function SitePhotoMultiCapture({
   items,
   onChange,
   latitude,
   longitude,
+  photoDate,
 }: {
   items: QueuedSitePhoto[];
   onChange: (next: QueuedSitePhoto[]) => void;
   latitude?: string;
   longitude?: string;
+  /** YYYY-MM-DD — dipakai stempel waktu di foto */
+  photoDate: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** Stempel waktu/GPS di foto — bisa dicentang atau tidak. */
   const [useTimestamp, setUseTimestamp] = useState(true);
   const stampRef = useRef(useTimestamp);
   stampRef.current = useTimestamp;
+  const dateRef = useRef(photoDate);
+  dateRef.current = photoDate;
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -110,9 +123,9 @@ export function SitePhotoMultiCapture({
     if (!list?.length) return;
     setError(null);
     const base = itemsRef.current;
-    const room = MAX_PHOTOS - base.length;
+    const room = MAX_SITE_PHOTOS - base.length;
     if (room <= 0) {
-      setError(`Maksimal ${MAX_PHOTOS} foto sekaligus.`);
+      setError(`Maks. ${MAX_SITE_PHOTOS} foto.`);
       return;
     }
 
@@ -125,7 +138,7 @@ export function SitePhotoMultiCapture({
         if (!raw.type.startsWith("image/") && raw.type !== "") {
           continue;
         }
-        setProgress(`Memproses ${i + 1}/${picked.length}…`);
+        setProgress(`${i + 1}/${picked.length}`);
         try {
           const withStamp = stampRef.current;
           const file = await compressImageFileSquare(raw, {
@@ -134,7 +147,7 @@ export function SitePhotoMultiCapture({
             quality: 0.65,
             stamp: withStamp
               ? {
-                  at: new Date(),
+                  at: stampAtFromDate(dateRef.current),
                   latitude:
                     latNum != null && Number.isFinite(latNum) ? latNum : null,
                   longitude:
@@ -160,9 +173,7 @@ export function SitePhotoMultiCapture({
         return;
       }
       if (list.length > room) {
-        setError(
-          `Hanya ${room} foto lagi yang ditambahkan (batas ${MAX_PHOTOS}).`,
-        );
+        setError(`Maks. ${MAX_SITE_PHOTOS} foto.`);
       }
     } finally {
       setBusy(false);
@@ -183,28 +194,21 @@ export function SitePhotoMultiCapture({
 
   return (
     <div className="space-y-3">
-      <label className="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border border-[var(--line-soft)] bg-[#fffcf7] px-3 py-3">
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-[var(--ink)]">
         <input
           type="checkbox"
-          className="mt-1 h-5 w-5 shrink-0 accent-teal-700"
+          className="h-5 w-5 shrink-0 accent-teal-700"
           checked={useTimestamp}
           disabled={busy}
           onChange={(e) => setUseTimestamp(e.target.checked)}
         />
-        <span className="text-sm text-[var(--ink)]">
-          <span className="font-medium">Stempel waktu (timestamp)</span>
-          <span className="mt-0.5 block text-xs text-[var(--ink-faint)]">
-            {useTimestamp
-              ? `Centang aktif — tanggal/jam${latNum != null && lngNum != null ? " + GPS" : ""} ditulis di foto.`
-              : "Tidak dicentang — foto tanpa stempel waktu."}
-          </span>
-        </span>
+        <span className="font-medium">Stempel waktu</span>
       </label>
 
       <div className="flex flex-wrap gap-2">
         <FilePickButton
           label="Ambil foto"
-          disabled={busy || items.length >= MAX_PHOTOS}
+          disabled={busy || items.length >= MAX_SITE_PHOTOS}
           accept="image/*"
           capture="environment"
           onChange={(e) => {
@@ -213,9 +217,9 @@ export function SitePhotoMultiCapture({
           }}
         />
         <FilePickButton
-          label="Dari galeri"
-          disabled={busy || items.length >= MAX_PHOTOS}
-          accept="image/jpeg,image/png,image/webp"
+          label={`Galeri (max ${MAX_SITE_PHOTOS})`}
+          disabled={busy || items.length >= MAX_SITE_PHOTOS}
+          accept="image/*"
           multiple
           onChange={(e) => {
             void addFiles(e.target.files);
@@ -236,14 +240,9 @@ export function SitePhotoMultiCapture({
 
       {busy ? (
         <p className="text-sm text-[var(--ink-faint)]">
-          {progress ?? "Memproses foto…"}
+          {progress ?? "…"}
         </p>
-      ) : (
-        <p className="text-xs text-[var(--ink-faint)]">
-          Ambil berkali-kali, lalu unggah. Foto 1:1 diperkecil agar HP tidak
-          berat. Maks. {MAX_PHOTOS} foto — unggah per 5 foto.
-        </p>
-      )}
+      ) : null}
 
       {error ? (
         <p className="text-sm text-[var(--rose-ink)]">{error}</p>
@@ -278,9 +277,11 @@ export function SitePhotoMultiCapture({
         </ul>
       ) : null}
 
-      <p className="text-sm font-medium text-[var(--ink)]">
-        {items.length} foto siap diunggah
-      </p>
+      {items.length > 0 ? (
+        <p className="text-sm font-medium text-[var(--ink)]">
+          {items.length}/{MAX_SITE_PHOTOS} foto
+        </p>
+      ) : null}
     </div>
   );
 }

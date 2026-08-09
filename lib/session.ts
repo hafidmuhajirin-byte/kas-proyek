@@ -2,15 +2,13 @@ import { SignJWT, jwtVerify } from "jose";
 
 export const COOKIE_NAME = "kas_session";
 
-export type SessionRole = "OWNER" | "ADMIN" | "MANDOR";
+export type SessionRole = "OWNER" | "ADMIN" | "MANDOR" | "ADM_FOTO";
 
 export type SessionUser = {
   id: string;
   username: string;
   name: string;
   role: SessionRole;
-  /** Mandor mode hanya foto (tanpa status kas). Default false. */
-  fotoOnly?: boolean;
 };
 
 function getSecret() {
@@ -22,7 +20,12 @@ function getSecret() {
 }
 
 function isSessionRole(role: unknown): role is SessionRole {
-  return role === "OWNER" || role === "ADMIN" || role === "MANDOR";
+  return (
+    role === "OWNER" ||
+    role === "ADMIN" ||
+    role === "MANDOR" ||
+    role === "ADM_FOTO"
+  );
 }
 
 export async function createSessionToken(user: SessionUser): Promise<string> {
@@ -31,7 +34,6 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
     username: user.username,
     name: user.name,
     role: user.role,
-    fotoOnly: Boolean(user.fotoOnly),
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -57,7 +59,6 @@ export async function verifySessionToken(
       username: payload.username,
       name: payload.name,
       role: payload.role,
-      fotoOnly: Boolean(payload.fotoOnly),
     };
   } catch {
     return null;

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import {
-  isMandor,
+  isMandorLike,
   isOwner,
   requireProjectAccess,
   requireSession,
@@ -63,8 +63,8 @@ async function savePhotosFromForm(
   formData: FormData,
 ): Promise<UploadResult> {
   const user = await requireSession();
-  if (!isMandor(user)) {
-    return { error: "Hanya Mandor yang dapat mengunggah foto lokasi." };
+  if (!isMandorLike(user)) {
+    return { error: "Hanya Mandor / ADM Foto yang dapat mengunggah foto." };
   }
 
   const projectId = String(formData.get("projectId") ?? "");

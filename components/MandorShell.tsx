@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
-import type { SessionUser } from "@/lib/auth";
+import type { SessionUser } from "@/lib/session";
 
 export function MandorShell({
   user,
@@ -13,9 +13,9 @@ export function MandorShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const fotoOnly = Boolean(user.fotoOnly);
+  const admFoto = user.role === "ADM_FOTO";
 
-  const nav = fotoOnly
+  const nav = admFoto
     ? [{ href: "/mandor/lokasi", label: "Foto Proyek", short: "Foto" }]
     : [
         { href: "/mandor", label: "Beranda", short: "Home" },
@@ -34,11 +34,10 @@ export function MandorShell({
         <div className="safe-top-bar flex items-center justify-between px-4 pb-3">
           <div className="min-w-0">
             <p className="font-serif text-xl text-[var(--ink)]">
-              {fotoOnly ? "Foto Proyek" : "Kas Mandor"}
+              {admFoto ? "ADM Foto" : "Kas Mandor"}
             </p>
             <p className="truncate text-xs text-[var(--ink-faint)]">
               {user.name}
-              {fotoOnly ? " · hanya foto" : ""}
             </p>
           </div>
           <form action={logoutAction}>

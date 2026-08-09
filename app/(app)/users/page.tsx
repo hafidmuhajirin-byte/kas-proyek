@@ -26,7 +26,7 @@ export default async function UsersPage() {
     <div>
       <PageHeader
         title="Pengguna"
-        description="Kelola Owner, Admin, dan Mandor. Mandor wajib ditugaskan ke proyek agar muncul di login Mandor."
+        description="Kelola Owner, Admin, Mandor, dan ADM Foto. Mandor/ADM Foto wajib ditugaskan ke proyek."
       />
 
       <Card className="mb-6">
@@ -50,10 +50,8 @@ export default async function UsersPage() {
                   <p className="font-medium text-[var(--ink)]">{u.name}</p>
                   <p className="text-sm text-[var(--ink-faint)]">
                     @{u.username} · {roleLabels[u.role] ?? u.role}
-                    {u.role === "MANDOR" && u.fotoOnly ? (
-                      <span className="ml-2 text-teal-800">· hanya foto</span>
-                    ) : null}
-                    {u.role === "MANDOR" && assignedIds.size === 0 ? (
+                    {(u.role === "MANDOR" || u.role === "ADM_FOTO") &&
+                    assignedIds.size === 0 ? (
                       <span className="ml-2 text-amber-700">
                         · belum ada proyek
                       </span>
@@ -68,7 +66,6 @@ export default async function UsersPage() {
                   username: u.username,
                   name: u.name,
                   role: u.role,
-                  fotoOnly: u.fotoOnly,
                   projectIds: u.projectAssignments.map((a) => a.projectId),
                 }}
                 projects={formProjects.map((p) => ({

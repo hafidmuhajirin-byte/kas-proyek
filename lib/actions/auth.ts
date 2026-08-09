@@ -34,13 +34,11 @@ export async function loginAction(
   }
 
   const role = user.role as SessionRole;
-  const fotoOnly = role === "MANDOR" && Boolean(user.fotoOnly);
   const sessionUser = {
     id: user.id,
     username: user.username,
     name: user.name,
     role,
-    fotoOnly,
   };
   const token = await createSessionToken(sessionUser);
   await setSessionCookie(token);

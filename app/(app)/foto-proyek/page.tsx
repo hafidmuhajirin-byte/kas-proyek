@@ -1,7 +1,12 @@
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { redirect } from "next/navigation";
-import { isMandor, isOwner, requireSession } from "@/lib/auth";
+import {
+  homePathForUser,
+  isMandorLike,
+  isOwner,
+  requireSession,
+} from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeleteSitePhotoButton } from "@/components/DeleteSitePhotoButton";
 import { FotoProyekProjectFilter } from "@/components/FotoProyekProjectFilter";
@@ -13,7 +18,7 @@ export default async function FotoProyekPage({
   searchParams: Promise<{ projectId?: string }>;
 }) {
   const user = await requireSession();
-  if (isMandor(user)) redirect("/mandor");
+  if (isMandorLike(user)) redirect(homePathForUser(user));
   const owner = isOwner(user);
 
   const params = await searchParams;

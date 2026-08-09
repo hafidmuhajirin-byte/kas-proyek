@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   getAccessibleProjectIds,
-  isMandor,
+  isAdmFoto,
+  isMandorLike,
   requireSession,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +18,7 @@ export default async function MandorLokasiPage({
   searchParams: Promise<{ projectId?: string; ok?: string; n?: string }>;
 }) {
   const user = await requireSession();
-  if (!isMandor(user)) redirect("/dashboard");
+  if (!isMandorLike(user)) redirect("/dashboard");
 
   const params = await searchParams;
   const ids = await getAccessibleProjectIds(user);
@@ -58,22 +59,18 @@ export default async function MandorLokasiPage({
     },
   });
 
+  const admFoto = isAdmFoto(user);
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-serif text-2xl text-[var(--ink)]">Foto proyek</h1>
-        <p className="mt-1 text-sm text-[var(--ink-muted)]">
-          Ambil beberapa foto (1:1), lalu unggah sekaligus. Owner/Admin melihat
-          di menu Foto Proyek.
-        </p>
-      </div>
+      <h1 className="font-serif text-2xl text-[var(--ink)]">Foto proyek</h1>
 
       {params.ok === "1" ? (
-        <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-950">
+        <p className="text-sm text-teal-900">
           {params.n && Number(params.n) > 1
-            ? `${params.n} foto berhasil diunggah.`
-            : "Foto berhasil diunggah."}
-        </div>
+            ? `${params.n} foto tersimpan.`
+            : "Tersimpan."}
+        </p>
       ) : null}
 
       <Card>
@@ -84,7 +81,7 @@ export default async function MandorLokasiPage({
       </Card>
 
       <section className="space-y-3">
-        <h2 className="font-serif text-xl text-[var(--ink)]">Foto terbaru</h2>
+        <h2 className="font-serif text-xl text-[var(--ink)]">Terbaru</h2>
         {recent.length === 0 ? (
           <p className="text-sm text-[var(--ink-faint)]">Belum ada foto.</p>
         ) : (
@@ -110,18 +107,16 @@ export default async function MandorLokasiPage({
                     {format(photo.takenAt, "d MMM yyyy", { locale: localeId })}
                     {photo.caption ? ` · ${photo.caption}` : ""}
                   </p>
-                  <div className="flex flex-wrap gap-3 text-xs">
-                    {photo.latitude != null && photo.longitude != null ? (
-                      <a
-                        href={`https://maps.google.com/?q=${photo.latitude},${photo.longitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-teal-800 underline"
-                      >
-                        Lihat di peta
-                      </a>
-                    ) : null}
-                  </div>
+                  {photo.latitude != null && photo.longitude != null ? (
+                    <a
+                      href={`https://maps.google.com/?q=${photo.latitude},${photo.longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-teal-800 underline"
+                    >
+                      Peta
+                    </a>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -129,11 +124,13 @@ export default async function MandorLokasiPage({
         )}
       </section>
 
-      <p className="text-center text-sm">
-        <Link href="/mandor" className="text-[var(--accent)] underline">
-          Kembali ke beranda
-        </Link>
-      </p>
+      {!admFoto ? (
+        <p className="text-center text-sm">
+          <Link href="/mandor" className="text-[var(--accent)] underline">
+            Beranda
+          </Link>
+        </p>
+      ) : null}
     </div>
   );
 }

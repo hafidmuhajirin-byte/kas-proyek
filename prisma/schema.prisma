@@ -11,6 +11,7 @@ enum Role {
   OWNER
   ADMIN
   MANDOR
+  ADM_FOTO
 }
 
 enum ProjectStatus {
@@ -47,8 +48,6 @@ model User {
   name         String
   passwordHash String
   role         Role          @default(MANDOR)
-  /// Mandor hanya foto proyek — tanpa status dana/bukti
-  fotoOnly     Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   transactions Transaction[]

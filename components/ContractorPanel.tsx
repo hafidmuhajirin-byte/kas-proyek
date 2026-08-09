@@ -34,7 +34,12 @@ type MandorDisbursementRow = {
   hasKasBesar?: boolean;
 };
 
-type MandorOption = { id: string; name: string; username?: string };
+type MandorOption = {
+  id: string;
+  name: string;
+  username?: string;
+  role?: string;
+};
 
 export type SpkManajemenPagu = {
   perencanaan: number;

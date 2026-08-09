@@ -91,9 +91,14 @@ export function isMandor(user: SessionUser): boolean {
   return user.role === "MANDOR";
 }
 
-/** Mandor yang hanya boleh foto proyek (tanpa status dana/bukti). */
-export function isFotoOnlyMandor(user: SessionUser): boolean {
-  return user.role === "MANDOR" && Boolean(user.fotoOnly);
+/** Login khusus foto proyek (tanpa status dana/bukti). */
+export function isAdmFoto(user: SessionUser): boolean {
+  return user.role === "ADM_FOTO";
+}
+
+/** Mandor atau ADM Foto — shell foto / penugasan proyek. */
+export function isMandorLike(user: SessionUser): boolean {
+  return user.role === "MANDOR" || user.role === "ADM_FOTO";
 }
 
 export function canMutateCash(user: SessionUser): boolean {
@@ -121,19 +126,15 @@ export async function requireBreakdownAccess(): Promise<SessionUser> {
   return session;
 }
 
-export function homePathForRole(
-  role: SessionRole,
-  fotoOnly = false,
-): string {
-  if (role === "MANDOR") return fotoOnly ? "/mandor/lokasi" : "/mandor";
+export function homePathForRole(role: SessionRole): string {
+  if (role === "ADM_FOTO") return "/mandor/lokasi";
+  if (role === "MANDOR") return "/mandor";
   if (role === "ADMIN") return "/admin/lpj";
   return "/dashboard";
 }
 
-export function homePathForUser(
-  user: Pick<SessionUser, "role" | "fotoOnly">,
-): string {
-  return homePathForRole(user.role, Boolean(user.fotoOnly));
+export function homePathForUser(user: Pick<SessionUser, "role">): string {
+  return homePathForRole(user.role);
 }
 
 export async function getAccessibleProjectIds(

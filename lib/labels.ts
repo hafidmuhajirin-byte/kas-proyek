@@ -19,6 +19,7 @@ export const roleLabels: Record<string, string> = {
   OWNER: "Owner",
   ADMIN: "Admin",
   MANDOR: "Mandor",
+  ADM_FOTO: "ADM Foto",
 };
 
 export const fundingStatusLabels: Record<string, string> = {

@@ -13,7 +13,12 @@ import {
   inputClass,
 } from "@/components/ui";
 
-type MandorOption = { id: string; name: string; username?: string };
+type MandorOption = {
+  id: string;
+  name: string;
+  username?: string;
+  role?: string;
+};
 
 function AssignForm({
   projectId,
@@ -30,7 +35,7 @@ function AssignForm({
   if (available.length === 0) {
     return (
       <p className="text-sm text-[var(--ink-faint)]">
-        Semua Mandor sudah ditugaskan, atau belum ada akun Mandor. Buat di menu{" "}
+        Semua sudah ditugaskan, atau belum ada akun. Buat di{" "}
         <a href="/users" className="underline">
           Pengguna
         </a>
@@ -43,7 +48,7 @@ function AssignForm({
     <form action={action} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="projectId" value={projectId} />
       <div className="min-w-[12rem] flex-1">
-        <Field label="Pilih Mandor">
+        <Field label="Pilih Mandor / ADM Foto">
           <select name="userId" className={inputClass} required defaultValue="">
             <option value="" disabled>
               — pilih —
@@ -51,6 +56,7 @@ function AssignForm({
             {available.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
+                {m.role === "ADM_FOTO" ? " · ADM Foto" : ""}
                 {m.username ? ` (@${m.username})` : ""}
               </option>
             ))}
@@ -130,16 +136,18 @@ export function MandorAssignPanel({
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="font-medium text-[var(--ink)]">Mandor ditugaskan</h3>
+        <h3 className="font-medium text-[var(--ink)]">
+          Mandor / ADM Foto ditugaskan
+        </h3>
         <p className="text-xs text-[var(--ink-faint)]">
-          Hanya Mandor yang ditugaskan di sini yang melihat proyek ini saat
-          login. Data pemborong saja tidak cukup.
+          Yang ditugaskan di sini melihat proyek ini saat login.
         </p>
       </div>
 
       {assigned.length === 0 ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          Belum ada Mandor ditugaskan — proyek tidak muncul di aplikasi Mandor.
+          Belum ada yang ditugaskan — proyek tidak muncul di login Mandor/ADM
+          Foto.
         </p>
       ) : (
         <ul className="divide-y divide-[var(--line-soft)] rounded-lg border border-[var(--line)]">
@@ -150,6 +158,9 @@ export function MandorAssignPanel({
             >
               <span className="font-medium text-[var(--ink)]">
                 {m.name}
+                {m.role === "ADM_FOTO" ? (
+                  <span className="font-normal text-teal-800"> · ADM Foto</span>
+                ) : null}
                 {m.username ? (
                   <span className="font-normal text-[var(--ink-faint)]">
                     {" "}

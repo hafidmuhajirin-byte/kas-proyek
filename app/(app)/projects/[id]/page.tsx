@@ -191,15 +191,18 @@ export default async function ProjectDetailPage({
     }),
     getGlobalCashBreakdown(),
     prisma.projectAssignment.findMany({
-      where: { projectId: id, user: { role: "MANDOR" } },
+      where: {
+        projectId: id,
+        user: { role: { in: ["MANDOR", "ADM_FOTO"] } },
+      },
       include: {
-        user: { select: { id: true, name: true, username: true } },
+        user: { select: { id: true, name: true, username: true, role: true } },
       },
     }),
     prisma.user.findMany({
-      where: { role: "MANDOR" },
+      where: { role: { in: ["MANDOR", "ADM_FOTO"] } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, username: true },
+      select: { id: true, name: true, username: true, role: true },
     }),
     prisma.mandorDisbursement.findMany({
       where: { projectId: id },
@@ -403,11 +406,14 @@ export default async function ProjectDetailPage({
   const isPayAtEnd = project.billingMode === "PAY_AT_END";
   const showTermin = project.billingMode === "TERMIN_PLAN";
 
+  const cashAssignedMandors = assignedMandors.filter(
+    (a) => a.user.role === "MANDOR",
+  );
   const fundMap = await getMandorFundSummariesFor(
-    assignedMandors.map((a) => ({ projectId: id, mandorId: a.userId })),
+    cashAssignedMandors.map((a) => ({ projectId: id, mandorId: a.userId })),
   );
   const overspend: { mandorName: string; amount: number }[] = [];
-  const fundBriefs = assignedMandors.map((a) => {
+  const fundBriefs = cashAssignedMandors.map((a) => {
     const s = fundMap.get(`${id}::${a.userId}`);
     if (s && s.sisa < 0) {
       overspend.push({ mandorName: a.user.name, amount: -s.sisa });
@@ -567,6 +573,7 @@ export default async function ProjectDetailPage({
           id: a.user.id,
           name: a.user.name,
           username: a.user.username,
+          role: a.user.role,
         }))}
         allMandors={allMandors}
         mandorDisbursements={disbursements.map((d) => ({
