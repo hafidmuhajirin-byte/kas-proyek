@@ -10,8 +10,13 @@
 import { formatBkuQty } from "@/lib/buku-kas/bku";
 import type { BkuExpenseLineInput } from "@/lib/buku-kas/bku";
 import { resolveExpenseLinesForCashBook } from "@/lib/buku-kas/labor-summary";
+import { rewriteJasaPerencanaanPengawasan } from "@/lib/lpj/jasa-labels";
 import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 import type { TaxLineResult } from "@/lib/lpj/tax-compliance";
+
+function uraian(text: string | null | undefined, fallback: string) {
+  return rewriteJasaPerencanaanPengawasan(text?.trim() || fallback);
+}
 
 export type BktLedgerTx = {
   id?: string;
@@ -262,7 +267,7 @@ export function buildBktMonthBlocks(
           status: "",
           quantity: null,
           unit: null,
-          description: tx.description || "Penerimaan",
+          description: uraian(tx.description, "Penerimaan"),
           unitPrice: null,
           income: amount,
           expense: 0,
@@ -301,7 +306,7 @@ export function buildBktMonthBlocks(
             status: lineStatus(line.kind, line.description),
             quantity: qty,
             unit: line.unit ?? (line.kind === "LABOR" ? "hari" : null),
-            description: line.description || tx.description || "Pengeluaran",
+            description: uraian(line.description || tx.description, "Pengeluaran"),
             unitPrice,
             income: 0,
             expense: lineAmt,
@@ -322,7 +327,7 @@ export function buildBktMonthBlocks(
           status: lineStatus(kindHint, tx.description),
           quantity: null,
           unit: null,
-          description: tx.description || "Pengeluaran",
+          description: uraian(tx.description, "Pengeluaran"),
           unitPrice: null,
           income: 0,
           expense: amount,

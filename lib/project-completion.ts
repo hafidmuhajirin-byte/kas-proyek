@@ -11,8 +11,8 @@ export const projectChecklistKeys = [
 export type ProjectChecklistKey = (typeof projectChecklistKeys)[number];
 
 export const projectChecklistLabels: Record<ProjectChecklistKey, string> = {
-  checkPlanning: "Dana perencanaan terbayar",
-  checkSupervision: "Dana pengawasan terbayar",
+  checkPlanning: "Bayar Jasa Perencanaan terbayar",
+  checkSupervision: "Bayar jasa Pengawasan terbayar",
   checkManagement: "Dana pengelolaan terbayar",
   checkTax: "Pajak terbayar",
   checkReporting: "Dana laporan terbayar",

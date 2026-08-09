@@ -6,8 +6,13 @@
 
 import type { BankMonthBlock } from "@/lib/buku-kas/bank";
 import { resolveExpenseLinesForCashBook } from "@/lib/buku-kas/labor-summary";
+import { rewriteJasaPerencanaanPengawasan } from "@/lib/lpj/jasa-labels";
 import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 import type { TaxLineResult } from "@/lib/lpj/tax-compliance";
+
+function uraian(text: string | null | undefined, fallback: string) {
+  return rewriteJasaPerencanaanPengawasan(text?.trim() || fallback);
+}
 
 /** Kode Jenis Biaya di kolom pengeluaran BKU. */
 export type BkuCostType = "A" | "B" | "C" | "D" | "";
@@ -282,7 +287,7 @@ export function buildBkuMonthBlocks(
       if (tx.type === "INCOME") {
         incomes.push({
           date: tx.date,
-          description: tx.description || "Penerimaan",
+          description: uraian(tx.description, "Penerimaan"),
           amount,
         });
         totals.totalIncome += amount;
@@ -327,7 +332,7 @@ export function buildBkuMonthBlocks(
           const lineAmt = Math.round(line.amount);
           expenses.push({
             date: idx === 0 ? tx.date : null,
-            description: line.description || tx.description || "Pengeluaran",
+            description: uraian(line.description || tx.description, "Pengeluaran"),
             amount: lineAmt,
             proofNo: idx === 0 ? buktiNo : "",
             costType: mapExpenseCostType(tx.categoryName, line.kind),
@@ -347,7 +352,7 @@ export function buildBkuMonthBlocks(
           : undefined;
         expenses.push({
           date: tx.date,
-          description: tx.description || "Pengeluaran",
+          description: uraian(tx.description, "Pengeluaran"),
           amount,
           proofNo: buktiNo,
           costType: mapExpenseCostType(tx.categoryName, kindHint),

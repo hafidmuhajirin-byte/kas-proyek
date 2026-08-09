@@ -171,7 +171,8 @@ export default async function AdminLpjPajakPage({
 
         <Card className="mt-4 text-sm text-[var(--ink-muted)]">
           Rekapitulasi diisi otomatis dari nota (PPN 11% + PPh 22 untuk belanja
-          manufaktur &gt; Rp 2 jt; PPh Final 3,5% perencanaan/pengawasan). Judul
+          manufaktur &gt; Rp 2 jt; PPh Final 3,5% Bayar Jasa
+          Perencanaan/Pengawasan). Judul
           = catatan proyek. Sesuaikan NPWP di bawah, lalu cetak.
         </Card>
 

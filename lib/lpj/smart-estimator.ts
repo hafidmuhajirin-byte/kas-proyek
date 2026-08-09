@@ -2,6 +2,11 @@
  * Smart Estimator — target rasio upah vs material per kategori SPK.
  */
 
+import {
+  LABEL_BAYAR_JASA_PENGAWASAN,
+  LABEL_BAYAR_JASA_PERENCANAAN,
+} from "@/lib/lpj/jasa-labels";
+
 export type SpkCategoryKey =
   | "PERENCANAAN"
   | "PENGAWASAN"
@@ -15,8 +20,8 @@ export type SpkCategoryKey =
   | "SANITASI";
 
 export const SPK_CATEGORY_LABELS: Record<SpkCategoryKey, string> = {
-  PERENCANAAN: "Perencanaan",
-  PENGAWASAN: "Pengawasan",
+  PERENCANAAN: LABEL_BAYAR_JASA_PERENCANAAN,
+  PENGAWASAN: LABEL_BAYAR_JASA_PENGAWASAN,
   PENGELOLAAN: "Pengelolaan",
   REHAB_FISIK: "Rehab Fisik",
   REHAB_MEBELAIR: "Rehab Mebelair",
@@ -262,7 +267,7 @@ export function buildSpkRingkasanTable(
           : null;
       const label =
         sec.key === "MANAJEMEN" && percentOfSpk != null
-          ? `Biaya ${line.label} (${percentOfSpk.toLocaleString("id-ID")}%)`
+          ? `${line.label} (${percentOfSpk.toLocaleString("id-ID")}%)`
           : line.label;
       rows.push({
         kind: "item",

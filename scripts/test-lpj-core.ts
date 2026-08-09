@@ -16,6 +16,11 @@ import {
   roundDownToThousand,
 } from "../lib/contractor";
 import {
+  LABEL_BAYAR_JASA_PENGAWASAN,
+  LABEL_BAYAR_JASA_PERENCANAAN,
+  rewriteJasaPerencanaanPengawasan,
+} from "../lib/lpj/jasa-labels";
+import {
   buildBankMonthBlocks,
   buildBankMutationsFromProject,
   plannedTranchesFromContract,
@@ -149,6 +154,25 @@ function assert(cond: boolean, msg: string) {
   assert(
     table.sections[1].rows[0].label.includes("%"),
     "manajemen tampilkan % dari SPK",
+  );
+}
+
+// Label Bayar Jasa Perencanaan / Pengawasan
+{
+  assert(
+    rewriteJasaPerencanaanPengawasan("Penyerahan ke perencanaan CV") ===
+      `Penyerahan ke ${LABEL_BAYAR_JASA_PERENCANAAN} CV`,
+    "rewrite perencanaan",
+  );
+  assert(
+    rewriteJasaPerencanaanPengawasan("Penyerahn Ke Pengawasan CV") ===
+      `Penyerahn Ke ${LABEL_BAYAR_JASA_PENGAWASAN} CV`,
+    "rewrite pengawasan",
+  );
+  assert(
+    rewriteJasaPerencanaanPengawasan(LABEL_BAYAR_JASA_PERENCANAAN) ===
+      LABEL_BAYAR_JASA_PERENCANAAN,
+    "idempotent perencanaan",
   );
 }
 
