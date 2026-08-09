@@ -12,6 +12,10 @@ import {
   defaultLaborMaterialPercent,
 } from "../lib/lpj/smart-estimator";
 import {
+  mandorWorkEstimateMax,
+  roundDownToThousand,
+} from "../lib/contractor";
+import {
   buildBankMonthBlocks,
   buildBankMutationsFromProject,
   plannedTranchesFromContract,
@@ -146,6 +150,29 @@ function assert(cond: boolean, msg: string) {
     table.sections[1].rows[0].label.includes("%"),
     "manajemen tampilkan % dari SPK",
   );
+}
+
+// Estimasi borongan Mandor: ROUNDDOWN((kontrak−manajemen)×70%; -3)
+{
+  assert(roundDownToThousand(177_278_777.9) === 177_278_000, "rounddown -3");
+  const missing = mandorWorkEstimateMax({
+    contractValue: 276_200_000,
+    perencanaan: 6_230_323,
+    pengawasan: 0,
+    pengelolaan: 9_032_717,
+  });
+  assert(missing.source === "none" && missing.amount === 0, "blok jika manajemen kosong");
+
+  const ok = mandorWorkEstimateMax({
+    contractValue: 276_200_000,
+    perencanaan: 6_230_323,
+    pengawasan: 7_681_563,
+    pengelolaan: 9_032_717,
+  });
+  // base = 253_255_397; ×70% = 177_278_777.9 → ROUNDDOWN -3 = 177_278_000
+  assert(ok.source === "spk70", "sumber spk70");
+  assert(ok.baseAmount === 253_255_397, "dasar setelah potong manajemen");
+  assert(ok.amount === 177_278_000, "estimasi borongan Mandor");
 }
 
 // Bank 70/30 + pengambilan dari penerimaan Owner

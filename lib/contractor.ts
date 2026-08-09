@@ -6,21 +6,50 @@ export const CONTRACTOR_TARGET_PERCENT = 70;
 export const CONTRACTOR_MAX_SAFE_PERCENT = 75;
 
 /**
- * Estimasi maksimal pekerjaan untuk Mandor (informasi saja).
- * Utama: nilai borongan yang disepakati; fallback: 70% nilai kontrak.
+ * Excel ROUNDDOWN(n, -3) — bulatkan ke bawah ke kelipatan Rp1.000.
+ */
+export function roundDownToThousand(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.floor(n / 1000) * 1000;
+}
+
+/**
+ * Estimasi maksimal pekerjaan Mandor (informasi saja).
+ *
+ * ROUNDDOWN( (nilai kontrak − perencanaan − pengawasan − pengelolaan) × 70% ; -3 )
+ *
+ * Jika salah satu dana manajemen SPK belum diisi (> 0), estimasi tidak dihitung.
  */
 export function mandorWorkEstimateMax(input: {
-  agreedAmount?: number | null;
   contractValue?: number | null;
-}): { amount: number; source: "borongan" | "kontrak70" | "none" } {
-  const agreed = Math.max(0, Math.round(input.agreedAmount ?? 0));
-  if (agreed > 0) return { amount: agreed, source: "borongan" };
-  const fromContract = calcContractorBudgetAmount(
-    input.contractValue ?? 0,
-    CONTRACTOR_TARGET_PERCENT,
-  );
-  if (fromContract > 0) return { amount: fromContract, source: "kontrak70" };
-  return { amount: 0, source: "none" };
+  perencanaan?: number | null;
+  pengawasan?: number | null;
+  pengelolaan?: number | null;
+}): { amount: number; source: "spk70" | "none"; baseAmount: number } {
+  const contract = Math.max(0, Math.round(input.contractValue ?? 0));
+  const perencanaan = Math.round(input.perencanaan ?? 0);
+  const pengawasan = Math.round(input.pengawasan ?? 0);
+  const pengelolaan = Math.round(input.pengelolaan ?? 0);
+
+  if (contract <= 0) {
+    return { amount: 0, source: "none", baseAmount: 0 };
+  }
+  // Ketiga pagu manajemen wajib sudah diisi Admin di Ringkasan SPK
+  if (perencanaan <= 0 || pengawasan <= 0 || pengelolaan <= 0) {
+    return { amount: 0, source: "none", baseAmount: 0 };
+  }
+
+  const baseAmount = contract - perencanaan - pengawasan - pengelolaan;
+  if (baseAmount <= 0) {
+    return { amount: 0, source: "none", baseAmount: 0 };
+  }
+
+  const raw = (baseAmount * CONTRACTOR_TARGET_PERCENT) / 100;
+  const amount = roundDownToThousand(raw);
+  if (amount <= 0) {
+    return { amount: 0, source: "none", baseAmount };
+  }
+  return { amount, source: "spk70", baseAmount };
 }
 
 export type ContractorBudgetBand = "ideal" | "aman" | "berisiko" | "unknown";

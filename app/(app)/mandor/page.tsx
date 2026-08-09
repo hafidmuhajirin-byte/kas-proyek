@@ -47,7 +47,14 @@ export default async function MandorHomePage() {
         name: true,
         location: true,
         contractValue: true,
-        contractor: { select: { agreedAmount: true } },
+        spkBudgetLines: {
+          where: {
+            category: {
+              in: ["PERENCANAAN", "PENGAWASAN", "PENGELOLAAN"],
+            },
+          },
+          select: { category: true, amount: true },
+        },
       },
     }),
     prisma.transaction.findMany({
@@ -117,9 +124,14 @@ export default async function MandorHomePage() {
             totalBukti: 0,
             sisa: 0,
           };
+          const spkByCat = new Map(
+            p.spkBudgetLines.map((l) => [l.category, l.amount]),
+          );
           const estimate = mandorWorkEstimateMax({
-            agreedAmount: p.contractor?.agreedAmount,
             contractValue: p.contractValue,
+            perencanaan: spkByCat.get("PERENCANAAN") ?? 0,
+            pengawasan: spkByCat.get("PENGAWASAN") ?? 0,
+            pengelolaan: spkByCat.get("PENGELOLAAN") ?? 0,
           });
           const mapsUrl = googleMapsSearchUrl(p.name, p.location);
           return (
@@ -147,12 +159,16 @@ export default async function MandorHomePage() {
                     {formatRupiah(estimate.amount)}
                   </p>
                   <p className="mt-1 text-[11px] text-[var(--ink-faint)]">
-                    {estimate.source === "borongan"
-                      ? "Dari nilai borongan · estimasi saja, bukan dana cair"
-                      : "Perkiraan 70% kontrak · estimasi saja, bukan dana cair"}
+                    (Kontrak − perencanaan − pengawasan − pengelolaan) × 70% ·
+                    estimasi saja, bukan dana cair
                   </p>
                 </div>
-              ) : null}
+              ) : (
+                <div className="rounded-lg border border-dashed border-[var(--line)] px-3 py-2 text-center text-[11px] text-[var(--ink-faint)]">
+                  Estimasi borongan belum tersedia — Admin belum mengisi pagu
+                  Perencanaan, Pengawasan, dan Pengelolaan di Ringkasan SPK.
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>

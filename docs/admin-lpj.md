@@ -37,6 +37,14 @@ Catatan umum:
 - Split **manual**, maksimal 3 BKK; bukan auto-evasi pajak.
 - Dana Mandor (`totalBukti`) tetap dari upload asli Mandor (skip `isAdminLpjNota`); LPJ memakai tiap BKK (bukan shell).
 
+## Estimasi borongan Mandor
+
+Setelah pagu **Perencanaan**, **Pengawasan**, dan **Pengelolaan** diisi di Ringkasan SPK, beranda Mandor menampilkan estimasi:
+
+`ROUNDDOWN( (nilai kontrak − perencanaan − pengawasan − pengelolaan) × 70% ; -3 )`
+
+(bulat ke bawah ke kelipatan Rp1.000). Jika salah satu dari ketiga pagu belum diisi, estimasi **tidak** ditampilkan.
+
 ## Fitur lain
 
 - Schema: `SpkBudgetLine`, `BankTranche`, `MaterialMaster`, `Worker`, `WorkerAttendance`, `PayrollHokLine`, `TaxWithholdingLine`, `LpjSnapshot` + `isMaterialAlam` / `isSplitParent` / `splitParentId`
