@@ -5,6 +5,53 @@ export const CONTRACTOR_TARGET_PERCENT = 70;
 /** Batas atas aman — di atas ini keuangan berisiko */
 export const CONTRACTOR_MAX_SAFE_PERCENT = 75;
 
+/**
+ * Excel ROUNDDOWN(n, -3) — bulatkan ke bawah ke kelipatan Rp1.000.
+ */
+export function roundDownToThousand(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.floor(n / 1000) * 1000;
+}
+
+/**
+ * Estimasi maksimal pekerjaan Mandor (informasi saja).
+ *
+ * ROUNDDOWN( (nilai kontrak − perencanaan − pengawasan − pengelolaan) × 70% ; -3 )
+ *
+ * Jika salah satu dana manajemen SPK belum diisi (> 0), estimasi tidak dihitung.
+ */
+export function mandorWorkEstimateMax(input: {
+  contractValue?: number | null;
+  perencanaan?: number | null;
+  pengawasan?: number | null;
+  pengelolaan?: number | null;
+}): { amount: number; source: "spk70" | "none"; baseAmount: number } {
+  const contract = Math.max(0, Math.round(input.contractValue ?? 0));
+  const perencanaan = Math.round(input.perencanaan ?? 0);
+  const pengawasan = Math.round(input.pengawasan ?? 0);
+  const pengelolaan = Math.round(input.pengelolaan ?? 0);
+
+  if (contract <= 0) {
+    return { amount: 0, source: "none", baseAmount: 0 };
+  }
+  // Ketiga pagu manajemen wajib sudah diisi Admin di Ringkasan SPK
+  if (perencanaan <= 0 || pengawasan <= 0 || pengelolaan <= 0) {
+    return { amount: 0, source: "none", baseAmount: 0 };
+  }
+
+  const baseAmount = contract - perencanaan - pengawasan - pengelolaan;
+  if (baseAmount <= 0) {
+    return { amount: 0, source: "none", baseAmount: 0 };
+  }
+
+  const raw = (baseAmount * CONTRACTOR_TARGET_PERCENT) / 100;
+  const amount = roundDownToThousand(raw);
+  if (amount <= 0) {
+    return { amount: 0, source: "none", baseAmount };
+  }
+  return { amount, source: "spk70", baseAmount };
+}
+
 export type ContractorBudgetBand = "ideal" | "aman" | "berisiko" | "unknown";
 
 export function calcContractorBudgetAmount(
@@ -95,10 +142,11 @@ export type ContractorSummary = {
 
 export function summarizeContractor(input: {
   agreedAmount: number;
-  advances: { amount: number }[];
+  /** Pembayaran ke lapangan (Dana ke Mandor) — menggantikan termin lama */
+  payments: { amount: number }[];
   expenses: { amount: number }[];
 }): ContractorSummary {
-  const totalAdvances = input.advances.reduce((sum, a) => sum + a.amount, 0);
+  const totalAdvances = input.payments.reduce((sum, a) => sum + a.amount, 0);
   const totalExpenses = input.expenses.reduce((sum, e) => sum + e.amount, 0);
   const inHand = Math.max(0, totalAdvances - totalExpenses);
   const shortfall = Math.max(0, totalExpenses - totalAdvances);
@@ -168,8 +216,8 @@ export const contractorExpenseKindLabels: Record<string, string> = {
 };
 
 export const contractorStatusLabels: Record<ContractorStatus, string> = {
-  BELUM: "Belum ada termin",
+  BELUM: "Belum ada pencairan",
   BERJALAN: "Berjalan",
-  LUNAS: "Lunas (bukti = termin)",
-  KURANG_TERMIN: "Perlu termin berikutnya",
+  LUNAS: "Lunas (bukti = cair)",
+  KURANG_TERMIN: "Perlu pencairan berikutnya",
 };

@@ -1,6 +1,5 @@
 /**
- * PM2 — Kas Proyek
- * instances: 1 wajib (SQLite — jangan cluster banyak writer)
+ * PM2 — Kas Proyek (MySQL)
  *
  * Start:  pm2 start ecosystem.config.cjs
  * Reload: pm2 reload kas-proyek
