@@ -22,7 +22,7 @@ export function MandorBoronganCalcTable({
         Detail perhitungan belum tersedia. Admin harus mengisi pagu{" "}
         <strong>Bayar jasa perencana</strong>,{" "}
         <strong>Bayar jasa Pengawas</strong>, dan{" "}
-        <strong>Pengelolaan</strong> di Ringkasan SPK terlebih dahulu.
+        <strong>Dana pengelolaan</strong> di Ringkasan SPK terlebih dahulu.
       </div>
     );
   }

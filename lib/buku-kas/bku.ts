@@ -6,12 +6,15 @@
 
 import type { BankMonthBlock } from "@/lib/buku-kas/bank";
 import { resolveExpenseLinesForCashBook } from "@/lib/buku-kas/labor-summary";
-import { rewriteJasaPerencanaanPengawasan } from "@/lib/lpj/jasa-labels";
+import {
+  isDanaPengelolaanText,
+  rewriteCashBookUraian,
+} from "@/lib/lpj/jasa-labels";
 import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 import type { TaxLineResult } from "@/lib/lpj/tax-compliance";
 
 function uraian(text: string | null | undefined, fallback: string) {
-  return rewriteJasaPerencanaanPengawasan(text?.trim() || fallback);
+  return rewriteCashBookUraian(text?.trim() || fallback);
 }
 
 /** Kode Jenis Biaya di kolom pengeluaran BKU. */
@@ -117,8 +120,12 @@ export function cashBookLineStatus(
 ): string {
   if (kind === "LABOR") return "Bayar Ongkos";
   const blob = `${description} ${categoryName ?? ""}`.trim();
+  // Dana pengelolaan / ke sekolah
+  if (isDanaPengelolaanText(blob)) return "Pengeluaran lain";
   // Jasa perencana / Pengawas → status khusus (sebelum aturan "Bayar" umum)
-  if (/perencana|pengawas/i.test(blob)) return "Bayar jasa";
+  if (/perencana|pengawas/i.test(blob) && !/pengelolaan/i.test(blob)) {
+    return "Bayar jasa";
+  }
   if (/^bayar\b/i.test(blob)) return "Bayar";
   if (/^jasa\b/i.test(blob)) return "Jasa";
   return "Beli";

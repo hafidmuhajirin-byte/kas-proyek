@@ -1,4 +1,4 @@
-import { rewriteJasaPerencanaanPengawasan } from "@/lib/lpj/jasa-labels";
+import { rewriteCashBookUraian } from "@/lib/lpj/jasa-labels";
 
 const KEEP_UPPER = new Set([
   "TK",
@@ -17,7 +17,7 @@ const KEEP_UPPER = new Set([
 /**
  * Seragamkan kapitalisasi tampilan per kata (Title Case).
  * Singkatan umum (TK, NU, PGRI, dll.) tetap kapital penuh.
- * Juga menormalisasi label Perencanaan/Pengawasan → Bayar Jasa …
+ * Juga menormalisasi label jasa perencana/Pengawas & dana pengelolaan.
  */
 export function tidyCase(value: string): string {
   const text = value.trim();
@@ -43,5 +43,5 @@ export function tidyCase(value: string): string {
     })
     .join("");
 
-  return rewriteJasaPerencanaanPengawasan(titled);
+  return rewriteCashBookUraian(titled);
 }

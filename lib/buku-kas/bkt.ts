@@ -10,12 +10,12 @@
 import { cashBookLineStatus, formatBkuQty } from "@/lib/buku-kas/bku";
 import type { BkuExpenseLineInput } from "@/lib/buku-kas/bku";
 import { resolveExpenseLinesForCashBook } from "@/lib/buku-kas/labor-summary";
-import { rewriteJasaPerencanaanPengawasan } from "@/lib/lpj/jasa-labels";
+import { rewriteCashBookUraian } from "@/lib/lpj/jasa-labels";
 import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 import type { TaxLineResult } from "@/lib/lpj/tax-compliance";
 
 function uraian(text: string | null | undefined, fallback: string) {
-  return rewriteJasaPerencanaanPengawasan(text?.trim() || fallback);
+  return rewriteCashBookUraian(text?.trim() || fallback);
 }
 
 export type BktLedgerTx = {

@@ -5,6 +5,7 @@
 import {
   LABEL_BAYAR_JASA_PENGAWASAN,
   LABEL_BAYAR_JASA_PERENCANAAN,
+  LABEL_DANA_PENGELOLAAN,
 } from "@/lib/lpj/jasa-labels";
 
 export type SpkCategoryKey =

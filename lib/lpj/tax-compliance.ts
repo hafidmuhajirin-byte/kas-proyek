@@ -5,9 +5,12 @@
  * - Material alam → 0 pajak
  * - Gaji / upah pekerja → 0 pajak
  * - Dana perencanaan & pengawasan → PPh Final 3,5%
+ * - Dana pengelolaan / ke sekolah → 0 pajak
  * - Pembelian manufaktur > Rp 2 jt → PPN 11% + PPh 1,5%
  *   (dibayar setelah nota pembelian)
  */
+
+import { isDanaPengelolaanText } from "@/lib/lpj/jasa-labels";
 
 export const TAX_THRESHOLD = 2_000_000;
 export const PPN_RATE = 0.11;
@@ -32,7 +35,14 @@ export type TaxLineResult = {
   ppn: number;
   pph: number;
   totalTax: number;
-  kind: "NONE" | "PPN_PPH" | "PPH_FINAL" | "EXEMPT_ALAM" | "EXEMPT_LABOR" | "EXEMPT_CODE";
+  kind:
+    | "NONE"
+    | "PPN_PPH"
+    | "PPH_FINAL"
+    | "EXEMPT_ALAM"
+    | "EXEMPT_LABOR"
+    | "EXEMPT_MANAGEMENT"
+    | "EXEMPT_CODE";
   label: string;
   overThreshold: boolean;
 };
@@ -82,7 +92,14 @@ export function isLaborWageExempt(input: TaxLineInput): boolean {
 export function isPlanningOrSupervision(input: TaxLineInput): boolean {
   const text = combinedText(input).toLowerCase();
   if (!text) return false;
-  return /perencanaan|pengawasan/.test(text);
+  if (isDanaPengelolaanText(text)) return false;
+  // Cocok "perencana"/"Pengawas" dan bentuk lama perencanaan/pengawasan
+  return /perencana|pengawas/.test(text);
+}
+
+/** Dana pengelolaan / diberikan ke sekolah — tidak kena pajak. */
+export function isManagementFundExempt(input: TaxLineInput): boolean {
+  return isDanaPengelolaanText(combinedText(input));
 }
 
 /** Hitung pajak satu baris belanja (jumlah N). */
@@ -108,6 +125,17 @@ export function computeLineTax(input: TaxLineInput): TaxLineResult {
       totalTax: 0,
       kind: "EXEMPT_LABOR",
       label: "Bebas pajak — gaji/upah pekerja",
+      overThreshold,
+    };
+  }
+
+  if (isManagementFundExempt(input)) {
+    return {
+      ppn: 0,
+      pph: 0,
+      totalTax: 0,
+      kind: "EXEMPT_MANAGEMENT",
+      label: "Bebas pajak — dana pengelolaan",
       overThreshold,
     };
   }
@@ -184,6 +212,10 @@ export function computeVoucherTax(input: {
     categoryName: input.categoryName,
     isMaterialAlam: input.isMaterialAlam,
   };
+
+  if (isManagementFundExempt(meta)) {
+    return computeLineTax(meta);
+  }
 
   if (isPlanningOrSupervision(meta)) {
     const lines = input.lines ?? [];

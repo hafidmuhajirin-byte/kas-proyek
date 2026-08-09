@@ -1,6 +1,24 @@
 /** Label kanonik untuk pagu / kategori jasa manajemen. */
 export const LABEL_BAYAR_JASA_PERENCANAAN = "Bayar jasa perencana";
 export const LABEL_BAYAR_JASA_PENGAWASAN = "Bayar jasa Pengawas";
+export const LABEL_DANA_PENGELOLAAN = "Dana pengelolaan";
+
+/** Deteksi uraian/kategori dana pengelolaan (termasuk “ke sekolah”). */
+export function isDanaPengelolaanText(text: string): boolean {
+  const t = text.toLowerCase();
+  if (!t.trim()) return false;
+  // Bukan kategori SPK "Pengelolaan Lingkungan"
+  if (/pengelolaan\s*lingkungan/.test(t)) return false;
+  return (
+    /dana\s*pengelolaan/.test(t) ||
+    /bayar\s*(dana\s*)?pengelolaan/.test(t) ||
+    /\bpengelolaan\b/.test(t) ||
+    /diberikan\s+ke\s+sekolah/.test(t) ||
+    /sisa\s+(dana\s+)?(proyek\s+)?(untuk\s+|ke\s+)?sekolah/.test(t) ||
+    /untuk\s+sekolah/.test(t) ||
+    /ke\s+sekolah/.test(t)
+  );
+}
 
 /**
  * Ganti kata Perencanaan / Pengawasan di teks tampilan
@@ -40,4 +58,18 @@ export function rewriteJasaPerencanaanPengawasan(text: string): string {
   }
 
   return s.replace(/\s{2,}/g, " ").trim();
+}
+
+/** Normalisasi uraian dana pengelolaan / ke sekolah. */
+export function rewriteDanaPengelolaan(text: string): string {
+  if (!text) return text;
+  if (isDanaPengelolaanText(text)) return LABEL_DANA_PENGELOLAAN;
+  return text;
+}
+
+/** Uraian BKU/BKT/dashboard — jasa + dana pengelolaan. */
+export function rewriteCashBookUraian(text: string): string {
+  if (!text) return text;
+  if (isDanaPengelolaanText(text)) return LABEL_DANA_PENGELOLAAN;
+  return rewriteJasaPerencanaanPengawasan(text);
 }

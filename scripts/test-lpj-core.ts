@@ -18,8 +18,11 @@ import {
 import {
   LABEL_BAYAR_JASA_PENGAWASAN,
   LABEL_BAYAR_JASA_PERENCANAAN,
+  LABEL_DANA_PENGELOLAAN,
+  rewriteCashBookUraian,
   rewriteJasaPerencanaanPengawasan,
 } from "../lib/lpj/jasa-labels";
+import { cashBookLineStatus } from "../lib/buku-kas/bku";
 import {
   buildBankMonthBlocks,
   buildBankMutationsFromProject,
@@ -173,6 +176,34 @@ function assert(cond: boolean, msg: string) {
     rewriteJasaPerencanaanPengawasan(LABEL_BAYAR_JASA_PERENCANAAN) ===
       LABEL_BAYAR_JASA_PERENCANAAN,
     "idempotent perencanaan",
+  );
+}
+
+// Dana pengelolaan → uraian + status + bebas pajak
+{
+  assert(
+    rewriteCashBookUraian("Diberikan ke sekolah") === LABEL_DANA_PENGELOLAAN,
+    "diberikan ke sekolah → Dana pengelolaan",
+  );
+  assert(
+    rewriteCashBookUraian("Bayar Dana Pengelolaan") === LABEL_DANA_PENGELOLAAN,
+    "bayar dana pengelolaan → Dana pengelolaan",
+  );
+  assert(
+    cashBookLineStatus(undefined, "Diberikan ke sekolah", "Lainnya") ===
+      "Pengeluaran lain",
+    "status Pengeluaran lain",
+  );
+  const free = computeLineTax({
+    amount: 5_000_000,
+    description: "Dana pengelolaan",
+    categoryName: "Dana Pengelolaan",
+  });
+  assert(free.totalTax === 0 && free.kind === "EXEMPT_MANAGEMENT", "pengelolaan bebas pajak");
+  // Pengelolaan Lingkungan tetap bisa kena aturan lain (bukan EXEMPT_MANAGEMENT)
+  assert(
+    rewriteCashBookUraian("Pengelolaan Lingkungan") === "Pengelolaan Lingkungan",
+    "pengelolaan lingkungan tidak diubah",
   );
 }
 
