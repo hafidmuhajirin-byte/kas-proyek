@@ -251,8 +251,17 @@ export function BankBookPreview({
             </div>
 
             <div className="lpj-book-body mt-4 flex flex-1 flex-col">
-            <div className="overflow-x-auto print:mt-0">
-              <table className="lpj-book-table w-full min-w-[640px] border-collapse text-[11px] sm:text-xs">
+            <div className="lpj-a4-landscape-frame overflow-x-auto print:mt-0 print:overflow-visible">
+              <table className="lpj-book-table text-[11px] sm:text-xs">
+                <colgroup>
+                  <col style={{ width: "5%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "34%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "16%" }} />
+                </colgroup>
                 <thead>
                   <tr className="bg-stone-100">
                     <th className="border border-stone-400 px-1.5 py-2 text-center">
@@ -493,8 +502,21 @@ export function BkuPreview({
             </div>
 
             <div className="lpj-book-body mt-4 flex flex-1 flex-col">
-            <div className="overflow-x-auto print:mt-0">
-              <table className="lpj-book-table w-full min-w-[980px] border-collapse text-[10px] sm:text-[11px]">
+            <div className="lpj-a4-landscape-frame overflow-x-auto print:mt-0 print:overflow-visible">
+              <table className="lpj-book-table text-[10px] sm:text-[11px]">
+                <colgroup>
+                  <col style={{ width: "5%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "5%" }} />
+                  <col style={{ width: "7%" }} />
+                  <col style={{ width: "3.5%" }} />
+                  <col style={{ width: "3.5%" }} />
+                  <col style={{ width: "30%" }} />
+                  <col style={{ width: "6%" }} />
+                  <col style={{ width: "5%" }} />
+                  <col style={{ width: "12%" }} />
+                </colgroup>
                 <thead>
                   <tr className="bg-stone-100">
                     <th
@@ -865,8 +887,21 @@ export function BktPreview({
             </div>
 
             <div className="lpj-book-body mt-4 flex flex-1 flex-col">
-            <div className="overflow-x-auto print:mt-0">
-              <table className="lpj-book-table w-full min-w-[960px] border-collapse text-[10px] sm:text-[11px]">
+            <div className="lpj-a4-landscape-frame overflow-x-auto print:mt-0 print:overflow-visible">
+              <table className="lpj-book-table text-[10px] sm:text-[11px]">
+                <colgroup>
+                  <col style={{ width: "6%" }} />
+                  <col style={{ width: "6%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "3.5%" }} />
+                  <col style={{ width: "3.5%" }} />
+                  <col style={{ width: "25%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                </colgroup>
                 <thead>
                   <tr className="bg-stone-100">
                     <th

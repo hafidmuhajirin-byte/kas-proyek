@@ -136,6 +136,30 @@ select,
   }
 }
 
+/*
+ * LPJ books: preview & cetak memakai model kolom yang sama
+ * (table-layout:fixed + colgroup %). Lebar frame ≈ area cetak A4 landscape.
+ */
+.lpj-a4-landscape-frame {
+  width: 100%;
+  max-width: 281mm; /* 297mm − 2×8mm margin cetak */
+  margin-inline: auto;
+}
+
+.lpj-book-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.lpj-book-table th,
+.lpj-book-table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
+}
+
 @media print {
   @page {
     size: A4;
@@ -222,6 +246,12 @@ select,
     table-layout: fixed;
   }
 
+  /* Frame preview = lebar area cetak A4 landscape */
+  .lpj-a4-landscape-frame {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
   /* ——— LPJ export cetak ——— */
   .lpj-export-print {
     page: lpj-export-landscape;
@@ -269,7 +299,7 @@ select,
   .lpj-export-print .lpj-book-table {
     width: 100% !important;
     min-width: 0 !important;
-    table-layout: fixed;
+    table-layout: fixed !important;
     font-size: 10px !important;
     line-height: 1.25 !important;
   }
