@@ -1,3 +1,8 @@
+import {
+  LABEL_BAYAR_JASA_PENGAWASAN,
+  LABEL_BAYAR_JASA_PERENCANAAN,
+} from "@/lib/lpj/jasa-labels";
+
 export const projectFundKinds = [
   "PLANNING",
   "SUPERVISION",
@@ -13,8 +18,8 @@ export type ProjectFundKind = (typeof projectFundKinds)[number];
 export const PROJECT_SAVE_PERCENT = 7.5;
 
 export const projectFundLabels: Record<ProjectFundKind, string> = {
-  PLANNING: "Dana perencanaan",
-  SUPERVISION: "Dana pengawasan",
+  PLANNING: LABEL_BAYAR_JASA_PERENCANAAN,
+  SUPERVISION: LABEL_BAYAR_JASA_PENGAWASAN,
   MANAGEMENT: "Dana pengelolaan",
   TAX: "Pembayaran pajak",
   REPORTING: "Dana pembuatan laporan",
@@ -23,12 +28,20 @@ export const projectFundLabels: Record<ProjectFundKind, string> = {
 
 /** Nama kategori pengeluaran yang dipakai saat catat transaksi */
 export const projectFundCategoryNames: Record<ProjectFundKind, string> = {
-  PLANNING: "Dana Perencanaan",
-  SUPERVISION: "Dana Pengawasan",
+  PLANNING: LABEL_BAYAR_JASA_PERENCANAAN,
+  SUPERVISION: LABEL_BAYAR_JASA_PENGAWASAN,
   MANAGEMENT: "Dana Pengelolaan",
   TAX: "Pembayaran Pajak",
   REPORTING: "Dana Pembuatan Laporan",
   SAVE: "Dana Save",
+};
+
+/** Nama kategori lama — tetap dikenali agar data historis tidak putus. */
+const LEGACY_PROJECT_FUND_CATEGORY_NAMES: Partial<
+  Record<ProjectFundKind, string[]>
+> = {
+  PLANNING: ["Dana Perencanaan", "Dana perencanaan", "Perencanaan"],
+  SUPERVISION: ["Dana Pengawasan", "Dana pengawasan", "Pengawasan"],
 };
 
 export function calcProjectSaveAmount(contractValue: number) {
@@ -39,8 +52,18 @@ export function calcProjectSaveAmount(contractValue: number) {
 export function fundKindFromCategoryName(
   name: string,
 ): ProjectFundKind | null {
+  const needle = name.trim().toLowerCase();
   const entry = Object.entries(projectFundCategoryNames).find(
-    ([, label]) => label.toLowerCase() === name.trim().toLowerCase(),
+    ([, label]) => label.toLowerCase() === needle,
   );
-  return (entry?.[0] as ProjectFundKind | undefined) ?? null;
+  if (entry) return entry[0] as ProjectFundKind;
+
+  for (const [kind, aliases] of Object.entries(
+    LEGACY_PROJECT_FUND_CATEGORY_NAMES,
+  )) {
+    if (aliases?.some((a) => a.toLowerCase() === needle)) {
+      return kind as ProjectFundKind;
+    }
+  }
+  return null;
 }

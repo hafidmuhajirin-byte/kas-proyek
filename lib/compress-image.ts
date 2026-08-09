@@ -3,9 +3,9 @@
 export type CompressImageOptions = {
   /** Sisi terpanjang maksimal (px). Default 1600 — cukup untuk nota. */
   maxEdge?: number;
-  /** Kualitas JPEG 0–1. Default 0.72. */
+  /** Kualitas JPEG 0–1. Default 0.7. */
   quality?: number;
-  /** Target ukuran maksimal (bytes). Akan turunkan quality jika perlu. Default 450 KB. */
+  /** Target ukuran maksimal (bytes). Akan turunkan quality jika perlu. Default 400 KB. */
   maxBytes?: number;
 };
 
@@ -47,19 +47,28 @@ function baseName(name: string): string {
   return i > 0 ? name.slice(0, i) : name;
 }
 
+function isProbablyImage(file: File): boolean {
+  if (file.type.startsWith("image/")) return true;
+  if (file.type === "" || file.type === "application/octet-stream") {
+    return /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(file.name);
+  }
+  return false;
+}
+
 /**
  * Resize + JPEG compress. PDF / non-image dikembalikan apa adanya.
  * Hasil selalu `image/jpeg` agar ringan dan konsisten.
+ * Dipakai untuk Ambil foto (kamera) dan Dari galeri.
  */
 export async function compressImageFile(
   file: File,
   options: CompressImageOptions = {},
 ): Promise<File> {
-  if (!file.type.startsWith("image/")) return file;
+  if (!isProbablyImage(file)) return file;
 
   const maxEdge = options.maxEdge ?? 1600;
-  const maxBytes = options.maxBytes ?? 450 * 1024;
-  let quality = options.quality ?? 0.72;
+  const maxBytes = options.maxBytes ?? 400 * 1024;
+  let quality = options.quality ?? 0.7;
 
   const img = await loadImage(file);
   const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
@@ -78,18 +87,22 @@ export async function compressImageFile(
 
   let blob = await canvasToBlob(canvas, "image/jpeg", quality);
 
-  // Turunkan quality bertahap jika masih terlalu besar
-  while (blob.size > maxBytes && quality > 0.45) {
+  // Turunkan quality bertahap jika masih terlalu besar (foto kamera HP sering 3–12 MB)
+  while (blob.size > maxBytes && quality > 0.4) {
     quality = Math.round((quality - 0.08) * 100) / 100;
     blob = await canvasToBlob(canvas, "image/jpeg", quality);
   }
 
   // Jika setelah resize+compress masih lebih besar dari asli dan asli sudah JPEG kecil, pakai asli
-  if (blob.size >= file.size && file.type === "image/jpeg" && file.size <= maxBytes) {
+  if (
+    blob.size >= file.size &&
+    (file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name)) &&
+    file.size <= maxBytes
+  ) {
     return file;
   }
 
-  return new File([blob], `${baseName(file.name)}.jpg`, {
+  return new File([blob], `${baseName(file.name) || "bukti"}.jpg`, {
     type: "image/jpeg",
     lastModified: Date.now(),
   });

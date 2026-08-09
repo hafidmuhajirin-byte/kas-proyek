@@ -11,7 +11,11 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "test:lpj": "tsx scripts/test-lpj-core.ts",
+    "test:mandor-assign": "tsx scripts/test-mandor-assign.ts",
+    "test:mandor-split": "tsx scripts/test-mandor-nota-split.ts",
+    "repair:mandor-assign": "tsx scripts/repair-mandor-assignments.ts"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.9.1",
@@ -24,6 +28,7 @@
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "jose": "^6.2.4",
     "next": "16.2.12",
     "prisma": "^7.9.1",
