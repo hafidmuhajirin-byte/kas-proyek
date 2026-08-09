@@ -13,6 +13,7 @@ import { formatRupiah } from "@/lib/money";
 import { cashSourceTypeLabels } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
+import { ProofReviewLink } from "@/components/ProofReviewLink";
 import { RupiahInput } from "@/components/RupiahInput";
 import {
   btnDangerClass,
@@ -127,14 +128,13 @@ export default async function TransfersPage() {
                       <td className="py-3 pr-3 text-teal-900/75">
                         {row.description}
                         {row.proofUrl ? (
-                          <a
+                          <ProofReviewLink
                             href={row.proofUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                            title={row.description}
                             className="mt-1 block text-xs text-teal-700 underline"
                           >
                             Bukti
-                          </a>
+                          </ProofReviewLink>
                         ) : null}
                         <p className="mt-1 text-xs text-teal-900/45">
                           oleh {row.createdBy.name}
