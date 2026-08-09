@@ -5,8 +5,8 @@ export const LABEL_BAYAR_JASA_PENGAWASAN = "Bayar jasa Pengawas";
 /**
  * Ganti kata Perencanaan / Pengawasan di teks tampilan
  * menjadi "Bayar jasa perencana" / "Bayar jasa Pengawas".
- * Juga menghapus sufiks/kata "CV" pada uraian jasa tersebut.
- * Aman dipanggil berulang (tidak mendobel jika sudah diganti).
+ * Awalan "Penyerahan ke …" / "Penyerahn Ke …" dan sufiks "CV" dihapus
+ * agar uraian hanya label jasa.
  */
 export function rewriteJasaPerencanaanPengawasan(text: string): string {
   if (!text) return text;
@@ -23,16 +23,18 @@ export function rewriteJasaPerencanaanPengawasan(text: string): string {
   s = s.replace(/Perencanaan/gi, "\u0001");
   s = s.replace(/Pengawasan/gi, "\u0002");
 
-  const touched = s.includes("\u0001") || s.includes("\u0002");
+  const hasPerencana = s.includes("\u0001");
+  const hasPengawas = s.includes("\u0002");
   s = s.replace(/\u0001/g, LABEL_BAYAR_JASA_PERENCANAAN);
   s = s.replace(/\u0002/g, LABEL_BAYAR_JASA_PENGAWASAN);
 
-  // Hapus "CV" pada uraian jasa (mis. "… Perencanaan CV")
-  if (
-    touched ||
-    /Bayar\s+jasa\s+perencana/i.test(s) ||
-    /Bayar\s+jasa\s+Pengawas/i.test(s)
-  ) {
+  if (hasPerencana || hasPengawas) {
+    // "Penyerahan ke Bayar jasa …" / typo "Penyerahn Ke …" → cukup label jasa
+    if (/penyerah/i.test(s)) {
+      if (hasPengawas && !hasPerencana) return LABEL_BAYAR_JASA_PENGAWASAN;
+      if (hasPerencana && !hasPengawas) return LABEL_BAYAR_JASA_PERENCANAAN;
+    }
+    s = s.replace(/^(penyerahan|penyerahn)\s+ke\s+/i, "");
     s = s.replace(/\s+CV\.?(?=\s|$)/gi, "");
     s = s.replace(/\bCV\.?\s*$/i, "");
   }

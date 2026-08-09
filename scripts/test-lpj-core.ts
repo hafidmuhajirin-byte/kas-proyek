@@ -157,17 +157,17 @@ function assert(cond: boolean, msg: string) {
   );
 }
 
-// Label Bayar jasa perencana / Pengawas (+ hapus CV)
+// Label Bayar jasa perencana / Pengawas (tanpa Penyerahan/CV)
 {
   assert(
     rewriteJasaPerencanaanPengawasan("Penyerahan ke perencanaan CV") ===
-      `Penyerahan ke ${LABEL_BAYAR_JASA_PERENCANAAN}`,
-    "rewrite perencanaan tanpa CV",
+      LABEL_BAYAR_JASA_PERENCANAAN,
+    "hanya Bayar jasa perencana",
   );
   assert(
     rewriteJasaPerencanaanPengawasan("Penyerahn Ke Pengawasan CV") ===
-      `Penyerahn Ke ${LABEL_BAYAR_JASA_PENGAWASAN}`,
-    "rewrite pengawasan tanpa CV",
+      LABEL_BAYAR_JASA_PENGAWASAN,
+    "hanya Bayar jasa Pengawas",
   );
   assert(
     rewriteJasaPerencanaanPengawasan(LABEL_BAYAR_JASA_PERENCANAAN) ===
