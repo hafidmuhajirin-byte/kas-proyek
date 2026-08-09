@@ -68,6 +68,7 @@ export async function upsertSpkBudgetAction(formData: FormData) {
 
   revalidatePath(`/admin/lpj/${projectId}`);
   revalidatePath(`/admin/lpj/${projectId}/spk`);
+  revalidatePath(`/projects/${projectId}`);
   revalidatePath("/mandor");
   redirect(`/admin/lpj/${projectId}/spk`);
 }

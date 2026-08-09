@@ -173,6 +173,14 @@ export default async function ProjectDetailPage({
             },
           },
         },
+        spkBudgetLines: {
+          where: {
+            category: {
+              in: ["PERENCANAAN", "PENGAWASAN", "PENGELOLAAN"],
+            },
+          },
+          select: { category: true, amount: true },
+        },
         funds: true,
       },
     }),
@@ -557,6 +565,17 @@ export default async function ProjectDetailPage({
           hasKasBesar: Boolean(d.transactionId),
         }))}
         mandorOverspend={overspend}
+        spkManajemen={{
+          perencanaan:
+            project.spkBudgetLines.find((l) => l.category === "PERENCANAAN")
+              ?.amount ?? 0,
+          pengawasan:
+            project.spkBudgetLines.find((l) => l.category === "PENGAWASAN")
+              ?.amount ?? 0,
+          pengelolaan:
+            project.spkBudgetLines.find((l) => l.category === "PENGELOLAAN")
+              ?.amount ?? 0,
+        }}
       />
 
       <Card className="mb-6 mt-4">

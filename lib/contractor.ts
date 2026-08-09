@@ -13,6 +13,22 @@ export function roundDownToThousand(n: number): number {
   return Math.floor(n / 1000) * 1000;
 }
 
+export type MandorWorkEstimate = {
+  amount: number;
+  source: "spk70" | "none";
+  /** Kontrak − perencanaan − pengawasan − pengelolaan */
+  baseAmount: number;
+  contractValue: number;
+  perencanaan: number;
+  pengawasan: number;
+  pengelolaan: number;
+  manajemenTotal: number;
+  /** (base × 70%) sebelum ROUNDDOWN */
+  rawAmount: number;
+  /** true jika ketiga pagu manajemen SPK sudah diisi */
+  manajemenComplete: boolean;
+};
+
 /**
  * Estimasi maksimal pekerjaan Mandor (informasi saja).
  *
@@ -25,31 +41,55 @@ export function mandorWorkEstimateMax(input: {
   perencanaan?: number | null;
   pengawasan?: number | null;
   pengelolaan?: number | null;
-}): { amount: number; source: "spk70" | "none"; baseAmount: number } {
-  const contract = Math.max(0, Math.round(input.contractValue ?? 0));
-  const perencanaan = Math.round(input.perencanaan ?? 0);
-  const pengawasan = Math.round(input.pengawasan ?? 0);
-  const pengelolaan = Math.round(input.pengelolaan ?? 0);
+}): MandorWorkEstimate {
+  const contractValue = Math.max(0, Math.round(input.contractValue ?? 0));
+  const perencanaan = Math.max(0, Math.round(input.perencanaan ?? 0));
+  const pengawasan = Math.max(0, Math.round(input.pengawasan ?? 0));
+  const pengelolaan = Math.max(0, Math.round(input.pengelolaan ?? 0));
+  const manajemenTotal = perencanaan + pengawasan + pengelolaan;
+  const manajemenComplete =
+    perencanaan > 0 && pengawasan > 0 && pengelolaan > 0;
 
-  if (contract <= 0) {
-    return { amount: 0, source: "none", baseAmount: 0 };
-  }
-  // Ketiga pagu manajemen wajib sudah diisi Admin di Ringkasan SPK
-  if (perencanaan <= 0 || pengawasan <= 0 || pengelolaan <= 0) {
-    return { amount: 0, source: "none", baseAmount: 0 };
+  const empty = (extra: Partial<MandorWorkEstimate> = {}): MandorWorkEstimate => ({
+    amount: 0,
+    source: "none",
+    baseAmount: 0,
+    contractValue,
+    perencanaan,
+    pengawasan,
+    pengelolaan,
+    manajemenTotal,
+    rawAmount: 0,
+    manajemenComplete,
+    ...extra,
+  });
+
+  if (contractValue <= 0 || !manajemenComplete) {
+    return empty();
   }
 
-  const baseAmount = contract - perencanaan - pengawasan - pengelolaan;
+  const baseAmount = contractValue - manajemenTotal;
   if (baseAmount <= 0) {
-    return { amount: 0, source: "none", baseAmount: 0 };
+    return empty({ baseAmount: 0 });
   }
 
-  const raw = (baseAmount * CONTRACTOR_TARGET_PERCENT) / 100;
-  const amount = roundDownToThousand(raw);
+  const rawAmount = (baseAmount * CONTRACTOR_TARGET_PERCENT) / 100;
+  const amount = roundDownToThousand(rawAmount);
   if (amount <= 0) {
-    return { amount: 0, source: "none", baseAmount };
+    return empty({ baseAmount, rawAmount });
   }
-  return { amount, source: "spk70", baseAmount };
+  return {
+    amount,
+    source: "spk70",
+    baseAmount,
+    contractValue,
+    perencanaan,
+    pengawasan,
+    pengelolaan,
+    manajemenTotal,
+    rawAmount,
+    manajemenComplete,
+  };
 }
 
 export type ContractorBudgetBand = "ideal" | "aman" | "berisiko" | "unknown";

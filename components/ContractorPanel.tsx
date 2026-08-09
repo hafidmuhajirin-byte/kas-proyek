@@ -1,11 +1,13 @@
 import {
   calcContractorBudgetAmount,
   CONTRACTOR_TARGET_PERCENT,
+  mandorWorkEstimateMax,
 } from "@/lib/contractor";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
 import { MandorAssignPanel } from "@/components/MandorAssignPanel";
+import { MandorBoronganCalcTable } from "@/components/MandorBoronganCalcTable";
 import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
 import { RupiahInput } from "@/components/RupiahInput";
 import { btnSecondaryClass, Card } from "@/components/ui";
@@ -34,11 +36,18 @@ type MandorDisbursementRow = {
 
 type MandorOption = { id: string; name: string; username?: string };
 
+export type SpkManajemenPagu = {
+  perencanaan: number;
+  pengawasan: number;
+  pengelolaan: number;
+};
+
 function ContractorForm({
   projectId,
   contractValue,
   contractor,
   submitLabel,
+  suggestedBorongan,
 }: {
   projectId: string;
   contractValue: number;
@@ -49,15 +58,19 @@ function ContractorForm({
     agreedAmount: number;
   } | null;
   submitLabel: string;
+  /** Estimasi dari rumus SPK — dipakai default jika belum ada nilai borongan. */
+  suggestedBorongan?: number;
 }) {
-  const targetAmount = calcContractorBudgetAmount(
+  const fallbackTarget = calcContractorBudgetAmount(
     contractValue,
     CONTRACTOR_TARGET_PERCENT,
   );
   const defaultAgreed =
     contractor?.agreedAmount && contractor.agreedAmount > 0
       ? contractor.agreedAmount
-      : targetAmount;
+      : suggestedBorongan && suggestedBorongan > 0
+        ? suggestedBorongan
+        : fallbackTarget;
 
   return (
     <ActionForm action={upsertContractorAction} submitLabel={submitLabel}>
@@ -83,6 +96,11 @@ function ContractorForm({
           defaultValue={defaultAgreed}
           required
         />
+        {suggestedBorongan && suggestedBorongan > 0 ? (
+          <p className="mt-1 text-[11px] text-[var(--ink-faint)]">
+            Saran dari rumus SPK: {formatRupiah(suggestedBorongan)}
+          </p>
+        ) : null}
       </Field>
       <Field label="Catatan">
         <textarea
@@ -108,6 +126,7 @@ export function ContractorPanel({
   allMandors = [],
   mandorDisbursements = [],
   mandorOverspend,
+  spkManajemen,
 }: {
   projectId: string;
   admin: boolean;
@@ -127,11 +146,20 @@ export function ContractorPanel({
   allMandors?: MandorOption[];
   mandorDisbursements?: MandorDisbursementRow[];
   mandorOverspend?: { mandorName: string; amount: number }[];
+  /** Pagu manajemen dari Ringkasan SPK (Admin). */
+  spkManajemen?: SpkManajemenPagu;
 }) {
   const mandorPayments = mandorDisbursements.filter(
     (r) => r.hasKasBesar !== false,
   );
   const mandorCairTotal = mandorPayments.reduce((s, r) => s + r.amount, 0);
+
+  const estimate = mandorWorkEstimateMax({
+    contractValue,
+    perencanaan: spkManajemen?.perencanaan ?? 0,
+    pengawasan: spkManajemen?.pengawasan ?? 0,
+    pengelolaan: spkManajemen?.pengelolaan ?? 0,
+  });
 
   const assignCard = (
     <Card>
@@ -161,6 +189,15 @@ export function ContractorPanel({
     </Card>
   ) : null;
 
+  const calcDetail = (
+    <div className="mt-3">
+      <p className="text-xs font-medium text-[var(--ink-muted)]">
+        Detail perhitungan estimasi borongan Mandor
+      </p>
+      <MandorBoronganCalcTable estimate={estimate} />
+    </div>
+  );
+
   if (!contractor) {
     return (
       <div className="mt-4 space-y-4">
@@ -180,11 +217,13 @@ export function ContractorPanel({
                     projectId={projectId}
                     contractValue={contractValue}
                     submitLabel="Simpan pemborong"
+                    suggestedBorongan={estimate.amount}
                   />
                 </div>
               </details>
             ) : null}
           </div>
+          {calcDetail}
           <p className="mt-2 text-xs text-teal-900/60">
             Tip: jika nama pemborong sama dengan akun Mandor, penugasan
             otomatis dibuat saat disimpan.
@@ -200,7 +239,7 @@ export function ContractorPanel({
       {assignCard}
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3 text-sm">
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="text-base font-medium text-teal-950">
               {tidyCase(contractor.name)}
             </h3>
@@ -208,6 +247,12 @@ export function ContractorPanel({
               Borongan {formatRupiah(contractor.agreedAmount)} · Cair{" "}
               {formatRupiah(mandorCairTotal)}
             </p>
+            {estimate.amount > 0 ? (
+              <p className="mt-1 text-xs text-[var(--ink-faint)]">
+                Estimasi rumus SPK: {formatRupiah(estimate.amount)}
+              </p>
+            ) : null}
+            {calcDetail}
           </div>
           {admin ? (
             <details>
@@ -220,6 +265,7 @@ export function ContractorPanel({
                   contractValue={contractValue}
                   contractor={contractor}
                   submitLabel="Simpan"
+                  suggestedBorongan={estimate.amount}
                 />
               </div>
             </details>
