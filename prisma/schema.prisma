@@ -54,6 +54,7 @@ model User {
   projectAssignments ProjectAssignment[]
   mandorDisbursements MandorDisbursement[] @relation("MandorDisbursements")
   mandorExpenseLines MandorExpenseLine[]
+  sitePhotos ProjectSitePhoto[]
 }
 
 model Project {
@@ -83,6 +84,8 @@ model Project {
   lpjProvinsi       String?
   /// NPWP sekolah / bendahara untuk rekap pajak
   lpjNpwp           String?
+  /// Folder Google Drive per proyek (dibuat sekali, di-reuse)
+  driveProjectFolderId String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   transactions   Transaction[]
@@ -99,6 +102,7 @@ model Project {
   taxWithholdingLines TaxWithholdingLine[]
   taxMonthNotes       TaxMonthNote[]
   lpjSnapshots        LpjSnapshot[]
+  sitePhotos          ProjectSitePhoto[]
 }
 
 model ProjectAssignment {
@@ -113,6 +117,28 @@ model ProjectAssignment {
   @@unique([userId, projectId])
   @@index([userId])
   @@index([projectId])
+}
+
+/// Foto lokasi proyek (Mandor) — arsip VPS + salinan Google Drive
+model ProjectSitePhoto {
+  id               String   @id @default(cuid())
+  takenAt          DateTime @default(now())
+  caption          String?  @db.Text
+  photoUrl         String   @db.Text
+  driveFileId      String?
+  driveWebViewLink String?  @db.Text
+  driveSyncError   String?  @db.Text
+  latitude         Float?
+  longitude        Float?
+  createdAt        DateTime @default(now())
+
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, takenAt])
+  @@index([createdById])
 }
 
 /// Dana Owner → Mandor (bukan termin klien)

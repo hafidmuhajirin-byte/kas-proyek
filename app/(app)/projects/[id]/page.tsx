@@ -20,6 +20,7 @@ import {
 import { formatRupiah } from "@/lib/money";
 import { getMandorFundSummariesFor } from "@/lib/mandor-fund";
 import { MandorExpensePanel } from "@/components/MandorExpensePanel";
+import { ProjectSitePhotoGallery } from "@/components/ProjectSitePhotoGallery";
 import { ProjectCashBookPanel } from "@/components/ProjectCashBookPanel";
 import {
   billingModeLabels,
@@ -69,7 +70,7 @@ export default async function ProjectDetailPage({
   const canRecordManagement = canBreakDown;
   const { id } = await params;
 
-  const [project, sources, kasBesar, assignedMandors, allMandors, disbursements, workers] =
+  const [project, sources, kasBesar, assignedMandors, allMandors, disbursements, workers, sitePhotos] =
     await Promise.all([
     prisma.project.findUnique({
       where: { id },
@@ -209,6 +210,20 @@ export default async function ProjectDetailPage({
       where: { projectId: id, active: true },
       orderBy: { name: "asc" },
       select: { name: true, role: true, dailyWage: true },
+    }),
+    prisma.projectSitePhoto.findMany({
+      where: { projectId: id },
+      orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        photoUrl: true,
+        caption: true,
+        takenAt: true,
+        latitude: true,
+        longitude: true,
+        driveWebViewLink: true,
+        createdBy: { select: { name: true } },
+      },
     }),
   ]);
 
@@ -585,6 +600,21 @@ export default async function ProjectDetailPage({
           bukuKasHref={`/transactions/project?projectId=${project.id}`}
           canBreakDown={canBreakDown}
           knownWorkers={knownWorkers}
+        />
+      </Card>
+
+      <Card className="mb-6 mt-4">
+        <ProjectSitePhotoGallery
+          photos={sitePhotos.map((p) => ({
+            id: p.id,
+            photoUrl: p.photoUrl,
+            caption: p.caption,
+            takenAt: p.takenAt,
+            latitude: p.latitude,
+            longitude: p.longitude,
+            driveWebViewLink: p.driveWebViewLink,
+            createdByName: p.createdBy.name,
+          }))}
         />
       </Card>
 

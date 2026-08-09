@@ -22,6 +22,8 @@ import { btnSecondaryClass, inputClass } from "@/components/ui";
 type ProofCaptureProps = {
   existingProofUrl?: string | null;
   onApplySuggestion?: (suggestion: ReceiptOcrSuggestion) => void;
+  /** Hanya gambar (tanpa PDF / OCR) — untuk foto lokasi proyek. */
+  imagesOnly?: boolean;
 };
 
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
@@ -73,7 +75,10 @@ function FilePickButton({
 export function ProofCapture({
   existingProofUrl,
   onApplySuggestion,
+  imagesOnly = false,
 }: ProofCaptureProps) {
+  const acceptGallery = imagesOnly ? IMAGE_ACCEPT : ALL_ACCEPT;
+  const enableOcr = Boolean(onApplySuggestion) && !imagesOnly;
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const hiddenFileRef = useRef<HTMLInputElement>(null);
@@ -151,11 +156,19 @@ export function ProofCapture({
     }
 
     if (picked.type === "application/pdf") {
+      if (imagesOnly) {
+        setOcrError("Hanya foto (JPG/PNG/WEBP) yang diterima.");
+        return;
+      }
       assignFile(picked);
       return;
     }
 
     if (!looksLikeImage(picked)) {
+      if (imagesOnly) {
+        setOcrError("Hanya foto (JPG/PNG/WEBP) yang diterima.");
+        return;
+      }
       assignFile(picked);
       return;
     }
@@ -233,7 +246,7 @@ export function ProofCapture({
         id="proof"
         name="proof"
         type="file"
-        accept={ALL_ACCEPT}
+        accept={acceptGallery}
         className="sr-only"
         tabIndex={-1}
         aria-hidden
@@ -256,7 +269,7 @@ export function ProofCapture({
         <FilePickButton
           label="Dari galeri"
           disabled={compressing}
-          accept={ALL_ACCEPT}
+          accept={acceptGallery}
           inputRef={galleryRef}
           onChange={(e) => void onPick(e)}
         />
@@ -295,7 +308,7 @@ export function ProofCapture({
         <p className="text-xs text-[var(--ink-faint)]">{sizeHint}</p>
       ) : null}
 
-      {file && !isPdf ? (
+      {file && !isPdf && enableOcr ? (
         <div className="space-y-2">
           <button
             type="button"

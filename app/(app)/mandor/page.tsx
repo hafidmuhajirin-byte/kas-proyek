@@ -203,12 +203,20 @@ export default async function MandorHomePage() {
                 </p>
               )}
 
-              <Link
-                href={`/mandor/upload?projectId=${p.id}`}
-                className={`${btnPrimaryClass} w-full`}
-              >
-                Upload bukti belanja
-              </Link>
+              <div className="flex flex-col gap-2">
+                <Link
+                  href={`/mandor/upload?projectId=${p.id}`}
+                  className={`${btnPrimaryClass} w-full`}
+                >
+                  Upload bukti belanja
+                </Link>
+                <Link
+                  href={`/mandor/lokasi?projectId=${p.id}`}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-medium text-[#f7f4ee] transition hover:bg-teal-800"
+                >
+                  Ambil foto proyek
+                </Link>
+              </div>
             </Card>
           );
         })}
