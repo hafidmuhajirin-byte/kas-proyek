@@ -8,6 +8,7 @@ import { logoutAction } from "@/lib/actions/auth";
 import type { SessionUser } from "@/lib/auth";
 import { roleLabels } from "@/lib/labels";
 import { ProofReviewHost } from "@/components/ProofReviewLink";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 
 const AssistantKas = dynamic(
   () => import("@/components/AssistantKas").then((m) => m.AssistantKas),
@@ -208,6 +209,9 @@ export function AppShell({
 
       <main className="app-paper relative min-h-screen print:bg-white">
         <div className="mobile-main-pad relative z-[1] mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8 print:max-w-none print:px-0 print:py-0 print:pb-0">
+          <div className="mb-3 print:hidden lg:hidden">
+            <PwaInstallPrompt compact />
+          </div>
           {children}
         </div>
       </main>

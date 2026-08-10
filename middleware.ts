@@ -21,8 +21,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // Matcher sudah mengecualikan aset statis; guard ekstra untuk path internal
-  if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {
+  // Matcher sudah mengecualikan aset statis; guard ekstra untuk path internal + PWA
+  if (
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/sw.js" ||
+    pathname.startsWith("/icons/") ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/manifest.webmanifest/"
+  ) {
     return NextResponse.next();
   }
 
@@ -97,7 +104,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Sertakan /uploads/* agar rewrite ke API jalan; kecualikan aset build Next
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|css|js|map|txt|woff2?)$).*)",
+    // Sertakan /uploads/* agar rewrite ke API jalan; kecualikan aset build + ikon PWA
+    "/((?!_next/static|_next/image|favicon.ico|icons/|.*\\.(?:svg|css|js|map|txt|png|ico|webp|woff2?)$).*)",
   ],
 };

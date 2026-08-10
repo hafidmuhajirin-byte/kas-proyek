@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import type { SessionUser } from "@/lib/session";
 
 export function MandorShell({
@@ -51,7 +52,12 @@ export function MandorShell({
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg px-4 py-5 pb-28">{children}</main>
+      <main className="mx-auto max-w-lg px-4 py-5 pb-28">
+        <div className="mb-3">
+          <PwaInstallPrompt compact />
+        </div>
+        {children}
+      </main>
 
       <nav className="safe-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line-soft)] bg-[#fffcf7]/95 backdrop-blur">
         <div

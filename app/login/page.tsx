@@ -1,4 +1,5 @@
 import { LoginForm } from "@/components/LoginForm";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 
 export default function LoginPage() {
   return (
@@ -12,6 +13,9 @@ export default function LoginPage() {
           <h1 className="text-2xl font-medium text-[var(--ink)]">Masuk</h1>
           <div className="mt-5">
             <LoginForm />
+          </div>
+          <div className="mt-5">
+            <PwaInstallPrompt />
           </div>
         </div>
       </div>
