@@ -76,7 +76,12 @@ select,
 /* Login: full-bleed wallpaper + soft wash for readable brand/form */
 .login-shell {
   background-color: #d8ddd6;
-  background-image: url("/login-bg.png");
+  /* WebP dulu (lebih kecil di HP), fallback JPG */
+  background-image: url("/login-bg.jpg");
+  background-image: image-set(
+    url("/login-bg.webp") type("image/webp"),
+    url("/login-bg.jpg") type("image/jpeg")
+  );
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;

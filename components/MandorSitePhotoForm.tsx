@@ -56,20 +56,24 @@ export function MandorSitePhotoForm({
       setGpsStatus("unavailable");
       return;
     }
-    setGpsStatus("loading");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLatitude(String(pos.coords.latitude));
-        setLongitude(String(pos.coords.longitude));
-        setGpsStatus("ok");
-      },
-      () => {
-        setLatitude("");
-        setLongitude("");
-        setGpsStatus("denied");
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 120_000 },
-    );
+    // Tunda GPS setelah paint pertama — jangan blok loading halaman di HP
+    const timer = window.setTimeout(() => {
+      setGpsStatus("loading");
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLatitude(String(pos.coords.latitude));
+          setLongitude(String(pos.coords.longitude));
+          setGpsStatus("ok");
+        },
+        () => {
+          setLatitude("");
+          setLongitude("");
+          setGpsStatus("denied");
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 300_000 },
+      );
+    }, 400);
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
