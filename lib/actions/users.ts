@@ -11,6 +11,7 @@ function parseRole(raw: string): SessionRole | null {
   if (
     raw === "OWNER" ||
     raw === "ADMIN" ||
+    raw === "ADMIN_PROYEK" ||
     raw === "MANDOR" ||
     raw === "ADM_FOTO"
   ) {
@@ -20,7 +21,19 @@ function parseRole(raw: string): SessionRole | null {
 }
 
 function needsProjectAssignment(role: SessionRole): boolean {
-  return role === "MANDOR" || role === "ADM_FOTO";
+  return (
+    role === "MANDOR" || role === "ADM_FOTO" || role === "ADMIN_PROYEK"
+  );
+}
+
+function assignmentError(role: SessionRole): string {
+  if (role === "ADM_FOTO") {
+    return "ADM Foto wajib ditugaskan ke minimal 1 proyek.";
+  }
+  if (role === "ADMIN_PROYEK") {
+    return "Admin Proyek wajib ditugaskan ke tepat 1 proyek mandiri.";
+  }
+  return "Mandor wajib ditugaskan ke minimal 1 proyek agar muncul di login Mandor.";
 }
 
 function revalidateUsersAndMandor() {
@@ -29,6 +42,35 @@ function revalidateUsersAndMandor() {
   revalidatePath("/mandor/upload");
   revalidatePath("/mandor/lokasi");
   revalidatePath("/projects");
+  revalidatePath("/admin-proyek");
+}
+
+async function validateAdminProyekProjects(
+  projectIds: string[],
+): Promise<string | null> {
+  if (projectIds.length !== 1) {
+    return "Admin Proyek wajib ditugaskan ke tepat 1 proyek mandiri.";
+  }
+  const project = await prisma.project.findUnique({
+    where: { id: projectIds[0]! },
+    select: { standaloneBookkeeping: true, name: true },
+  });
+  if (!project) return "Proyek tidak valid.";
+  if (!project.standaloneBookkeeping) {
+    return `Admin Proyek hanya untuk proyek mandiri. "${project.name}" masih terhubung kas besar.`;
+  }
+  const taken = await prisma.projectAssignment.findFirst({
+    where: {
+      projectId: projectIds[0]!,
+      user: { role: "ADMIN_PROYEK" },
+    },
+    select: { user: { select: { username: true } } },
+  });
+  // allow same user on update — caller checks
+  if (taken) {
+    return `Proyek ini sudah punya Admin Proyek (@${taken.user.username}).`;
+  }
+  return null;
 }
 
 export async function createUserAction(
@@ -54,12 +96,11 @@ export async function createUserAction(
     return { error: "Password minimal 6 karakter." };
   }
   if (needsProjectAssignment(role) && projectIds.length === 0) {
-    return {
-      error:
-        role === "ADM_FOTO"
-          ? "ADM Foto wajib ditugaskan ke minimal 1 proyek."
-          : "Mandor wajib ditugaskan ke minimal 1 proyek agar muncul di login Mandor.",
-    };
+    return { error: assignmentError(role) };
+  }
+  if (role === "ADMIN_PROYEK") {
+    const err = await validateAdminProyekProjects(projectIds);
+    if (err) return { error: err };
   }
 
   const exists = await prisma.user.findUnique({ where: { username } });
@@ -132,16 +173,38 @@ export async function updateUserAction(
       existing.projectAssignments.map((a) => a.projectId),
     );
     const visible = new Set(formProjectIds);
-    // Pertahankan penugasan proyek yang tidak tampil di form (mis. non-ACTIVE)
     const preserved = [...previous].filter((pid) => !visible.has(pid));
     nextAssignmentIds = [...new Set([...submittedIds, ...preserved])];
     if (nextAssignmentIds.length === 0) {
-      return {
-        error:
-          role === "ADM_FOTO"
-            ? "ADM Foto wajib ditugaskan ke minimal 1 proyek. Centang proyek di bawah."
-            : "Mandor wajib ditugaskan ke minimal 1 proyek. Centang proyek di bawah.",
-      };
+      return { error: assignmentError(role) };
+    }
+    if (role === "ADMIN_PROYEK") {
+      if (nextAssignmentIds.length !== 1) {
+        return {
+          error: "Admin Proyek wajib ditugaskan ke tepat 1 proyek mandiri.",
+        };
+      }
+      const project = await prisma.project.findUnique({
+        where: { id: nextAssignmentIds[0]! },
+        select: { standaloneBookkeeping: true, name: true },
+      });
+      if (!project?.standaloneBookkeeping) {
+        return {
+          error: `Admin Proyek hanya untuk proyek mandiri. "${project?.name ?? ""}" masih terhubung kas besar.`,
+        };
+      }
+      const taken = await prisma.projectAssignment.findFirst({
+        where: {
+          projectId: nextAssignmentIds[0]!,
+          user: { role: "ADMIN_PROYEK", NOT: { id } },
+        },
+        select: { user: { select: { username: true } } },
+      });
+      if (taken) {
+        return {
+          error: `Proyek ini sudah punya Admin Proyek (@${taken.user.username}).`,
+        };
+      }
     }
   }
 

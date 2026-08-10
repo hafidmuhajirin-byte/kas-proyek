@@ -2,7 +2,9 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { redirect } from "next/navigation";
 import {
+  getAccessibleProjectIds,
   homePathForUser,
+  isAdminProyek,
   isMandorLike,
   isOwner,
   requireSession,
@@ -21,10 +23,13 @@ export default async function FotoProyekPage({
   const user = await requireSession();
   if (isMandorLike(user)) redirect(homePathForUser(user));
   const owner = isOwner(user);
+  const adminProyek = isAdminProyek(user);
 
   const params = await searchParams;
+  const accessible = await getAccessibleProjectIds(user);
 
   const projects = await prisma.project.findMany({
+    where: accessible === "all" ? undefined : { id: { in: accessible } },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
@@ -32,10 +37,16 @@ export default async function FotoProyekPage({
   const projectId =
     params.projectId && projects.some((p) => p.id === params.projectId)
       ? params.projectId
-      : undefined;
+      : adminProyek && projects.length === 1
+        ? projects[0]!.id
+        : undefined;
 
   const photos = await prisma.projectSitePhoto.findMany({
-    where: projectId ? { projectId } : undefined,
+    where: projectId
+      ? { projectId }
+      : accessible === "all"
+        ? undefined
+        : { projectId: { in: accessible } },
     orderBy: [{ createdAt: "desc" }, { takenAt: "desc" }],
     take: 300,
     select: {

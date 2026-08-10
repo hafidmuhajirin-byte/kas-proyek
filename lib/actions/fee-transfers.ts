@@ -187,6 +187,12 @@ export async function createFeeTransferAction(
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return { error: "Proyek tidak ditemukan." };
+  if (project.standaloneBookkeeping) {
+    return {
+      error:
+        "Proyek mandiri tidak bisa transfer fee ke kas besar / rekening Owner.",
+    };
+  }
   if (project.status !== "ACTIVE") {
     return {
       error:

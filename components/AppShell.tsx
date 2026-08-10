@@ -31,6 +31,15 @@ function navForRole(role: SessionUser["role"]): {
     return { primary, secondary: [], mobile: primary, showAssistant: false };
   }
 
+  if (role === "ADMIN_PROYEK") {
+    const primary = [
+      { href: "/admin-proyek", label: "Proyek Saya", short: "Proyek" },
+      { href: "/transactions/project", label: "Kas Proyek", short: "Kas" },
+      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
+    ];
+    return { primary, secondary: [], mobile: primary, showAssistant: false };
+  }
+
   if (role === "MANDOR") {
     return { primary: [], secondary: [], mobile: [], showAssistant: false };
   }

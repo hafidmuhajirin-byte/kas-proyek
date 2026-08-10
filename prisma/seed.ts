@@ -37,13 +37,13 @@ async function main() {
     },
   });
 
-  // Admin produksi = username adminok (bukan "admin")
+  // AdminOK produksi = username adminok (LPJ) — bukan Admin Proyek per-proyek
   await prisma.user.upsert({
     where: { username: "adminok" },
-    update: { role: "ADMIN", name: "Admin Proyek" },
+    update: { role: "ADMIN", name: "AdminOK" },
     create: {
       username: "adminok",
-      name: "Admin Proyek",
+      name: "AdminOK",
       passwordHash: hashSync("admin123", 10),
       role: "ADMIN",
     },
@@ -137,7 +137,7 @@ async function main() {
   // Pastikan role adminok benar
   await prisma.user.updateMany({
     where: { username: "adminok" },
-    data: { role: "ADMIN", name: "Admin Proyek" },
+    data: { role: "ADMIN", name: "AdminOK" },
   });
   await prisma.user.updateMany({
     where: { username: "admin" },

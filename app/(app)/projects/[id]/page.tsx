@@ -14,7 +14,10 @@ import {
 import { calcStageStatus, getGlobalCashBreakdown } from "@/lib/balance";
 import {
   canBreakDownMandorExpense,
+  canRecordDisbursement,
+  isAdminProyek,
   isOwner,
+  requireProjectAccess,
   requireSession,
 } from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
@@ -65,10 +68,14 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const user = await requireSession();
+  const { id } = await params;
+  await requireProjectAccess(user, id);
   const admin = isOwner(user);
+  const adminProyek = isAdminProyek(user);
+  const canManageProject = admin || adminProyek;
+  const canDisburse = canRecordDisbursement(user);
   const canBreakDown = canBreakDownMandorExpense(user);
   const canRecordManagement = canBreakDown;
-  const { id } = await params;
 
   const [project, sources, kasBesar, assignedMandors, allMandors, disbursements, workers, sitePhotos] =
     await Promise.all([
@@ -82,6 +89,7 @@ export default async function ProjectDetailPage({
         billingMode: true,
         openingBalance: true,
         contractValue: true,
+        standaloneBookkeeping: true,
         notes: true,
         checkPlanning: true,
         checkSupervision: true,
@@ -474,13 +482,16 @@ export default async function ProjectDetailPage({
     <div>
       <PageHeader
         title={tidyCase(project.name)}
-        description={`${tidyCase(project.location)} · ${projectStatusLabels[project.status]} · ${billingModeLabels[project.billingMode]}`}
+        description={`${tidyCase(project.location)} · ${projectStatusLabels[project.status]} · ${billingModeLabels[project.billingMode]}${project.standaloneBookkeeping ? " · Mandiri" : ""}`}
         actions={
           <>
-            <Link href="/projects" className={btnSecondaryClass}>
+            <Link
+              href={adminProyek ? "/admin-proyek" : "/projects"}
+              className={btnSecondaryClass}
+            >
               Kembali
             </Link>
-            {admin ? (
+            {canManageProject ? (
               <Link
                 href={`/transactions/new?projectId=${project.id}&type=INCOME`}
                 className={btnSecondaryClass}
@@ -507,16 +518,24 @@ export default async function ProjectDetailPage({
               tone: "income",
             },
             {
-              label: "Biaya kas besar",
+              label: project.standaloneBookkeeping
+                ? "Biaya proyek"
+                : "Biaya kas besar",
               value: formatRupiah(expenseTotal),
               tone: "expense",
             },
-            {
-              label: "Kas besar",
-              value: formatRupiah(kasBesar.total),
-              hint: `Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`,
-              tone: "balance",
-            },
+            project.standaloneBookkeeping
+              ? {
+                  label: "Saldo kas proyek",
+                  value: formatRupiah(cashBalance),
+                  tone: "balance" as const,
+                }
+              : {
+                  label: "Kas besar",
+                  value: formatRupiah(kasBesar.total),
+                  hint: `Tunai ${formatRupiah(kasBesar.cash)} · Bank ${formatRupiah(kasBesar.bank)}`,
+                  tone: "balance" as const,
+                },
           ]}
         />
       ) : (
@@ -564,7 +583,10 @@ export default async function ProjectDetailPage({
 
       <ContractorPanel
         projectId={project.id}
-        admin={admin}
+        admin={canManageProject}
+        canAssignMandor={admin}
+        canDisburse={canDisburse}
+        allowFromGlobalCash={!project.standaloneBookkeeping}
         projectCash={projectCash}
         contractValue={project.contractValue}
         sources={sources}
@@ -666,7 +688,7 @@ export default async function ProjectDetailPage({
                           {formatRupiah(item.amount)}
                         </p>
                       </div>
-                      {admin ? (
+                      {canManageProject ? (
                         <form action={deleteWorkItemAction} className="mt-3">
                           <input type="hidden" name="id" value={item.id} />
                           <button type="submit" className={btnDangerClass}>
@@ -824,7 +846,7 @@ export default async function ProjectDetailPage({
                             style={{ width: `${stage.progressPercent}%` }}
                           />
                         </div>
-                        {admin ? (
+                        {canManageProject ? (
                           <details className="mt-3">
                             <summary className="cursor-pointer text-xs text-teal-700">
                               Edit / hapus
@@ -883,7 +905,7 @@ export default async function ProjectDetailPage({
               </Card>
             ) : null}
 
-            {admin ? (
+            {canManageProject ? (
               <div className="space-y-6">
                 {showTermin ? (
                   <Card>
@@ -978,7 +1000,7 @@ export default async function ProjectDetailPage({
         />
         <ProjectFundsPanel
           projectId={project.id}
-          admin={admin}
+          admin={canManageProject}
           canRecordManagement={canRecordManagement}
           contractValue={project.contractValue}
           funds={project.funds}
@@ -1012,26 +1034,30 @@ export default async function ProjectDetailPage({
           feeTransferred={feeTransferred}
           ownerPersonalDraws={ownerPersonalDraws}
         />
-        <ProjectFeeTransferPanel
-          projectId={project.id}
-          admin={admin}
-          status={project.status}
-          feeTargetProfit={feeQuota.feeTargetProfit}
-          feeTransferred={feeQuota.feeTransferred}
-          ownerPersonalDraws={feeQuota.ownerPersonalDraws}
-          remainingFee={feeQuota.remaining}
-          revenueBase={profitPreview.revenueBase}
-          projectCash={projectCash}
-          sources={sources}
-          transfers={feeTransferRows}
-        />
+        {!project.standaloneBookkeeping ? (
+          <ProjectFeeTransferPanel
+            projectId={project.id}
+            admin={admin}
+            status={project.status}
+            feeTargetProfit={feeQuota.feeTargetProfit}
+            feeTransferred={feeQuota.feeTransferred}
+            ownerPersonalDraws={feeQuota.ownerPersonalDraws}
+            remainingFee={feeQuota.remaining}
+            revenueBase={profitPreview.revenueBase}
+            projectCash={projectCash}
+            sources={sources}
+            transfers={feeTransferRows}
+          />
+        ) : null}
         <ProjectCompletionPanel
           projectId={project.id}
-          admin={admin}
+          admin={canManageProject}
           status={project.status}
           projectCash={projectCash}
           checks={checklist}
-          saveRemaining={saveRemaining}
+          saveRemaining={
+            project.standaloneBookkeeping ? 0 : saveRemaining
+          }
           sources={sources}
         />
       </div>

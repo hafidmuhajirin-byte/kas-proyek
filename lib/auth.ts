@@ -96,6 +96,11 @@ export function isAdmFoto(user: SessionUser): boolean {
   return user.role === "ADM_FOTO";
 }
 
+/** Admin Proyek — 1 proyek mandiri (kas terpisah). */
+export function isAdminProyek(user: SessionUser): boolean {
+  return user.role === "ADMIN_PROYEK";
+}
+
 /** Mandor atau ADM Foto — shell foto / penugasan proyek. */
 export function isMandorLike(user: SessionUser): boolean {
   return user.role === "MANDOR" || user.role === "ADM_FOTO";
@@ -110,12 +115,16 @@ export function canManageUsers(user: SessionUser): boolean {
 }
 
 export function canRecordDisbursement(user: SessionUser): boolean {
-  return user.role === "OWNER";
+  return user.role === "OWNER" || user.role === "ADMIN_PROYEK";
 }
 
-/** Admin & Owner boleh memecah nota Mandor (MATERIAL / LABOR). */
+/** Owner, AdminOK, dan Admin Proyek boleh memecah nota Mandor. */
 export function canBreakDownMandorExpense(user: SessionUser): boolean {
-  return user.role === "OWNER" || user.role === "ADMIN";
+  return (
+    user.role === "OWNER" ||
+    user.role === "ADMIN" ||
+    user.role === "ADMIN_PROYEK"
+  );
 }
 
 export async function requireBreakdownAccess(): Promise<SessionUser> {
@@ -130,6 +139,7 @@ export function homePathForRole(role: SessionRole): string {
   if (role === "ADM_FOTO") return "/mandor/lokasi";
   if (role === "MANDOR") return "/mandor";
   if (role === "ADMIN") return "/admin/lpj";
+  if (role === "ADMIN_PROYEK") return "/admin-proyek";
   return "/dashboard";
 }
 
@@ -146,6 +156,32 @@ export async function getAccessibleProjectIds(
     select: { projectId: true },
   });
   return rows.map((r) => r.projectId);
+}
+
+/** Proyek tunggal Admin Proyek (atau null jika belum ditugaskan). */
+export async function getAdminProyekProjectId(
+  user: SessionUser,
+): Promise<string | null> {
+  if (user.role !== "ADMIN_PROYEK") return null;
+  const ids = await getAccessibleProjectIds(user);
+  if (ids === "all" || ids.length === 0) return null;
+  return ids[0] ?? null;
+}
+
+/**
+ * Owner atau Admin Proyek yang punya akses proyek.
+ * Untuk mutasi buku proyek mandiri / umum (bukan kas besar).
+ */
+export async function requireProjectBookkeeper(
+  projectId: string,
+): Promise<SessionUser> {
+  const session = await requireSession();
+  if (session.role === "OWNER") return session;
+  if (session.role === "ADMIN_PROYEK") {
+    await requireProjectAccess(session, projectId);
+    return session;
+  }
+  redirect(homePathForUser(session));
 }
 
 export async function assertProjectAccess(

@@ -8,6 +8,7 @@ function homeForSession(session: SessionUser) {
   if (session.role === "ADM_FOTO") return "/mandor/lokasi";
   if (session.role === "MANDOR") return "/mandor";
   if (session.role === "ADMIN") return "/admin/lpj";
+  if (session.role === "ADMIN_PROYEK") return "/admin-proyek";
   return "/dashboard";
 }
 
@@ -91,10 +92,27 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/admin") ||
       pathname.startsWith("/api/") ||
       pathname.startsWith("/foto-proyek");
-    // Admin: LPJ + foto proyek (+ API); tanpa kas/mutasi Owner
+    // AdminOK: LPJ + foto proyek (+ API); tanpa kas/mutasi Owner
     if (!allowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin/lpj";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (session?.role === "ADMIN_PROYEK") {
+    const allowed =
+      pathname.startsWith("/admin-proyek") ||
+      pathname.startsWith("/projects") ||
+      pathname === "/transactions/project" ||
+      pathname.startsWith("/transactions/project/") ||
+      pathname === "/transactions/new" ||
+      pathname.startsWith("/transactions/new/") ||
+      pathname.startsWith("/foto-proyek") ||
+      pathname.startsWith("/api/");
+    if (!allowed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin-proyek";
       return NextResponse.redirect(url);
     }
   }

@@ -8,10 +8,15 @@ import {
 } from "@/components/ui";
 import { createTransactionAction } from "@/lib/actions/transactions";
 import { getGlobalCashBreakdown } from "@/lib/balance";
-import { requireSession } from "@/lib/auth";
+import {
+  getAccessibleProjectIds,
+  isAdminProyek,
+  requireSession,
+} from "@/lib/auth";
 import { ensureRequiredCategories } from "@/lib/ensure-categories";
 import { SCHOOL_RESIDUAL_CATEGORY } from "@/lib/project-completion";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 
 export default async function NewTransactionPage({
   searchParams,
@@ -23,21 +28,34 @@ export default async function NewTransactionPage({
     schoolResidual?: string;
   }>;
 }) {
-  await requireSession();
+  const session = await requireSession();
   const params = await searchParams;
 
+  if (isAdminProyek(session)) {
+    if (params.ownerPersonal === "1" || params.schoolResidual === "1") {
+      redirect("/admin-proyek");
+    }
+  }
+
   await ensureRequiredCategories();
+
+  const accessible = await getAccessibleProjectIds(session);
+  const projectWhere =
+    accessible === "all"
+      ? { status: "ACTIVE" as const }
+      : { status: "ACTIVE" as const, id: { in: accessible } };
 
   const [rawProjects, sources, categories, stages, kasBesar] =
     await Promise.all([
       prisma.project.findMany({
-        where: { status: "ACTIVE" },
+        where: projectWhere,
         orderBy: { name: "asc" },
         select: {
           id: true,
           name: true,
           billingMode: true,
           contractValue: true,
+          standaloneBookkeeping: true,
           transactions: {
             where: { type: "INCOME", isOwnerPersonal: false },
             select: { amount: true },
@@ -65,7 +83,9 @@ export default async function NewTransactionPage({
           plannedAmount: true,
         },
       }),
-      getGlobalCashBreakdown(),
+      isAdminProyek(session)
+        ? Promise.resolve({ cash: 0, bank: 0, total: 0 })
+        : getGlobalCashBreakdown(),
     ]);
 
   const projects = rawProjects.map((p) => ({
@@ -73,6 +93,7 @@ export default async function NewTransactionPage({
     name: p.name,
     billingMode: p.billingMode,
     contractValue: p.contractValue,
+    standaloneBookkeeping: p.standaloneBookkeeping,
     paidIncome: p.transactions.reduce((sum, tx) => sum + tx.amount, 0),
     workCompletedValue: p.workItems.reduce((sum, item) => sum + item.amount, 0),
   }));
@@ -100,9 +121,20 @@ export default async function NewTransactionPage({
     <div>
       <PageHeader
         title="Transaksi baru"
-        description="Pilih sumber Tunai atau Bank. Kas besar terpisah per saluran."
+        description={
+          isAdminProyek(session)
+            ? "Catat pemasukan/pengeluaran proyek mandiri Anda."
+            : "Pilih sumber Tunai atau Bank. Kas besar terpisah per saluran."
+        }
         actions={
-          <Link href="/transactions" className={btnSecondaryClass}>
+          <Link
+            href={
+              isAdminProyek(session)
+                ? "/admin-proyek"
+                : "/transactions"
+            }
+            className={btnSecondaryClass}
+          >
             Kembali
           </Link>
         }

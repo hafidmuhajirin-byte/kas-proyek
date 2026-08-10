@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   OWNER
   ADMIN
+  ADMIN_PROYEK
   MANDOR
   ADM_FOTO
 }
@@ -66,6 +67,8 @@ model Project {
   billingMode    BillingMode    @default(ON_REQUEST)
   openingBalance Int            @default(0)
   contractValue  Int            @default(0)
+  /// Kas terpisah permanen dari kas besar Owner. Hanya untuk proyek baru.
+  standaloneBookkeeping Boolean @default(false)
   notes          String?        @db.Text
   checkPlanning    Boolean      @default(false)
   checkSupervision Boolean      @default(false)

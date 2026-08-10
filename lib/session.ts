@@ -2,7 +2,12 @@ import { SignJWT, jwtVerify } from "jose";
 
 export const COOKIE_NAME = "kas_session";
 
-export type SessionRole = "OWNER" | "ADMIN" | "MANDOR" | "ADM_FOTO";
+export type SessionRole =
+  | "OWNER"
+  | "ADMIN"
+  | "ADMIN_PROYEK"
+  | "MANDOR"
+  | "ADM_FOTO";
 
 export type SessionUser = {
   id: string;
@@ -23,6 +28,7 @@ function isSessionRole(role: unknown): role is SessionRole {
   return (
     role === "OWNER" ||
     role === "ADMIN" ||
+    role === "ADMIN_PROYEK" ||
     role === "MANDOR" ||
     role === "ADM_FOTO"
   );

@@ -36,6 +36,7 @@ export function MandorDisbursementPanel({
   canEdit,
   overspend,
   compact = false,
+  allowFromGlobalCash = true,
 }: {
   projectId: string;
   mandors: MandorOption[];
@@ -45,6 +46,8 @@ export function MandorDisbursementPanel({
   overspend?: { mandorName: string; amount: number }[];
   /** true = tanpa judul besar (sudah di dalam panel pemborong) */
   compact?: boolean;
+  /** false untuk proyek mandiri (kas terpisah) */
+  allowFromGlobalCash?: boolean;
 }) {
   const [state, action, pending] = useActionState(
     createMandorDisbursementAction,
@@ -240,10 +243,16 @@ export function MandorDisbursementPanel({
                   />
                 </Field>
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="isFromGlobalCash" />
-                Dari kas besar
-              </label>
+              {allowFromGlobalCash ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="isFromGlobalCash" />
+                  Dari kas besar
+                </label>
+              ) : (
+                <p className="text-xs text-[var(--ink-faint)]">
+                  Proyek mandiri — pencairan dari kas proyek saja.
+                </p>
+              )}
               <Field label="Bukti (opsional)" htmlFor="proof">
                 <input
                   id="proof"

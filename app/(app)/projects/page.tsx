@@ -4,7 +4,12 @@ import {
   updateProjectAction,
 } from "@/lib/actions/projects";
 import { getProjectBalances } from "@/lib/balance";
-import { isOwner, requireSession } from "@/lib/auth";
+import {
+  getAccessibleProjectIds,
+  isAdminProyek,
+  isOwner,
+  requireSession,
+} from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
 import { billingModeLabels, projectStatusLabels } from "@/lib/labels";
 import { tidyCase } from "@/lib/text";
@@ -19,6 +24,7 @@ import {
   EmptyState,
   PageHeader,
 } from "@/components/ui";
+import { redirect } from "next/navigation";
 
 type StatusFilter = "ACTIVE" | "COMPLETED" | "ALL";
 
@@ -46,7 +52,11 @@ export default async function ProjectsPage({
   }>;
 }) {
   const user = await requireSession();
+  if (isAdminProyek(user)) {
+    redirect("/admin-proyek");
+  }
   const admin = isOwner(user);
+  const accessible = await getAccessibleProjectIds(user);
   const balances = await getProjectBalances();
   const params = await searchParams;
 
@@ -59,6 +69,9 @@ export default async function ProjectsPage({
   ].sort((a, b) => a.localeCompare(b, "id"));
 
   const filtered = balances.filter((project) => {
+    if (accessible !== "all" && !accessible.includes(project.id)) {
+      return false;
+    }
     if (statusFilter !== "ALL" && project.status !== statusFilter) {
       return false;
     }
@@ -170,6 +183,7 @@ export default async function ProjectsPage({
                     <p className="text-xs text-teal-900/50">
                       {projectStatusLabels[project.status]} ·{" "}
                       {billingModeLabels[project.billingMode]}
+                      {project.standaloneBookkeeping ? " · Mandiri" : ""}
                     </p>
                     {hideDetail ? null : project.billingMode ===
                       "PAY_AT_END" ? (
@@ -335,8 +349,8 @@ export default async function ProjectsPage({
           <Card>
             <h3 className="font-serif text-xl text-teal-950">Tambah proyek</h3>
             <p className="mt-1 text-xs text-teal-900/55">
-              Saldo awal opsional. Kosong = ambil dari kas besar. Jika kas besar
-              habis/minus, wajib setor dana pribadi.
+              Saldo awal opsional. Kosong = ambil dari kas besar. Centang
+              mandiri jika kas proyek terpisah permanen dari Owner.
             </p>
             <div className="mt-4">
               <ActionForm
@@ -363,6 +377,22 @@ export default async function ProjectsPage({
                     <option value="ACTIVE">Aktif</option>
                   </select>
                 </Field>
+                <label className="flex items-start gap-2 rounded-lg border border-teal-900/15 bg-teal-50/50 px-3 py-2 text-sm text-teal-950">
+                  <input
+                    type="checkbox"
+                    name="standaloneBookkeeping"
+                    value="on"
+                    className="mt-1 size-4 accent-teal-800"
+                  />
+                  <span>
+                    <span className="font-medium">Proyek mandiri</span>
+                    <span className="mt-0.5 block text-xs text-teal-900/65">
+                      Kas terpisah dari kas besar Owner. Hanya untuk proyek baru
+                      — tidak bisa diubah kemudian. Tugaskan Admin Proyek +
+                      Mandor + ADM Foto.
+                    </span>
+                  </span>
+                </label>
                 <ProjectBillingFields />
                 <Field label="Catatan">
                   <textarea name="notes" className={inputClass} rows={3} />

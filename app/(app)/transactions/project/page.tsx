@@ -3,8 +3,10 @@ import { deleteContractorAdvanceAction } from "@/lib/actions/contractor";
 import { deleteTransactionAction } from "@/lib/actions/transactions";
 import {
   canBreakDownMandorExpense,
+  getAccessibleProjectIds,
   isOwner,
   isAdmin,
+  isAdminProyek,
   requireSession,
 } from "@/lib/auth";
 import {
@@ -46,19 +48,28 @@ export default async function KasProyekPage({
   const user = await requireSession();
   const owner = isOwner(user);
   const readOnlyAdmin = isAdmin(user);
+  const adminProyek = isAdminProyek(user);
   const canMutate = owner;
   const canBreakDown = canBreakDownMandorExpense(user);
   const params = await searchParams;
   const hasTypeFilter =
     params.type === "INCOME" || params.type === "EXPENSE";
   const includeAdvances = false; // Termin digabung ke Dana ke Mandor
-  const needsProject = !params.projectId;
+  const accessible = await getAccessibleProjectIds(user);
+  const scopedProjectId =
+    adminProyek && accessible !== "all" && accessible.length === 1
+      ? accessible[0]
+      : params.projectId;
+  const needsProject = !scopedProjectId;
 
   const where = {
     ...(needsProject ? { id: "__none__" } : {}),
-    ...(params.projectId ? { projectId: params.projectId } : {}),
+    ...(scopedProjectId ? { projectId: scopedProjectId } : {}),
+    ...(accessible !== "all" && !scopedProjectId
+      ? { projectId: { in: accessible } }
+      : {}),
     ...(hasTypeFilter ? { type: params.type as "INCOME" | "EXPENSE" } : {}),
-    ...(readOnlyAdmin ? { isOwnerPersonal: false } : {}),
+    ...(readOnlyAdmin || adminProyek ? { isOwnerPersonal: false } : {}),
     ...(params.q
       ? {
           OR: [

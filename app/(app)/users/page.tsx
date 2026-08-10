@@ -16,7 +16,12 @@ export default async function UsersPage() {
     }),
     prisma.project.findMany({
       orderBy: [{ status: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        standaloneBookkeeping: true,
+      },
     }),
   ]);
 
@@ -26,12 +31,18 @@ export default async function UsersPage() {
     <div>
       <PageHeader
         title="Pengguna"
-        description="Kelola Owner, Admin, Mandor, dan ADM Foto. Mandor/ADM Foto wajib ditugaskan ke proyek."
+        description="Kelola Owner, AdminOK, Admin Proyek, Mandor, dan ADM Foto. Admin Proyek = 1 proyek mandiri."
       />
 
       <Card className="mb-6">
         <h3 className="mb-3 font-medium text-[var(--ink)]">Tambah pengguna</h3>
-        <UserCreateForm projects={activeProjects} />
+        <UserCreateForm
+          projects={activeProjects.map((p) => ({
+            id: p.id,
+            name: p.name,
+            standalone: p.standaloneBookkeeping,
+          }))}
+        />
       </Card>
 
       <div className="space-y-4">
@@ -50,7 +61,9 @@ export default async function UsersPage() {
                   <p className="font-medium text-[var(--ink)]">{u.name}</p>
                   <p className="text-sm text-[var(--ink-faint)]">
                     @{u.username} · {roleLabels[u.role] ?? u.role}
-                    {(u.role === "MANDOR" || u.role === "ADM_FOTO") &&
+                    {(u.role === "MANDOR" ||
+                      u.role === "ADM_FOTO" ||
+                      u.role === "ADMIN_PROYEK") &&
                     assignedIds.size === 0 ? (
                       <span className="ml-2 text-amber-700">
                         · belum ada proyek
@@ -74,6 +87,7 @@ export default async function UsersPage() {
                     p.status === "ACTIVE"
                       ? p.name
                       : `${p.name} (${p.status})`,
+                  standalone: p.standaloneBookkeeping,
                 }))}
               />
             </Card>

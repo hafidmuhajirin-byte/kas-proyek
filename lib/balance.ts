@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { signedAmount } from "@/lib/money";
 import { isOwnerPersonalDraw } from "@/lib/owner-personal";
+import { kasBesarTransactionWhere } from "@/lib/standalone-project";
 
 export type FundingProgress = {
   stageId: string;
@@ -76,6 +77,7 @@ export async function getProjectBalances() {
           billingMode: true,
           openingBalance: true,
           contractValue: true,
+          standaloneBookkeeping: true,
           fundingStages: {
             orderBy: [{ sequence: "asc" }, { createdAt: "asc" }],
             select: {
@@ -219,6 +221,7 @@ export async function getProjectBalances() {
       billingMode: project.billingMode,
       openingBalance: project.openingBalance,
       contractValue: project.contractValue,
+      standaloneBookkeeping: project.standaloneBookkeeping,
       income: agg.income,
       expense: agg.expense,
       ownerPersonalExpense: agg.ownerPersonalExpense,
@@ -247,6 +250,7 @@ export async function getGlobalCashBreakdown(
   const [opening, sources, txGroups, advanceGroups, transfers] =
     await Promise.all([
       prisma.project.aggregate({
+        where: { standaloneBookkeeping: false },
         _sum: { openingBalance: true },
       }),
       prisma.cashSource.findMany({
@@ -254,9 +258,12 @@ export async function getGlobalCashBreakdown(
       }),
       prisma.transaction.groupBy({
         by: ["type", "isFromGlobalCash", "isMandorExpense", "cashSourceId"],
-        where: options?.excludeTransactionId
-          ? { NOT: { id: options.excludeTransactionId } }
-          : undefined,
+        where: {
+          ...kasBesarTransactionWhere,
+          ...(options?.excludeTransactionId
+            ? { NOT: { id: options.excludeTransactionId } }
+            : {}),
+        },
         _sum: { amount: true },
       }),
       prisma.contractorAdvance.groupBy({
@@ -356,6 +363,11 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
         }
       : {};
 
+  const periodWhere = {
+    ...kasBesarTransactionWhere,
+    ...dateFilter,
+  };
+
   const [txGroups, advanceSum] = await Promise.all([
     prisma.transaction.groupBy({
       by: [
@@ -365,7 +377,7 @@ export async function getPeriodSummary(from?: Date, to?: Date) {
         "isFromGlobalCash",
         "isMandorExpense",
       ],
-      where: dateFilter,
+      where: periodWhere,
       _sum: { amount: true },
     }),
     prisma.contractorAdvance.aggregate({

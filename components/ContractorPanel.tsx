@@ -123,6 +123,9 @@ function ContractorForm({
 export function ContractorPanel({
   projectId,
   admin,
+  canAssignMandor = admin,
+  canDisburse = admin,
+  allowFromGlobalCash = true,
   projectCash: _projectCash,
   contractValue,
   sources,
@@ -135,6 +138,10 @@ export function ContractorPanel({
 }: {
   projectId: string;
   admin: boolean;
+  /** Owner menugaskan Mandor/ADM Foto */
+  canAssignMandor?: boolean;
+  canDisburse?: boolean;
+  allowFromGlobalCash?: boolean;
   projectCash: number;
   contractValue: number;
   sources: SourceOption[];
@@ -170,7 +177,7 @@ export function ContractorPanel({
     <Card>
       <MandorAssignPanel
         projectId={projectId}
-        canEdit={admin}
+        canEdit={canAssignMandor}
         assigned={mandors}
         allMandors={allMandors}
       />
@@ -184,7 +191,8 @@ export function ContractorPanel({
     <Card>
       <MandorDisbursementPanel
         projectId={projectId}
-        canEdit={admin}
+        canEdit={canDisburse}
+        allowFromGlobalCash={allowFromGlobalCash}
         mandors={mandors}
         sources={sources}
         rows={mandorDisbursements}

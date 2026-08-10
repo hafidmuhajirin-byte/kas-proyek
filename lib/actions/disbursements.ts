@@ -1,12 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireOwner } from "@/lib/auth";
+import {
+  assertProjectAccess,
+  canRecordDisbursement,
+  requireOwner,
+  requireSession,
+} from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseRupiahInput, formatRupiah } from "@/lib/money";
 import {
   getChannelCashBalance,
   getGlobalCashBalance,
+  getProjectCashBalance,
 } from "@/lib/balance";
 import type { FormState } from "@/lib/actions/projects";
 import { mkdir, writeFile } from "fs/promises";
@@ -51,7 +57,10 @@ export async function createMandorDisbursementAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const user = await requireOwner();
+  const user = await requireSession();
+  if (!canRecordDisbursement(user)) {
+    return { error: "Tidak berwenang mencatat pencairan Mandor." };
+  }
 
   const projectId = String(formData.get("projectId") ?? "");
   const mandorId = String(formData.get("mandorId") ?? "");
@@ -60,10 +69,26 @@ export async function createMandorDisbursementAction(
   const description = String(formData.get("description") ?? "").trim();
   const dateRaw = String(formData.get("date") ?? "");
   const amount = parseRupiahInput(String(formData.get("amount") ?? "0"));
-  const fromGlobal = formData.get("isFromGlobalCash") === "on";
+  let fromGlobal = formData.get("isFromGlobalCash") === "on";
 
   if (!projectId || !mandorId || !cashSourceId || !dateRaw || amount <= 0) {
     return { error: "Proyek, mandor, sumber kas, tanggal, dan nominal wajib." };
+  }
+
+  if (!(await assertProjectAccess(user, projectId))) {
+    return { error: "Proyek di luar penugasan Anda." };
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { standaloneBookkeeping: true, name: true },
+  });
+  if (!project) return { error: "Proyek tidak ditemukan." };
+  if (project.standaloneBookkeeping) {
+    fromGlobal = false;
+  }
+  if (user.role === "ADMIN_PROYEK" && !project.standaloneBookkeeping) {
+    return { error: "Admin Proyek hanya untuk proyek mandiri." };
   }
 
   const date = new Date(dateRaw);
@@ -95,7 +120,14 @@ export async function createMandorDisbursementAction(
     return { error: "Kategori 'Pencairan ke Mandor' belum ada. Jalankan seed." };
   }
 
-  if (fromGlobal) {
+  if (project.standaloneBookkeeping) {
+    const projectCash = await getProjectCashBalance(projectId);
+    if (amount > Math.max(0, projectCash)) {
+      return {
+        error: `Kas proyek mandiri tidak cukup (tersedia ${formatRupiah(Math.max(0, projectCash))}).`,
+      };
+    }
+  } else if (fromGlobal) {
     const global = await getGlobalCashBalance();
     if (amount > global) {
       return {
