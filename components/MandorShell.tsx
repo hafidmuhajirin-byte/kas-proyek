@@ -3,12 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
-import type { SessionUser } from "@/lib/auth";
-
-const nav = [
-  { href: "/mandor", label: "Beranda", short: "Home" },
-  { href: "/mandor/upload", label: "Upload", short: "Upload" },
-];
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
+import type { SessionUser } from "@/lib/session";
 
 export function MandorShell({
   user,
@@ -18,6 +14,16 @@ export function MandorShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const admFoto = user.role === "ADM_FOTO";
+
+  const nav = admFoto
+    ? [{ href: "/mandor/lokasi", label: "Foto Proyek", short: "Foto" }]
+    : [
+        { href: "/mandor", label: "Beranda", short: "Home" },
+        { href: "/mandor/upload", label: "Upload", short: "Upload" },
+        { href: "/mandor/lokasi", label: "Foto Proyek", short: "Foto" },
+      ];
+
   const isActive = (href: string) =>
     href === "/mandor"
       ? pathname === "/mandor"
@@ -28,8 +34,12 @@ export function MandorShell({
       <header className="sticky top-0 z-30 border-b border-[var(--line-soft)] bg-[var(--paper)]/95 backdrop-blur">
         <div className="safe-top-bar flex items-center justify-between px-4 pb-3">
           <div className="min-w-0">
-            <p className="font-serif text-xl text-[var(--ink)]">Kas Mandor</p>
-            <p className="truncate text-xs text-[var(--ink-faint)]">{user.name}</p>
+            <p className="font-serif text-xl text-[var(--ink)]">
+              {admFoto ? "ADM Foto" : "Kas Mandor"}
+            </p>
+            <p className="truncate text-xs text-[var(--ink-faint)]">
+              {user.name}
+            </p>
           </div>
           <form action={logoutAction}>
             <button
@@ -42,10 +52,19 @@ export function MandorShell({
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg px-4 py-5 pb-28">{children}</main>
+      <main className="mx-auto max-w-lg px-4 py-5 pb-28">
+        <div className="mb-3">
+          <PwaInstallPrompt compact />
+        </div>
+        {children}
+      </main>
 
       <nav className="safe-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line-soft)] bg-[#fffcf7]/95 backdrop-blur">
-        <div className="mx-auto grid max-w-lg grid-cols-2 px-2 pt-1">
+        <div
+          className={`mx-auto grid max-w-lg px-2 pt-1 ${
+            nav.length === 1 ? "grid-cols-1" : "grid-cols-3"
+          }`}
+        >
           {nav.map((item) => {
             const active = isActive(item.href);
             return (
