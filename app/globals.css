@@ -131,7 +131,12 @@ select,
 /* Saat panel bukti terbuka di PC: dorong konten agar tabel pecah isi tidak tertutup */
 @media (min-width: 1024px) {
   html.proof-review-open .mobile-main-pad {
-    padding-right: calc(var(--proof-panel-w, 320px) + 1rem);
+    padding-right: calc(var(--proof-panel-w, 360px) + 1rem);
+    transition: padding-right 0.05s linear;
+  }
+
+  html.proof-review-open body {
+    cursor: inherit;
   }
 }
 

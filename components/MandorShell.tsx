@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
+import { ProofReviewHost } from "@/components/ProofReviewLink";
 import type { SessionUser } from "@/lib/session";
 
 export function MandorShell({
@@ -55,14 +56,14 @@ export function MandorShell({
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg px-4 py-5 pb-28">
+      <main className="mobile-main-pad mx-auto max-w-lg px-4 py-5 pb-28 lg:max-w-none">
         <div className="mb-3">
           <PwaInstallPrompt compact />
         </div>
         {children}
       </main>
 
-      <nav className="safe-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line-soft)] bg-[#fffcf7]/95 backdrop-blur">
+      <nav className="safe-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line-soft)] bg-[#fffcf7]/95 backdrop-blur lg:hidden">
         <div
           className={`mx-auto grid max-w-lg px-2 pt-1 ${
             nav.length === 1 ? "grid-cols-1" : "grid-cols-3"
@@ -86,6 +87,8 @@ export function MandorShell({
           })}
         </div>
       </nav>
+
+      <ProofReviewHost />
     </div>
   );
 }

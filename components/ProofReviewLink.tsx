@@ -3,9 +3,11 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type MouseEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   type WheelEvent,
 } from "react";
 
@@ -13,9 +15,10 @@ type OpenFn = (url: string, title?: string) => void;
 
 let openProofReview: OpenFn | null = null;
 
-const PROOF_WIDTH_KEY = "kas-proof-panel-width";
-const WIDTH_NARROW = 320;
-const WIDTH_WIDE = 480;
+const PROOF_WIDTH_KEY = "kas-proof-panel-width-px";
+const WIDTH_MIN = 280;
+const WIDTH_MAX_RATIO = 0.72;
+const WIDTH_DEFAULT = 360;
 
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3] as const;
 const ZOOM_DEFAULT = 1;
@@ -39,6 +42,14 @@ function nearestZoomIndex(zoom: number): number {
     }
   }
   return best;
+}
+
+function clampWidth(px: number): number {
+  const max = Math.max(
+    WIDTH_MIN,
+    Math.floor(window.innerWidth * WIDTH_MAX_RATIO),
+  );
+  return Math.min(max, Math.max(WIDTH_MIN, Math.round(px)));
 }
 
 /** Deteksi PC/laptop: layar lebar + pointer halus (bukan sentuh utama). */
@@ -66,22 +77,33 @@ function applyProofOpenCss(widthPx: number | null) {
 }
 
 /**
- * Host tunggal — pasang sekali di AppShell.
- * Panel kanan + dorong konten utama agar tabel pecah isi tidak tertutup.
+ * Host tunggal — pasang di AppShell / MandorShell.
+ * Panel kanan bisa di-drag; konten utama ikut via --proof-panel-w.
  */
 export function ProofReviewHost() {
   const desktop = useDesktopProofReview();
   const [url, setUrl] = useState<string | null>(null);
   const [title, setTitle] = useState<string>("Bukti");
   const [ready, setReady] = useState(false);
-  const [width, setWidth] = useState(WIDTH_NARROW);
+  const [width, setWidth] = useState(WIDTH_DEFAULT);
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{ startX: number; startW: number } | null>(null);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(PROOF_WIDTH_KEY);
-      if (raw === "wide") setWidth(WIDTH_WIDE);
-      else if (raw === "narrow") setWidth(WIDTH_NARROW);
+      if (raw) {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n >= WIDTH_MIN) {
+          setWidth(clampWidth(n));
+          return;
+        }
+      }
+      // migrasi key lama narrow/wide
+      const legacy = localStorage.getItem("kas-proof-panel-width");
+      if (legacy === "wide") setWidth(480);
+      else if (legacy === "narrow") setWidth(320);
     } catch {
       /* ignore */
     }
@@ -115,22 +137,67 @@ export function ProofReviewHost() {
     return () => applyProofOpenCss(null);
   }, [desktop, url, width]);
 
+  // Saat resize jendela, jaga panel tetap dalam batas
+  useEffect(() => {
+    if (!desktop) return;
+    const onResize = () => {
+      setWidth((w) => clampWidth(w));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [desktop]);
+
+  const persistWidth = useCallback((px: number) => {
+    try {
+      localStorage.setItem(PROOF_WIDTH_KEY, String(px));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const close = useCallback(() => setUrl(null), []);
 
-  function toggleWidth() {
-    setWidth((w) => {
-      const next = w === WIDTH_NARROW ? WIDTH_WIDE : WIDTH_NARROW;
+  const onResizePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragRef.current = { startX: e.clientX, startW: width };
+      setDragging(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [width],
+  );
+
+  const onResizePointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!dragRef.current) return;
+      // Drag ke kiri = perbesar panel (panel di kanan)
+      const delta = dragRef.current.startX - e.clientX;
+      const next = clampWidth(dragRef.current.startW + delta);
+      setWidth(next);
+      applyProofOpenCss(next);
+    },
+    [],
+  );
+
+  const onResizePointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!dragRef.current) return;
       try {
-        localStorage.setItem(
-          PROOF_WIDTH_KEY,
-          next === WIDTH_WIDE ? "wide" : "narrow",
-        );
+        e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
-      return next;
-    });
-  }
+      dragRef.current = null;
+      setDragging(false);
+      setWidth((w) => {
+        const next = clampWidth(w);
+        persistWidth(next);
+        return next;
+      });
+    },
+    [persistWidth],
+  );
 
   function zoomIn() {
     setZoom((z) => {
@@ -172,21 +239,59 @@ export function ProofReviewHost() {
       role="complementary"
       aria-label={title}
       style={{ width }}
-      className="fixed inset-y-0 right-0 z-[80] hidden flex-col border-l border-teal-900/15 bg-[#fffcf7] shadow-xl lg:flex"
+      className={`fixed inset-y-0 right-0 z-[80] hidden flex-col border-l border-teal-900/15 bg-[#fffcf7] shadow-xl lg:flex ${
+        dragging ? "select-none" : ""
+      }`}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-teal-900/10 px-3 py-2.5">
+      {/* Handle drag di tepi kiri panel */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Seret untuk ubah lebar panel bukti"
+        aria-valuenow={width}
+        aria-valuemin={WIDTH_MIN}
+        tabIndex={0}
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={onResizePointerUp}
+        onPointerCancel={onResizePointerUp}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            setWidth((w) => {
+              const next = clampWidth(w + 24);
+              persistWidth(next);
+              return next;
+            });
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            setWidth((w) => {
+              const next = clampWidth(w - 24);
+              persistWidth(next);
+              return next;
+            });
+          }
+        }}
+        className={`absolute inset-y-0 left-0 z-10 w-3 -translate-x-1/2 cursor-col-resize touch-none ${
+          dragging ? "bg-teal-700/25" : "hover:bg-teal-700/15"
+        }`}
+      >
+        <span
+          className={`absolute top-1/2 left-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full ${
+            dragging ? "bg-teal-700" : "bg-teal-900/25"
+          }`}
+          aria-hidden
+        />
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-teal-900/10 px-3 py-2.5 pl-4">
         <p className="min-w-0 truncate text-sm font-medium text-teal-950">
           {title}
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={toggleWidth}
-            className={btnZoom}
-            title="Lebarkan / sempitkan panel"
-          >
-            {width === WIDTH_NARROW ? "Lebar" : "Sempit"}
-          </button>
+          <span className="hidden text-[10px] text-teal-900/45 xl:inline">
+            Seret tepi kiri
+          </span>
           <a
             href={url}
             target="_blank"
