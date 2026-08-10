@@ -60,17 +60,15 @@ export default async function MandorLokasiPage({
   if (!project) redirect("/mandor/lokasi");
 
   const recent = await prisma.projectSitePhoto.findMany({
-    where: {
-      projectId,
-      createdById: user.id,
-    },
+    where: { projectId },
     orderBy: { takenAt: "desc" },
-    take: 40,
+    take: 60,
     select: {
       id: true,
       photoUrl: true,
       caption: true,
       takenAt: true,
+      createdBy: { select: { id: true, name: true, role: true } },
     },
   });
 
@@ -101,8 +99,11 @@ export default async function MandorLokasiPage({
 
       <section className="space-y-2">
         <h2 className="font-serif text-xl text-[var(--ink)]">
-          Terbaru · {project.name}
+          Foto proyek · {project.name}
         </h2>
+        <p className="text-xs text-[var(--ink-faint)]">
+          Semua foto Mandor & ADM Foto di proyek ini.
+        </p>
         {recent.length === 0 ? (
           <p className="text-sm text-[var(--ink-faint)]">
             Belum ada foto di proyek ini.
@@ -125,6 +126,9 @@ export default async function MandorLokasiPage({
                 </a>
                 <p className="truncate px-1 py-0.5 text-[9px] leading-tight text-[var(--ink-faint)]">
                   {format(photo.takenAt, "d/M", { locale: localeId })}
+                  {photo.createdBy?.name
+                    ? ` · ${photo.createdBy.name}`
+                    : ""}
                   {photo.caption ? ` · ${photo.caption}` : ""}
                 </p>
               </li>
