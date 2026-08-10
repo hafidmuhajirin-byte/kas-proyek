@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatRupiah } from "@/lib/money";
 import {
   calcProjectProfit,
@@ -21,7 +21,19 @@ export function ProjectProfitPanel({
   ownerPersonalDraws?: number;
 }) {
   const [contingencyPercent, setContingencyPercent] = useState(0);
+  const [open, setOpen] = useState(false);
   const profit = calcProjectProfit({ ...input, contingencyPercent });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#keuntungan") {
+      setOpen(true);
+      document.getElementById("keuntungan")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, []);
 
   const marginTone =
     profit.marginBand === "within"
@@ -34,28 +46,33 @@ export function ProjectProfitPanel({
 
   const marginHint =
     profit.marginBand === "within"
-      ? `Sekitar fee ${PROJECT_FEE_PERCENT}% (${PROFIT_MARGIN_BENCHMARK.low}–${PROFIT_MARGIN_BENCHMARK.high}%)`
+      ? `Sekitar estimasi ${PROJECT_FEE_PERCENT}% (${PROFIT_MARGIN_BENCHMARK.low}–${PROFIT_MARGIN_BENCHMARK.high}%)`
       : profit.marginBand === "above"
-        ? `Di atas fee ${PROJECT_FEE_PERCENT}%`
+        ? `Di atas estimasi ${PROJECT_FEE_PERCENT}%`
         : profit.marginBand === "below"
-          ? `Di bawah fee ${PROJECT_FEE_PERCENT}%`
-          : "Belum ada pendapatan acuan";
+          ? `Di bawah estimasi ${PROJECT_FEE_PERCENT}%`
+          : "Belum ada acuan kontrak";
 
   return (
-    <Card className="mt-5 sm:mt-6">
-      <details>
+    <Card id="keuntungan" className="mt-2 scroll-mt-24">
+      <details
+        open={open}
+        onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      >
         <summary className="cursor-pointer list-none">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-medium text-[var(--ink)]">
+              <h3 className="text-sm font-medium text-[var(--ink)]">
                 Estimasi keuntungan
               </h3>
-              <p className="mt-0.5 text-sm text-[var(--ink-muted)]">
-                Fee {formatRupiah(profit.feeTargetProfit)} · Realisasi{" "}
+              <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">
+                {formatRupiah(profit.feeTargetProfit)} · realisasi{" "}
                 {formatRupiah(profit.realizedProfit)}
               </p>
             </div>
-            <span className="text-sm text-[var(--accent)]">Buka rincian</span>
+            <span className="text-xs text-[var(--accent)]">
+              {open ? "Tutup" : "Buka"}
+            </span>
           </div>
         </summary>
 
@@ -63,10 +80,13 @@ export function ProjectProfitPanel({
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-[var(--line-soft)] bg-[#fffcf7] p-3.5">
               <p className="text-[11px] font-medium tracking-[0.06em] text-[var(--ink-faint)] uppercase">
-                Target fee {PROJECT_FEE_PERCENT}%
+                Estimasi {PROJECT_FEE_PERCENT}%
               </p>
               <p className="mt-1.5 font-serif text-xl tabular-nums text-[var(--ink)] sm:text-2xl">
                 {formatRupiah(profit.feeTargetProfit)}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--ink-faint)]">
+                (Kontrak − ops) × {PROJECT_FEE_PERCENT}%
               </p>
             </div>
 
@@ -123,7 +143,7 @@ export function ProjectProfitPanel({
             {profit.feeTargetProfit > 0 ? (
               <>
                 {" "}
-                · Gap ke fee:{" "}
+                · Gap ke estimasi:{" "}
                 <strong className="tabular-nums">
                   {formatRupiah(profit.feeTargetProfit - profit.realizedProfit)}
                 </strong>
@@ -172,9 +192,21 @@ export function ProjectProfitPanel({
 
           <dl className="mt-5 grid gap-2 border-t border-teal-900/10 pt-4 text-sm text-teal-900/75 sm:grid-cols-2">
             <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
-              <dt>Pendapatan acuan</dt>
+              <dt>Nilai kontrak</dt>
               <dd className="tabular-nums font-medium text-teal-950">
-                {formatRupiah(profit.revenueBase)}
+                {formatRupiah(input.contractValue)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
+              <dt>Dana operasional</dt>
+              <dd className="tabular-nums font-medium text-rose-800">
+                {formatRupiah(profit.operationalFunds)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
+              <dt>Dasar estimasi</dt>
+              <dd className="tabular-nums font-medium text-teal-950">
+                {formatRupiah(profit.feeBase)}
               </dd>
             </div>
             <div className="flex justify-between gap-3 border-b border-teal-900/5 py-1.5">
