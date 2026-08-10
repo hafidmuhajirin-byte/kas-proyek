@@ -16,6 +16,7 @@ import {
 } from "@/lib/labor-period";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
+import { syncTaxObligationsForExpense } from "@/lib/tax-obligations";
 
 function revalidateExpense(projectId: string | null | undefined, txId: string) {
   revalidatePath("/transactions");
@@ -410,6 +411,56 @@ export async function approveMandorExpenseBreakdownAction(
       await prisma.transaction.update({
         where: { id: tx.splitParentId },
         data: { breakdownStatus: "APPROVED", breakdownNote: null },
+      });
+    }
+  }
+
+  // Pajak jadi terhutang setelah APPROVED
+  if (tx.projectId) {
+    const full = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+      select: {
+        id: true,
+        projectId: true,
+        date: true,
+        amount: true,
+        description: true,
+        isMaterialAlam: true,
+        isMandorExpense: true,
+        breakdownStatus: true,
+        isSplitParent: true,
+        isTaxPayment: true,
+        isMandorDisbursement: true,
+        isFeeTransfer: true,
+        isOwnerPersonal: true,
+        category: { select: { name: true } },
+        expenseLines: {
+          select: {
+            amount: true,
+            description: true,
+            kind: true,
+            isMaterialAlam: true,
+          },
+        },
+      },
+    });
+    if (full?.projectId) {
+      await syncTaxObligationsForExpense({
+        id: full.id,
+        projectId: full.projectId,
+        date: full.date,
+        amount: full.amount,
+        description: full.description,
+        categoryName: full.category.name,
+        isMaterialAlam: full.isMaterialAlam,
+        isMandorExpense: full.isMandorExpense,
+        breakdownStatus: full.breakdownStatus,
+        isSplitParent: full.isSplitParent,
+        isTaxPayment: full.isTaxPayment,
+        isMandorDisbursement: full.isMandorDisbursement,
+        isFeeTransfer: full.isFeeTransfer,
+        isOwnerPersonal: full.isOwnerPersonal,
+        lines: full.expenseLines,
       });
     }
   }

@@ -57,6 +57,7 @@ model User {
   mandorDisbursements MandorDisbursement[] @relation("MandorDisbursements")
   mandorExpenseLines MandorExpenseLine[]
   sitePhotos ProjectSitePhoto[]
+  taxObligationsPaid TaxWithholdingLine[] @relation("TaxObligationPaidBy")
 }
 
 model Project {
@@ -395,6 +396,8 @@ model Transaction {
   isFeeTransfer   Boolean     @default(false)
   isMandorDisbursement Boolean @default(false)
   isMandorExpense      Boolean @default(false)
+  /// Pengeluaran pembayaran pajak (dari kewajiban terhutang → lunas).
+  isTaxPayment         Boolean @default(false)
   /// Nota dibuat Admin untuk LPJ (nilai penuh di BKU/BKT); di Owner tampil Rp 0.
   isAdminLpjNota       Boolean @default(false)
   isMaterialAlam       Boolean @default(false)
@@ -440,6 +443,7 @@ model Transaction {
   materialMasterId String?
   materialMaster   MaterialMaster? @relation(fields: [materialMasterId], references: [id], onDelete: SetNull)
   taxWithholdingLines TaxWithholdingLine[]
+  taxPaymentFor       TaxWithholdingLine? @relation("TaxPaymentTransaction")
 
   @@index([date])
   @@index([projectId])
@@ -451,6 +455,7 @@ model Transaction {
   @@index([isFeeTransfer])
   @@index([isMandorDisbursement])
   @@index([isMandorExpense])
+  @@index([isTaxPayment])
   @@index([isAdminLpjNota])
   @@index([isMaterialAlam])
   @@index([linkedMandorDisbursementId])
@@ -488,6 +493,11 @@ enum TaxKind {
   PPN_11
   PPH_15
   PPH_FINAL_35
+}
+
+enum TaxObligationStatus {
+  UNPAID
+  PAID
 }
 
 /// Pecahan pagu SPK per kategori (Admin)
@@ -620,26 +630,40 @@ model TaxMonthNote {
   @@index([projectId])
 }
 
-/// Buku pembantu pajak (baris pemotongan)
+/// Kewajiban pajak dari nota (terhutang → lunas setelah bayar + bukti + ID billing)
 model TaxWithholdingLine {
-  id         String   @id @default(cuid())
+  id         String              @id @default(cuid())
   kind       TaxKind
   baseAmount Int
   taxAmount  Int
   label      String
   monthKey   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  status     TaxObligationStatus @default(UNPAID)
+  /// ID billing / NTPN / kode bayar pajak
+  billingId  String?
+  proofUrl   String?             @db.Text
+  paidAt     DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
 
   projectId     String
   project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Nota sumber yang memunculkan pajak
   transactionId String?
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  /// Transaksi kas pengeluaran saat pajak dibayar
+  paymentTransactionId String?      @unique
+  paymentTransaction   Transaction? @relation("TaxPaymentTransaction", fields: [paymentTransactionId], references: [id], onDelete: SetNull)
+  paidById String?
+  paidBy   User?   @relation("TaxObligationPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
 
+  @@unique([transactionId, kind])
   @@index([projectId])
+  @@index([projectId, status])
   @@index([monthKey])
   @@index([kind])
   @@index([transactionId])
+  @@index([status])
 }
 
 /// Snapshot hasil generate LPJ (cache)

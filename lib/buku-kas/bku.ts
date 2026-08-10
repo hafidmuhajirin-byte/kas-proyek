@@ -41,6 +41,8 @@ export type BkuLedgerTx = {
   breakdownStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
   /** Pencairan ke Mandor — tidak ditampilkan di BKU (hindari dobel dengan nota). */
   isMandorDisbursement?: boolean;
+  /** Pembayaran pajak (dari kewajiban) — baris isTaxRow, tanpa hitung ulang. */
+  isTaxPayment?: boolean;
   isMaterialAlam?: boolean;
   categoryName: string;
   /** Nomor minggu gaji — untuk ringkas uraian LABOR di BKU. */
@@ -238,10 +240,16 @@ export function buildBkuMonthBlocks(
   options?: {
     openingCashBalance?: number;
     bankBlocks?: BankMonthBlock[];
+    /**
+     * true = baris pajak virtual langsung setelah nota (uji format lama).
+     * false/default = pajak potong kas hanya lewat transaksi isTaxPayment (setelah bayar).
+     */
+    immediateTaxCash?: boolean;
   },
 ): BkuMonthBlock[] {
   const openingCash = options?.openingCashBalance ?? 0;
   const bankBlocks = options?.bankBlocks ?? [];
+  const immediateTaxCash = options?.immediateTaxCash === true;
 
   const sorted = [...txs]
     .filter((tx) => !tx.isMandorDisbursement)
@@ -302,10 +310,28 @@ export function buildBkuMonthBlocks(
           date: tx.date,
           description: uraian(tx.description, "Penerimaan"),
           amount,
+          isTaxRow: Boolean(tx.isTaxPayment),
         });
         totals.totalIncome += amount;
         totals.monthCashDelta += amount;
         padSide(expenses, incomes.length);
+        continue;
+      }
+
+      // Pembayaran pajak: tanpa No. BKK / tanpa hitung pajak ulang
+      if (tx.isTaxPayment) {
+        expenses.push({
+          date: tx.date,
+          description: uraian(tx.description, "Bayar pajak"),
+          amount,
+          proofNo: "",
+          costType: "",
+          status: "Bayar",
+          isTaxRow: true,
+        });
+        totals.totalExpense += amount;
+        totals.monthCashDelta -= amount;
+        padSide(incomes, expenses.length);
         continue;
       }
 
@@ -331,7 +357,7 @@ export function buildBkuMonthBlocks(
       const bkkRowIndex = expenses.length;
       padSide(incomes, bkkRowIndex);
 
-      if (tax.kind === "PPH_FINAL" && tax.pph > 0) {
+      if (immediateTaxCash && tax.kind === "PPH_FINAL" && tax.pph > 0) {
         incomes.push({
           date: tx.date,
           description: `Terima PPh Pasal 4 ayat 2 (3,5 %) ${buktiNo}`,
@@ -384,8 +410,8 @@ export function buildBkuMonthBlocks(
         padSide(incomes, expenses.length);
       }
 
-      // Bayar pajak langsung setelah nota
-      if (tax.totalTax > 0) {
+      // Mode lama / uji: bayar pajak virtual langsung setelah nota
+      if (immediateTaxCash && tax.totalTax > 0) {
         pushTaxPayRows(
           { date: tx.date, buktiNo, tax },
           expenses,

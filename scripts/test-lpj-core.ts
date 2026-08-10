@@ -395,7 +395,9 @@ function assert(cond: boolean, msg: string) {
         categoryName: "Pencairan ke Mandor",
       },
     ],
-    { openingCashBalance: 0, bankBlocks },
+    { openingCashBalance: 0, bankBlocks,
+    immediateTaxCash: true,
+  },
   );
 
   assert(bku.length === 1, "bku satu bulan");
@@ -459,7 +461,9 @@ function assert(cond: boolean, msg: string) {
         ],
       },
     ],
-    { openingCashBalance: 10_000_000 },
+    { openingCashBalance: 10_000_000,
+    immediateTaxCash: true,
+  },
   );
   assert(
     !bkuWage[0].expenses.some((e) => e.isTaxRow),
@@ -510,8 +514,10 @@ function assert(cond: boolean, msg: string) {
           ],
         },
       ],
-      { openingCashBalance: 20_000_000 },
-    );
+      { openingCashBalance: 20_000_000,
+    immediateTaxCash: true,
+  },
+  );
     assert(
       Boolean(bkuPending[0].expenses.find((e) => e.proofNo === "BKK.1")),
       "PENDING tetap masuk BKU sebagai belanja",
@@ -581,7 +587,9 @@ function assert(cond: boolean, msg: string) {
         ],
       },
     ],
-    { openingCashBalance: 0 },
+    { openingCashBalance: 0,
+    immediateTaxCash: true,
+  },
   );
   assert(bkt.length === 1, "bkt satu bulan");
   assert(bkt[0].rows[0].income === 84_000_000, "bkt penerimaan pengambilan");
@@ -657,7 +665,9 @@ function assert(cond: boolean, msg: string) {
         ],
       },
     ],
-    { openingCashBalance: 0 },
+    { openingCashBalance: 0,
+    immediateTaxCash: true,
+  },
   );
 
   assert(bktTax.length === 1, "bkt pajak satu bulan");

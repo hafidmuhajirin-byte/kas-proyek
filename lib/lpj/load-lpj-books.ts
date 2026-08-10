@@ -105,6 +105,7 @@ export async function loadLpjBooks(
           isOwnerPersonal: true,
           isFeeTransfer: true,
           isMandorDisbursement: true,
+          isTaxPayment: true,
           isMaterialAlam: true,
           isSplitParent: true,
           splitParentId: true,
@@ -197,6 +198,7 @@ export async function loadLpjBooks(
         isMandorExpense: tx.isMandorExpense,
         breakdownStatus: tx.breakdownStatus,
         isMandorDisbursement: tx.isMandorDisbursement,
+        isTaxPayment: tx.isTaxPayment,
         isMaterialAlam: tx.isMaterialAlam,
         categoryName: tx.category.name,
         laborWeekIndex: tx.laborWeekIndex,
@@ -246,10 +248,11 @@ export async function loadLpjBooks(
         isMandorExpense: tx.isMandorExpense,
         breakdownStatus: tx.breakdownStatus,
         isMandorDisbursement: tx.isMandorDisbursement,
+        isTaxPayment: tx.isTaxPayment,
         isMaterialAlam: tx.isMaterialAlam,
         categoryName: tx.category.name,
         cashSourceType:
-          tx.type === "INCOME" || tx.isMandorExpense
+          tx.type === "INCOME" || tx.isMandorExpense || tx.isTaxPayment
             ? "CASH"
             : tx.cashSource.type,
         laborWeekIndex: tx.laborWeekIndex,

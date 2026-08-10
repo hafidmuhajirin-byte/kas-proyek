@@ -28,6 +28,8 @@ export type BktLedgerTx = {
   /** PENDING/REJECTED → belanja tampil, tanpa baris PPN/PPh. */
   breakdownStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
   isMandorDisbursement?: boolean;
+  /** Pembayaran pajak — baris isTaxRow tanpa No. BKK. */
+  isTaxPayment?: boolean;
   isMaterialAlam?: boolean;
   categoryName: string;
   /** Sumber kas CASH — BKT hanya mutasi tunai. */
@@ -178,13 +180,17 @@ function pushTaxPayRows(
 /**
  * Susun BKT per bulan dari mutasi tunai + pengambilan.
  * Pencairan Mandor tidak ditampilkan (hindari dobel dengan nota).
- * Pajak potong kas tunai langsung setelah nota terkait.
+ * Pajak potong kas: default lewat transaksi isTaxPayment; mode immediateTaxCash untuk uji format lama.
  */
 export function buildBktMonthBlocks(
   txs: BktLedgerTx[],
-  options?: { openingCashBalance?: number },
+  options?: {
+    openingCashBalance?: number;
+    immediateTaxCash?: boolean;
+  },
 ): BktMonthBlock[] {
   const opening = options?.openingCashBalance ?? 0;
+  const immediateTaxCash = options?.immediateTaxCash === true;
 
   const sorted = [...txs]
     .filter((tx) => !tx.isMandorDisbursement)
@@ -265,6 +271,26 @@ export function buildBktMonthBlocks(
           unitPrice: null,
           income: amount,
           expense: 0,
+          isTaxRow: Boolean(tx.isTaxPayment),
+          ...pushBalance(totals.balance),
+        });
+        continue;
+      }
+
+      if (tx.isTaxPayment) {
+        totals.balance -= amount;
+        totals.totalExpense += amount;
+        rows.push({
+          date: tx.date,
+          proofNo: "",
+          status: "Bayar",
+          quantity: null,
+          unit: null,
+          description: uraian(tx.description, "Bayar pajak"),
+          unitPrice: null,
+          income: 0,
+          expense: amount,
+          isTaxRow: true,
           ...pushBalance(totals.balance),
         });
         continue;
@@ -335,8 +361,7 @@ export function buildBktMonthBlocks(
         });
       }
 
-      // Pajak langsung setelah nota: terima PPh Final (jika ada), lalu bayar
-      if (tax.totalTax > 0) {
+      if (immediateTaxCash && tax.totalTax > 0) {
         pushTaxReceiveRow(rows, totals, { date: tx.date, buktiNo, tax });
         pushTaxPayRows(rows, totals, { date: tx.date, buktiNo, tax });
       }

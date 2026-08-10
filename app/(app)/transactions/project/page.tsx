@@ -27,10 +27,18 @@ import {
   type ExpenseLineRow,
 } from "@/components/MandorExpenseBreakdownForm";
 import {
+  TaxObligationPayPanel,
+  TaxObligationPaidList,
+} from "@/components/TaxObligationPayPanel";
+import {
   btnSecondaryClass,
   Card,
   PageHeader,
 } from "@/components/ui";
+import {
+  listTaxObligations,
+  syncProjectTaxObligations,
+} from "@/lib/tax-obligations";
 
 /**
  * Kas Proyek — buku kas per proyek.
@@ -100,7 +108,8 @@ export default async function KasProyekPage({
       : {}),
   };
 
-  const [transactions, advances, projects, workers] = await Promise.all([
+  const [transactions, advances, projects, workers, cashSources] =
+    await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
@@ -116,6 +125,7 @@ export default async function KasProyekPage({
         isFromGlobalCash: true,
         isMandorDisbursement: true,
         isMandorExpense: true,
+        isTaxPayment: true,
         breakdownVendor: true,
         breakdownStatus: true,
         breakdownNote: true,
@@ -195,7 +205,25 @@ export default async function KasProyekPage({
           select: { name: true, role: true, dailyWage: true },
         })
       : Promise.resolve([]),
+    prisma.cashSource.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
+
+  if (scopedProjectId && (adminProyek || readOnlyAdmin || owner)) {
+    await syncProjectTaxObligations(scopedProjectId);
+  }
+
+  const unpaidTax =
+    scopedProjectId && !params.q && !hasTypeFilter
+      ? await listTaxObligations(scopedProjectId, "UNPAID")
+      : [];
+  const paidTaxRecent =
+    scopedProjectId && !params.q && !hasTypeFilter
+      ? (await listTaxObligations(scopedProjectId, "PAID")).slice(-8)
+      : [];
+  const pengeluaranTerhutang = unpaidTax.reduce((s, u) => s + u.taxAmount, 0);
 
   const knownWorkers = workers.map((w) => ({
     name: w.name,
@@ -235,18 +263,22 @@ export default async function KasProyekPage({
           tx.type === "INCOME"
             ? tx.isOwnerPersonal
               ? "Setoran pribadi"
-              : "Pemasukan"
+              : tx.isTaxPayment
+                ? "Terima pajak"
+                : "Pemasukan"
             : tx.isFeeTransfer
               ? "Transfer fee"
-              : tx.isMandorExpense
-                ? "Belanja Mandor"
-                : tx.isMandorDisbursement
-                  ? "Pembayaran ke Mandor"
-                  : tx.isOwnerPersonal
-                    ? "Ambil pribadi"
-                    : tx.isFromGlobalCash
-                      ? "Masuk kas besar"
-                      : "Pengeluaran",
+              : tx.isTaxPayment
+                ? "Bayar pajak"
+                : tx.isMandorExpense
+                  ? "Belanja Mandor"
+                  : tx.isMandorDisbursement
+                    ? "Pembayaran ke Mandor"
+                    : tx.isOwnerPersonal
+                      ? "Ambil pribadi"
+                      : tx.isFromGlobalCash
+                        ? "Masuk kas besar"
+                        : "Pengeluaran",
         description: tx.fundingStage
           ? `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)} · ${tidyCase(tx.fundingStage.name)}${pencairanNote}`
           : `${tidyCase(tx.category.name)} — ${tidyCase(tx.description)}${pencairanNote}`,
@@ -518,6 +550,23 @@ export default async function KasProyekPage({
         </Card>
       ) : (
         <>
+          {(adminProyek || readOnlyAdmin || owner) && unpaidTax.length > 0 ? (
+            <TaxObligationPayPanel
+              unpaid={unpaidTax.map((u) => ({
+                id: u.id,
+                kindLabel: u.kindLabel,
+                taxAmount: u.taxAmount,
+                label: u.label,
+                monthKey: u.monthKey,
+                sourceDescription: u.sourceDescription,
+                sourceDate: u.sourceDate
+                  ? u.sourceDate.toISOString()
+                  : null,
+              }))}
+              cashSources={cashSources}
+            />
+          ) : null}
+
           <BookSummaryStrip
             items={[
               {
@@ -528,16 +577,37 @@ export default async function KasProyekPage({
               {
                 label: "Pengeluaran",
                 value: formatRupiah(totalOut),
-                hint: "Tanpa bukti Mandor",
+                hint: "Termasuk pajak yang sudah dibayar",
+                tone: "out",
+              },
+              {
+                label: "Pengeluaran terhutang",
+                value: formatRupiah(pengeluaranTerhutang),
+                hint: "Pajak tercatat, belum bayar",
                 tone: "out",
               },
               {
                 label: "Saldo",
                 value: formatRupiah(saldoAkhir),
+                hint: "Penerimaan − pengeluaran",
                 tone: "bal",
               },
             ]}
           />
+
+          {(adminProyek || readOnlyAdmin || owner) &&
+          paidTaxRecent.length > 0 ? (
+            <TaxObligationPaidList
+              paid={paidTaxRecent.map((p) => ({
+                id: p.id,
+                kindLabel: p.kindLabel,
+                taxAmount: p.taxAmount,
+                billingId: p.billingId,
+                proofUrl: p.proofUrl,
+                paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+              }))}
+            />
+          ) : null}
 
           <Card className="overflow-hidden p-3 sm:p-4">
             <p className="mb-2 text-xs text-teal-900/55">

@@ -13,6 +13,14 @@ import { TaxCeilingBar } from "@/components/lpj/TaxCeilingBar";
 import { RekapitulasiPembayaranPajak } from "@/components/lpj/RekapitulasiPembayaranPajak";
 import { PajakRekapToolbar } from "@/components/lpj/PajakRekapToolbar";
 import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
+import {
+  TaxObligationPayPanel,
+  TaxObligationPaidList,
+} from "@/components/TaxObligationPayPanel";
+import {
+  listTaxObligations,
+  syncProjectTaxObligations,
+} from "@/lib/tax-obligations";
 
 export default async function AdminLpjPajakPage({
   params,
@@ -47,36 +55,47 @@ export default async function AdminLpjPajakPage({
   });
   if (!project || project.status !== "ACTIVE") notFound();
 
-  const expenses = await prisma.transaction.findMany({
-    where: {
-      projectId,
-      type: "EXPENSE",
-      isOwnerPersonal: false,
-      isFeeTransfer: false,
-      isMandorDisbursement: false,
-      isSplitParent: false,
-    },
-    select: {
-      id: true,
-      amount: true,
-      description: true,
-      isMaterialAlam: true,
-      isMandorExpense: true,
-      breakdownStatus: true,
-      date: true,
-      category: { select: { name: true } },
-      expenseLines: {
-        select: {
-          amount: true,
-          description: true,
-          kind: true,
-          isMaterialAlam: true,
+  await syncProjectTaxObligations(projectId);
+
+  const [expenses, unpaidTax, paidTax, cashSources] = await Promise.all([
+    prisma.transaction.findMany({
+      where: {
+        projectId,
+        type: "EXPENSE",
+        isOwnerPersonal: false,
+        isFeeTransfer: false,
+        isMandorDisbursement: false,
+        isSplitParent: false,
+        isTaxPayment: false,
+      },
+      select: {
+        id: true,
+        amount: true,
+        description: true,
+        isMaterialAlam: true,
+        isMandorExpense: true,
+        breakdownStatus: true,
+        date: true,
+        category: { select: { name: true } },
+        expenseLines: {
+          select: {
+            amount: true,
+            description: true,
+            kind: true,
+            isMaterialAlam: true,
+          },
         },
       },
-    },
-    orderBy: { date: "asc" },
-    take: 500,
-  });
+      orderBy: { date: "asc" },
+      take: 500,
+    }),
+    listTaxObligations(projectId, "UNPAID"),
+    listTaxObligations(projectId, "PAID"),
+    prisma.cashSource.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   const years = suggestTaxYears(expenses);
   const yearParam = sp.year ? Number(sp.year) : NaN;
@@ -108,6 +127,9 @@ export default async function AdminLpjPajakPage({
     year,
     notesByMonth,
   );
+
+  const unpaidSum = unpaidTax.reduce((s, u) => s + u.taxAmount, 0);
+  const paidSum = paidTax.reduce((s, u) => s + u.taxAmount, 0);
 
   const ceiling = getTaxCeilingStatus(
     rekap.pajakTertanggung,
@@ -147,7 +169,21 @@ export default async function AdminLpjPajakPage({
 
         <TaxCeilingBar status={ceiling} />
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <TaxObligationPayPanel
+          unpaid={unpaidTax.map((u) => ({
+            id: u.id,
+            kindLabel: u.kindLabel,
+            taxAmount: u.taxAmount,
+            label: u.label,
+            monthKey: u.monthKey,
+            sourceDescription: u.sourceDescription,
+            sourceDate: u.sourceDate ? u.sourceDate.toISOString() : null,
+          }))}
+          cashSources={cashSources}
+          title="Notifikasi: pajak terhutang menunggu pembayaran"
+        />
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card className="!p-3">
             <p className="text-xs text-[var(--ink-muted)]">PPN (pengeluaran)</p>
             <p className="font-medium">
@@ -166,9 +202,15 @@ export default async function AdminLpjPajakPage({
             </p>
           </Card>
           <Card className="!p-3">
-            <p className="text-xs text-[var(--ink-muted)]">Pajak tertanggung</p>
-            <p className="font-medium">
-              {formatRupiah(rekap.pajakTertanggung)}
+            <p className="text-xs text-[var(--ink-muted)]">Terhutang</p>
+            <p className="font-medium text-rose-800">
+              {formatRupiah(unpaidSum)}
+            </p>
+          </Card>
+          <Card className="!p-3">
+            <p className="text-xs text-[var(--ink-muted)]">Sudah dibayar</p>
+            <p className="font-medium text-emerald-800">
+              {formatRupiah(paidSum)}
             </p>
           </Card>
         </div>
@@ -176,9 +218,21 @@ export default async function AdminLpjPajakPage({
         <Card className="mt-4 text-sm text-[var(--ink-muted)]">
           Rekapitulasi diisi otomatis dari nota (PPN 11% + PPh 22 untuk belanja
           manufaktur &gt; Rp 2 jt; PPh Final 3,5% Bayar jasa
-          perencana/Pengawas). Judul
-          = catatan proyek. Sesuaikan NPWP di bawah, lalu cetak.
+          perencana/Pengawas). Setelah pajak terhitung, bayar lewat notifikasi
+          di atas (bukti + ID billing). Pengeluaran kas hanya bertambah setelah
+          lunas.
         </Card>
+
+        <TaxObligationPaidList
+          paid={paidTax.map((p) => ({
+            id: p.id,
+            kindLabel: p.kindLabel,
+            taxAmount: p.taxAmount,
+            billingId: p.billingId,
+            proofUrl: p.proofUrl,
+            paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+          }))}
+        />
 
         <div className="mt-4">
           <PajakRekapToolbar
