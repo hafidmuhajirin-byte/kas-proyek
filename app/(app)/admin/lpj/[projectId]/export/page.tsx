@@ -77,6 +77,8 @@ export default async function AdminLpjExportPage({
       amount: true,
       description: true,
       isMaterialAlam: true,
+      isMandorExpense: true,
+      breakdownStatus: true,
       category: { select: { name: true } },
       expenseLines: {
         select: {
@@ -95,6 +97,8 @@ export default async function AdminLpjExportPage({
       description: e.description,
       categoryName: e.category.name,
       isMaterialAlam: e.isMaterialAlam,
+      isMandorExpense: e.isMandorExpense,
+      breakdownStatus: e.breakdownStatus,
       lines: e.expenseLines,
     })),
     year,

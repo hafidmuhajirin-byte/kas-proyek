@@ -37,6 +37,8 @@ export type BkuLedgerTx = {
   amount: number;
   /** Laporan Mandor — dipecah ke baris BKK; ikut potong saldo kas di BKU LPJ. */
   isMandorExpense?: boolean;
+  /** PENDING/REJECTED → belanja tampil, tanpa baris PPN/PPh. */
+  breakdownStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
   /** Pencairan ke Mandor — tidak ditampilkan di BKU (hindari dobel dengan nota). */
   isMandorDisbursement?: boolean;
   isMaterialAlam?: boolean;
@@ -320,6 +322,8 @@ export function buildBkuMonthBlocks(
         description: tx.description,
         categoryName: tx.categoryName,
         isMaterialAlam: tx.isMaterialAlam,
+        isMandorExpense: tx.isMandorExpense,
+        breakdownStatus: tx.breakdownStatus,
         lines: tx.expenseLines,
       });
 

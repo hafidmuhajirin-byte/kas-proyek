@@ -3,6 +3,7 @@
  */
 import {
   computeLineTax,
+  computeVoucherTax,
   getTaxCeilingStatus,
   TAX_CEILING_OF_SPK,
 } from "../lib/lpj/tax-compliance";
@@ -357,6 +358,7 @@ function assert(cond: boolean, msg: string) {
         type: "EXPENSE",
         amount: 5_000_000,
         isMandorExpense: true,
+        breakdownStatus: "APPROVED",
         categoryName: "Belanja Mandor",
         expenseLines: [
           {
@@ -444,6 +446,7 @@ function assert(cond: boolean, msg: string) {
         type: "EXPENSE",
         amount: 5_225_000,
         isMandorExpense: true,
+        breakdownStatus: "APPROVED",
         categoryName: "Upah",
         expenseLines: [
           {
@@ -463,6 +466,66 @@ function assert(cond: boolean, msg: string) {
     "upah pekerja tanpa baris pajak",
   );
   assert(bkuWage[0].cashBalance === 10_000_000 - 5_225_000, "kas hanya potong upah");
+
+  // Nota Mandor PENDING → belanja tampil, tanpa PPN/PPh
+  {
+    const pendingTax = computeVoucherTax({
+      amount: 5_000_000,
+      description: "Nota material",
+      categoryName: "Belanja Mandor",
+      isMandorExpense: true,
+      breakdownStatus: "PENDING",
+      lines: [
+        {
+          description: "Semen",
+          amount: 5_000_000,
+          kind: "MATERIAL",
+        },
+      ],
+    });
+    assert(
+      pendingTax.totalTax === 0 && /menunggu verifikasi/i.test(pendingTax.label),
+      "PENDING Mandor → 0 pajak",
+    );
+
+    const bkuPending = buildBkuMonthBlocks(
+      [
+        {
+          id: "pend1",
+          date: new Date(2025, 9, 10),
+          description: "Nota material pending",
+          type: "EXPENSE",
+          amount: 5_000_000,
+          isMandorExpense: true,
+          breakdownStatus: "PENDING",
+          categoryName: "Belanja Mandor",
+          expenseLines: [
+            {
+              description: "Semen Portland",
+              quantity: 100,
+              unit: "zak",
+              amount: 5_000_000,
+              kind: "MATERIAL",
+            },
+          ],
+        },
+      ],
+      { openingCashBalance: 20_000_000 },
+    );
+    assert(
+      Boolean(bkuPending[0].expenses.find((e) => e.proofNo === "BKK.1")),
+      "PENDING tetap masuk BKU sebagai belanja",
+    );
+    assert(
+      !bkuPending[0].expenses.some((e) => e.isTaxRow) &&
+        !bkuPending[0].incomes.some((e) => e.isTaxRow),
+      "PENDING tanpa baris pajak di BKU",
+    );
+    assert(
+      bkuPending[0].cashBalance === 20_000_000 - 5_000_000,
+      "PENDING hanya potong belanja tanpa pajak",
+    );
+  }
 
   // kas: 40jt − 5jt material − pajak PPN/PPH material − 3jt pengawasan (PPh final net 0)
   const materialTaxPpn = Math.round(5_000_000 * 0.11);
@@ -490,6 +553,7 @@ function assert(cond: boolean, msg: string) {
         type: "EXPENSE",
         amount: 500_000,
         isMandorExpense: true,
+        breakdownStatus: "APPROVED",
         categoryName: "Belanja Mandor",
         cashSourceType: "CASH",
         expenseLines: [
@@ -552,6 +616,7 @@ function assert(cond: boolean, msg: string) {
         type: "EXPENSE",
         amount: material,
         isMandorExpense: true,
+        breakdownStatus: "APPROVED",
         categoryName: "Belanja Mandor",
         cashSourceType: "CASH",
         expenseLines: [
@@ -578,6 +643,7 @@ function assert(cond: boolean, msg: string) {
         type: "EXPENSE",
         amount: 2_000_000,
         isMandorExpense: true,
+        breakdownStatus: "APPROVED",
         categoryName: "Upah",
         cashSourceType: "CASH",
         expenseLines: [

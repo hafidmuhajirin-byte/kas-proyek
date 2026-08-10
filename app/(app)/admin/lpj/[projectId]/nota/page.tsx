@@ -184,6 +184,8 @@ export default async function AdminLpjNotaPage({
         description: b.description,
         categoryName: n.category.name,
         isMaterialAlam: n.isMaterialAlam,
+        isMandorExpense: true,
+        breakdownStatus: b.breakdownStatus,
         lines: b.lines.map((l) => ({
           amount: l.amount,
           description: l.description,

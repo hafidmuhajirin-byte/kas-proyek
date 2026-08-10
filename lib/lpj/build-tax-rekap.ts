@@ -9,6 +9,8 @@ export type TaxRekapExpenseInput = {
   description: string;
   categoryName: string;
   isMaterialAlam?: boolean;
+  isMandorExpense?: boolean;
+  breakdownStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
   lines?: Array<{
     amount: number;
     description?: string | null;
@@ -104,6 +106,8 @@ export function buildTaxRekap(
       description: e.description,
       categoryName: e.categoryName,
       isMaterialAlam: e.isMaterialAlam,
+      isMandorExpense: e.isMandorExpense,
+      breakdownStatus: e.breakdownStatus,
       lines: e.lines,
     });
     applyTax(months[m]!, tax);

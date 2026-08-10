@@ -61,6 +61,8 @@ export default async function AdminLpjPajakPage({
       amount: true,
       description: true,
       isMaterialAlam: true,
+      isMandorExpense: true,
+      breakdownStatus: true,
       date: true,
       category: { select: { name: true } },
       expenseLines: {
@@ -99,6 +101,8 @@ export default async function AdminLpjPajakPage({
       description: e.description,
       categoryName: e.category.name,
       isMaterialAlam: e.isMaterialAlam,
+      isMandorExpense: e.isMandorExpense,
+      breakdownStatus: e.breakdownStatus,
       lines: e.expenseLines,
     })),
     year,

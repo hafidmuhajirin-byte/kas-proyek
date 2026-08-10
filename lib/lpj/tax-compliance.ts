@@ -2,6 +2,8 @@
  * Mesin kepatuhan pajak LPJ Swakelola (bukan alat evasi).
  *
  * Aturan:
+ * - Nota Mandor / Admin-LPJ (isMandorExpense): pajak hanya setelah
+ *   verifikasi AdminOK (breakdownStatus === APPROVED)
  * - Material alam → 0 pajak
  * - Gaji / upah pekerja → 0 pajak
  * - Dana perencanaan & pengawasan → PPh Final 3,5%
@@ -11,6 +13,17 @@
  */
 
 import { isDanaPengelolaanText } from "@/lib/lpj/jasa-labels";
+
+export type MandorBreakdownStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+/** Pajak voucher Mandor hanya setelah AdminOK menyetujui pecahan. */
+export function isMandorVoucherTaxEligible(input: {
+  isMandorExpense?: boolean;
+  breakdownStatus?: MandorBreakdownStatus | null;
+}): boolean {
+  if (!input.isMandorExpense) return true;
+  return input.breakdownStatus === "APPROVED";
+}
 
 export const TAX_THRESHOLD = 2_000_000;
 export const PPN_RATE = 0.11;
@@ -198,6 +211,9 @@ export function computeVoucherTax(input: {
   description?: string | null;
   categoryName?: string | null;
   isMaterialAlam?: boolean;
+  /** Nota Mandor / Admin-LPJ — pajak menunggu APPROVED. */
+  isMandorExpense?: boolean;
+  breakdownStatus?: MandorBreakdownStatus | null;
   lines?: Array<{
     amount: number;
     description?: string | null;
@@ -212,6 +228,20 @@ export function computeVoucherTax(input: {
     categoryName: input.categoryName,
     isMaterialAlam: input.isMaterialAlam,
   };
+
+  if (!isMandorVoucherTaxEligible(input)) {
+    return {
+      ppn: 0,
+      pph: 0,
+      totalTax: 0,
+      kind: "NONE",
+      label:
+        input.breakdownStatus === "REJECTED"
+          ? "Tidak kena pajak — nota ditolak"
+          : "Pajak menunggu verifikasi AdminOK",
+      overThreshold: voucherAmount > TAX_THRESHOLD && !input.isMaterialAlam,
+    };
+  }
 
   if (isManagementFundExempt(meta)) {
     return computeLineTax(meta);

@@ -25,6 +25,8 @@ export type BktLedgerTx = {
   type: "INCOME" | "EXPENSE";
   amount: number;
   isMandorExpense?: boolean;
+  /** PENDING/REJECTED → belanja tampil, tanpa baris PPN/PPh. */
+  breakdownStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
   isMandorDisbursement?: boolean;
   isMaterialAlam?: boolean;
   categoryName: string;
@@ -281,6 +283,8 @@ export function buildBktMonthBlocks(
         description: tx.description,
         categoryName: tx.categoryName,
         isMaterialAlam: tx.isMaterialAlam,
+        isMandorExpense: tx.isMandorExpense,
+        breakdownStatus: tx.breakdownStatus,
         lines: tx.expenseLines,
       });
 
