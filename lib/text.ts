@@ -1,3 +1,5 @@
+import { rewriteCashBookUraian } from "@/lib/lpj/jasa-labels";
+
 const KEEP_UPPER = new Set([
   "TK",
   "SD",
@@ -15,12 +17,13 @@ const KEEP_UPPER = new Set([
 /**
  * Seragamkan kapitalisasi tampilan per kata (Title Case).
  * Singkatan umum (TK, NU, PGRI, dll.) tetap kapital penuh.
+ * Juga menormalisasi label jasa perencana/Pengawas & dana pengelolaan.
  */
 export function tidyCase(value: string): string {
   const text = value.trim();
   if (!text) return text;
 
-  return text
+  const titled = text
     .split(/(\s+|-+|\/+)/)
     .map((part) => {
       if (!part || /^[\s\-/]+$/.test(part)) return part;
@@ -35,8 +38,10 @@ export function tidyCase(value: string): string {
         return `${prefix}${upper}${suffix}`;
       }
 
-      const titled = upper.charAt(0) + upper.slice(1).toLowerCase();
-      return `${prefix}${titled}${suffix}`;
+      const word = upper.charAt(0) + upper.slice(1).toLowerCase();
+      return `${prefix}${word}${suffix}`;
     })
     .join("");
+
+  return rewriteCashBookUraian(titled);
 }

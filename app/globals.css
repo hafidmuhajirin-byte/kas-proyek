@@ -25,18 +25,34 @@
   --color-ink: var(--ink);
   --color-accent: var(--accent);
   --color-line: var(--line);
-  --font-sans: var(--font-figtree);
-  --font-serif: var(--font-fraunces);
+  --font-sans: var(--font-jost);
+  --font-serif: var(--font-jost);
 }
 
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-figtree), "Segoe UI", sans-serif;
+  font-family: var(--font-jost), "Segoe UI", sans-serif;
+  /* Hindari kursor/caret seleksi teks saat klik label UI (HP & desktop) */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Tetap bisa mengetik & menyeleksi di field form */
+input,
+textarea,
+select,
+[contenteditable="true"],
+.allow-text-select {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 .font-serif {
-  font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  font-family: var(--font-jost), "Segoe UI", sans-serif;
 }
 
 /* Kertas lembut — bukan flat AI purple */
@@ -55,6 +71,40 @@ body {
   opacity: 0.035;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   z-index: 0;
+}
+
+/* Login: full-bleed wallpaper + soft wash for readable brand/form */
+.login-shell {
+  background-color: #d8ddd6;
+  /* WebP dulu (lebih kecil di HP), fallback JPG */
+  background-image: url("/login-bg.jpg");
+  background-image: image-set(
+    url("/login-bg.webp") type("image/webp"),
+    url("/login-bg.jpg") type("image/jpeg")
+  );
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.login-shell::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(244, 240, 232, 0.72) 0%,
+      rgba(238, 241, 234, 0.58) 42%,
+      rgba(26, 47, 42, 0.28) 100%
+    ),
+    radial-gradient(
+      900px 480px at 50% 28%,
+      rgba(255, 252, 247, 0.55),
+      transparent 70%
+    );
 }
 
 .safe-pb {
@@ -78,16 +128,65 @@ body {
   padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* Saat panel bukti terbuka di PC: dorong konten agar tabel pecah isi tidak tertutup */
+@media (min-width: 1024px) {
+  html.proof-review-open .mobile-main-pad {
+    padding-right: calc(var(--proof-panel-w, 320px) + 1rem);
+  }
+}
+
 @media (min-width: 1024px) {
   .mobile-main-pad {
     padding-bottom: 2rem;
   }
 }
 
+/*
+ * LPJ books: preview & cetak memakai model kolom yang sama
+ * (table-layout:fixed + colgroup %). Lebar frame ≈ area cetak A4 landscape.
+ */
+.lpj-a4-landscape-frame {
+  width: 100%;
+  max-width: 281mm; /* 297mm − 2×8mm margin cetak */
+  margin-inline: auto;
+}
+
+.lpj-book-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.lpj-book-table th,
+.lpj-book-table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
+}
+
 @media print {
   @page {
     size: A4;
     margin: 12mm 10mm;
+  }
+
+  @page absen-landscape {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  @page absen-portrait {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  /* Laporan LPJ export: A4 landscape (Bank / BKU / BKT / Pajak)
+     Juga di-inject ulang oleh ForcePrintLandscape di halaman /cetak/*
+     karena beberapa browser mengabaikan named page. */
+  @page lpj-export-landscape {
+    size: A4 landscape;
+    margin: 8mm;
   }
 
   html,
@@ -121,5 +220,153 @@ body {
   a {
     text-decoration: none !important;
     color: inherit !important;
+  }
+
+  .absen-print-landscape {
+    page: absen-landscape;
+  }
+
+  .absen-print-portrait {
+    page: absen-portrait;
+  }
+
+  /* Hilangkan scrollbar & potongan scroll saat cetak */
+  .absen-print-landscape,
+  .absen-print-portrait,
+  .absen-print-landscape *,
+  .absen-print-portrait * {
+    overflow: visible !important;
+  }
+
+  .daftar-hadir-doc,
+  .rekap-pekerja-doc,
+  .rekap-pajak-doc {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .daftar-hadir-doc table,
+  .rekap-pajak-doc table {
+    width: 100% !important;
+    table-layout: fixed;
+  }
+
+  /* Frame preview = lebar area cetak A4 landscape */
+  .lpj-a4-landscape-frame {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  /* ——— LPJ export cetak ——— */
+  .lpj-export-print {
+    page: lpj-export-landscape;
+  }
+
+  .lpj-export-print,
+  .lpj-export-print * {
+    overflow: visible !important;
+  }
+
+  .lpj-export-print .lpj-book-section {
+    break-before: page;
+    page-break-before: always;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  .lpj-export-print .lpj-book-section:first-of-type {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .lpj-export-print .lpj-month-sheet {
+    break-before: page;
+    page-break-before: always;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .lpj-export-print .lpj-book-section .lpj-month-sheet:first-of-type {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .lpj-export-print .lpj-book-body {
+    display: block;
+  }
+
+  .lpj-export-print .lpj-book-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+  }
+
+  .lpj-export-print .lpj-book-table thead {
+    display: table-header-group;
+  }
+
+  .lpj-export-print .lpj-book-table tfoot {
+    display: table-footer-group;
+  }
+
+  .lpj-export-print .lpj-book-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .lpj-export-print .lpj-book-table th,
+  .lpj-export-print .lpj-book-table td {
+    padding: 2px 4px !important;
+  }
+
+  .lpj-export-print .lpj-book-table tbody tr {
+    height: auto !important;
+    min-height: 5.5mm;
+  }
+
+  /* Header dokumen = layout layar (judul + meta 3 kolom) */
+  .lpj-export-print .lpj-month-screen-header {
+    display: block !important;
+    margin-bottom: 0.35rem;
+  }
+
+  .lpj-export-print .lpj-month-screen-header h3 {
+    font-size: 14px !important;
+    text-decoration: underline;
+  }
+
+  .lpj-export-print .lpj-month-screen-header p,
+  .lpj-export-print .lpj-month-screen-header span {
+    font-size: 10px !important;
+  }
+
+  .lpj-export-print .lpj-month-screen-header .mt-4 {
+    margin-top: 0.4rem !important;
+  }
+
+  /* Saldo + catatan + TTD tidak boleh terpotong di tengah */
+  .lpj-export-print .lpj-closing-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-top: 0.5rem;
+  }
+
+  .lpj-export-print .lpj-sign-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-top: 0.75rem !important;
+  }
+
+  .lpj-export-print .rekap-pajak-doc {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
