@@ -25,6 +25,52 @@ type UserRow = {
   projectIds: string[];
 };
 
+function needsProjects(role: string) {
+  return role === "MANDOR" || role === "ADM_FOTO";
+}
+
+function ProjectAssignField({
+  projects,
+  assigned,
+  edit,
+}: {
+  projects: ProjectOption[];
+  assigned?: Set<string>;
+  edit?: boolean;
+}) {
+  return (
+    <Field
+      label="Proyek ditugaskan"
+      hint={
+        edit
+          ? "Wajib minimal 1 proyek."
+          : "Wajib pilih minimal 1 proyek"
+      }
+    >
+      <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
+        {projects.length === 0 ? (
+          <p className="text-sm text-[var(--ink-faint)]">Belum ada proyek.</p>
+        ) : (
+          projects.map((p) => (
+            <label key={p.id} className="flex items-center gap-2 text-sm">
+              {edit ? (
+                <input type="hidden" name="formProjectIds" value={p.id} />
+              ) : null}
+              <input
+                type="checkbox"
+                name="projectIds"
+                value={p.id}
+                defaultChecked={assigned?.has(p.id)}
+              />
+              {p.name}
+            </label>
+          ))
+        )}
+      </div>
+    </Field>
+  );
+}
+
 export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
   const [state, action, pending] = useActionState(createUserAction, {});
   const [role, setRole] = useState("MANDOR");
@@ -67,24 +113,12 @@ export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
             <option value="OWNER">Owner</option>
             <option value="ADMIN">Admin</option>
             <option value="MANDOR">Mandor</option>
+            <option value="ADM_FOTO">ADM Foto</option>
           </select>
         </Field>
       </div>
-      {role === "MANDOR" ? (
-        <Field label="Proyek ditugaskan">
-          <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
-            {projects.length === 0 ? (
-              <p className="text-sm text-[var(--ink-faint)]">Belum ada proyek.</p>
-            ) : (
-              projects.map((p) => (
-                <label key={p.id} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="projectIds" value={p.id} />
-                  {p.name}
-                </label>
-              ))
-            )}
-          </div>
-        </Field>
+      {needsProjects(role) ? (
+        <ProjectAssignField projects={projects} />
       ) : null}
       <button type="submit" className={btnPrimaryClass} disabled={pending}>
         {pending ? "Menyimpan..." : "Tambah pengguna"}
@@ -130,6 +164,7 @@ export function UserEditForm({
             <option value="OWNER">Owner</option>
             <option value="ADMIN">Admin</option>
             <option value="MANDOR">Mandor</option>
+            <option value="ADM_FOTO">ADM Foto</option>
           </select>
         </Field>
         <Field
@@ -146,22 +181,8 @@ export function UserEditForm({
           />
         </Field>
       </div>
-      {role === "MANDOR" ? (
-        <Field label="Proyek ditugaskan">
-          <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
-            {projects.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="projectIds"
-                  value={p.id}
-                  defaultChecked={assigned.has(p.id)}
-                />
-                {p.name}
-              </label>
-            ))}
-          </div>
-        </Field>
+      {needsProjects(role) ? (
+        <ProjectAssignField projects={projects} assigned={assigned} edit />
       ) : null}
       <button type="submit" className={btnSecondaryClass} disabled={pending}>
         {pending ? "Menyimpan..." : "Simpan perubahan"}
