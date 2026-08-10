@@ -2,9 +2,13 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { uploadSitePhotosBatchAction } from "@/lib/actions/mandor-lokasi";
+import {
+  revalidateSitePhotosAction,
+  uploadSitePhotosBatchAction,
+} from "@/lib/actions/mandor-lokasi";
 import {
   MAX_SITE_PHOTOS,
+  MAX_UPLOAD_PER_CLICK,
   SitePhotoMultiCapture,
   type QueuedSitePhoto,
 } from "@/components/SitePhotoMultiCapture";
@@ -32,12 +36,14 @@ export function MandorSitePhotoForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [projectId, setProjectId] = useState(
     defaultProjectId ?? projects[0]?.id ?? "",
   );
   const [photoDate, setPhotoDate] = useState(todayYmd);
+  const [caption, setCaption] = useState("");
   const [photos, setPhotos] = useState<QueuedSitePhoto[]>([]);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
@@ -69,28 +75,37 @@ export function MandorSitePhotoForm({
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (photos.length === 0 || pending) return;
-    if (photos.length > MAX_SITE_PHOTOS) {
-      setError(`Maks. ${MAX_SITE_PHOTOS} foto.`);
-      return;
-    }
 
-    const form = e.currentTarget;
+    // Ambil maksimal 20 per klik; sisa antrean tetap untuk unggah berikutnya.
+    const toUpload = photos.slice(0, MAX_UPLOAD_PER_CLICK);
+    const remaining = photos.slice(MAX_UPLOAD_PER_CLICK);
+
     setPending(true);
     setError(null);
+    setSuccess(null);
 
     let uploaded = 0;
-    const total = photos.length;
+    const total = toUpload.length;
     const batches = Math.ceil(total / UPLOAD_BATCH);
+    const doneIds = new Set<string>();
 
     try {
       for (let b = 0; b < batches; b++) {
-        const slice = photos.slice(b * UPLOAD_BATCH, (b + 1) * UPLOAD_BATCH);
-        setUploadProgress(`${Math.min((b + 1) * UPLOAD_BATCH, total)}/${total}`);
+        const slice = toUpload.slice(b * UPLOAD_BATCH, (b + 1) * UPLOAD_BATCH);
+        setUploadProgress(
+          `${Math.min((b + 1) * UPLOAD_BATCH, total)}/${total}`,
+        );
 
-        const fd = new FormData(form);
-        fd.delete("photos");
-        fd.delete("sourceNames");
+        // FormData dari state — jangan dari DOM form (bisa putus saat refresh).
+        const fd = new FormData();
+        fd.set("projectId", projectId);
         fd.set("date", photoDate);
+        fd.set("caption", caption);
+        fd.set("latitude", latitude);
+        fd.set("longitude", longitude);
+        // Skip revalidate di batch tengah & batch terakhir bila masih ada sisa
+        // (revalidate dipanggil sekali di akhir).
+        fd.set("skipRevalidate", "1");
         for (const item of slice) {
           fd.append("photos", item.file);
           fd.append("sourceNames", item.sourceName);
@@ -98,29 +113,40 @@ export function MandorSitePhotoForm({
 
         const result = await uploadSitePhotosBatchAction({}, fd);
         if (result.error) {
+          // Hapus yang sudah sukses dari kotak; sisanya (gagal + belum) tetap.
+          const keep = photos.filter((p) => !doneIds.has(p.id));
+          setPhotos(keep);
           setError(
             uploaded > 0
-              ? `${result.error} (${uploaded} tersimpan)`
+              ? `${result.error} (${uploaded} tersimpan, sisa di kotak)`
               : result.error,
           );
           return;
         }
         uploaded += result.count ?? slice.length;
+        for (const item of slice) doneIds.add(item.id);
       }
 
-      for (const item of photos) {
+      // Yang sudah terunggah hilang dari kotak; sisa (jika >20) tetap.
+      for (const item of toUpload) {
         URL.revokeObjectURL(item.previewUrl);
       }
-      setPhotos([]);
+      setPhotos(remaining);
       setPhotoDate(todayYmd());
-      router.replace(
-        `/mandor/lokasi?projectId=${encodeURIComponent(projectId)}&ok=1&n=${uploaded}`,
+      setSuccess(
+        remaining.length > 0
+          ? `${uploaded} tersimpan. ${remaining.length} masih di kotak — unggah lagi.`
+          : `${uploaded} foto tersimpan.`,
       );
+
+      await revalidateSitePhotosAction(projectId);
       router.refresh();
     } catch {
+      const keep = photos.filter((p) => !doneIds.has(p.id));
+      setPhotos(keep);
       setError(
         uploaded > 0
-          ? `${uploaded} tersimpan. Coba lagi untuk sisanya.`
+          ? `${uploaded} tersimpan. Sisa masih di kotak — unggah lagi.`
           : "Gagal mengunggah. Coba lagi.",
       );
     } finally {
@@ -129,12 +155,12 @@ export function MandorSitePhotoForm({
     }
   }
 
+  const uploadCount = Math.min(photos.length, MAX_UPLOAD_PER_CLICK);
+
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
       {error ? <Alert>{error}</Alert> : null}
-
-      <input type="hidden" name="latitude" value={latitude} />
-      <input type="hidden" name="longitude" value={longitude} />
+      {success ? <Alert tone="success">{success}</Alert> : null}
 
       <Field label="Proyek" htmlFor="projectId">
         <select
@@ -174,6 +200,8 @@ export function MandorSitePhotoForm({
           className={inputClass}
           placeholder="Opsional"
           maxLength={500}
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
           disabled={pending}
         />
       </Field>
@@ -205,9 +233,11 @@ export function MandorSitePhotoForm({
       >
         {pending
           ? uploadProgress ?? "…"
-          : photos.length > 1
-            ? `Unggah ${photos.length} foto`
-            : "Unggah foto"}
+          : photos.length > MAX_UPLOAD_PER_CLICK
+            ? `Unggah ${uploadCount} foto (${photos.length - uploadCount} nanti)`
+            : photos.length > 1
+              ? `Unggah ${photos.length} foto`
+              : "Unggah foto"}
       </button>
     </form>
   );

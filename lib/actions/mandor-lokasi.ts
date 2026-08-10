@@ -188,11 +188,27 @@ async function savePhotosFromForm(
     return { error: msg };
   }
 
+  // Jangan revalidate di tengah batch — refresh halaman memutus unggah berikutnya.
+  const skipRevalidate = formData.get("skipRevalidate") === "1";
+  if (!skipRevalidate) {
+    revalidatePath("/mandor");
+    revalidatePath("/mandor/lokasi");
+    revalidatePath("/foto-proyek");
+    revalidatePath(`/projects/${projectId}`);
+  }
+  return { success: "ok", count: photos.length };
+}
+
+/** Refresh daftar foto setelah semua batch selesai. */
+export async function revalidateSitePhotosAction(
+  projectId: string,
+): Promise<void> {
+  const user = await requireSession();
+  if (!isMandorLike(user)) return;
   revalidatePath("/mandor");
   revalidatePath("/mandor/lokasi");
   revalidatePath("/foto-proyek");
-  revalidatePath(`/projects/${projectId}`);
-  return { success: "ok", count: photos.length };
+  if (projectId) revalidatePath(`/projects/${projectId}`);
 }
 
 /**

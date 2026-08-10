@@ -23,7 +23,10 @@ export type QueuedSitePhoto = {
   sourceName: string;
 };
 
-export const MAX_SITE_PHOTOS = 20;
+/** Kapasitas kotak antrean di HP (boleh lebih dari sekali unggah). */
+export const MAX_SITE_PHOTOS = 40;
+/** Maks foto yang dikirim per klik Unggah (sisa tetap di kotak). */
+export const MAX_UPLOAD_PER_CLICK = 20;
 /** Lebih kecil = lebih ringan di HP (masih cukup jelas untuk dokumentasi). */
 const SITE_MAX_EDGE = 800;
 const SITE_MAX_BYTES = 180 * 1024;
@@ -300,7 +303,10 @@ export function SitePhotoMultiCapture({
 
       {items.length > 0 ? (
         <p className="text-sm font-medium text-[var(--ink)]">
-          {items.length}/{MAX_SITE_PHOTOS} foto
+          {items.length}/{MAX_SITE_PHOTOS} di kotak
+          {items.length > MAX_UPLOAD_PER_CLICK
+            ? ` · unggah ${MAX_UPLOAD_PER_CLICK}/klik`
+            : ""}
         </p>
       ) : null}
     </div>
