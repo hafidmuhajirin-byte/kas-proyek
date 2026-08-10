@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRoleAdmin } from "@/lib/auth";
+import { requireLpjAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
 
@@ -9,9 +9,9 @@ export async function updateLpjNpwpAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireRoleAdmin();
   const projectId = String(formData.get("projectId") ?? "");
   if (!projectId) return { error: "Proyek tidak valid." };
+  await requireLpjAccess(projectId);
   const npwp = String(formData.get("lpjNpwp") ?? "").trim() || null;
 
   await prisma.project.update({
@@ -29,7 +29,6 @@ export async function updateTaxMonthNoteAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireRoleAdmin();
   const projectId = String(formData.get("projectId") ?? "");
   const year = Number(formData.get("year") ?? 0);
   const month = Number(formData.get("month") ?? 0);
@@ -37,6 +36,7 @@ export async function updateTaxMonthNoteAction(
   if (!projectId || !(year > 2000) || month < 1 || month > 12) {
     return { error: "Data bulan tidak valid." };
   }
+  await requireLpjAccess(projectId);
 
   await prisma.taxMonthNote.upsert({
     where: {

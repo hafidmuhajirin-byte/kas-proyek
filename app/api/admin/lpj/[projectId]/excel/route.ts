@@ -1,6 +1,11 @@
 import { format } from "date-fns";
 import { NextResponse } from "next/server";
-import { getSession, isAdmin } from "@/lib/auth";
+import {
+  assertProjectAccess,
+  getSession,
+  isAdmin,
+  isAdminProyek,
+} from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loadLpjBooks } from "@/lib/lpj/load-lpj-books";
 import { buildLpjExcelWorkbook } from "@/lib/lpj/export-lpj-excel";
@@ -10,11 +15,17 @@ export async function GET(
   ctx: { params: Promise<{ projectId: string }> },
 ) {
   const session = await getSession();
-  if (!session || !isAdmin(session)) {
+  if (!session) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
-
   const { projectId } = await ctx.params;
+  if (isAdminProyek(session)) {
+    if (!(await assertProjectAccess(session, projectId))) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+  } else if (!isAdmin(session)) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
   const books = await loadLpjBooks(projectId);
   if (!books) {
     return new NextResponse("Not found", { status: 404 });

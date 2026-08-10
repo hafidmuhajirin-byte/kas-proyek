@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRoleAdmin } from "@/lib/auth";
+import { requireLpjAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { plannedTranchesFromContract } from "@/lib/buku-kas/bank";
 
@@ -21,9 +21,9 @@ function parseDate(raw: FormDataEntryValue | null): Date | null {
 
 /** Pastikan baris 70% / 30% ada; isi planned dari nilai SPK. */
 export async function ensureBankTranchesAction(formData: FormData) {
-  await requireRoleAdmin();
   const projectId = String(formData.get("projectId") || "");
   if (!projectId) redirect("/admin/lpj");
+  await requireLpjAccess(projectId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -61,12 +61,12 @@ export async function ensureBankTranchesAction(formData: FormData) {
 }
 
 export async function updateBankTrancheAction(formData: FormData) {
-  await requireRoleAdmin();
   const projectId = String(formData.get("projectId") || "");
   const phase = String(formData.get("phase") || "");
   if (!projectId || (phase !== "PHASE_70" && phase !== "PHASE_30")) {
     redirect("/admin/lpj");
   }
+  await requireLpjAccess(projectId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },

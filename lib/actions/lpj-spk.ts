@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRoleAdmin } from "@/lib/auth";
+import { requireLpjAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   SPK_CATEGORIES,
@@ -17,9 +17,9 @@ function parseIntSafe(raw: FormDataEntryValue | null, fallback = 0) {
 }
 
 export async function upsertSpkBudgetAction(formData: FormData) {
-  await requireRoleAdmin();
   const projectId = String(formData.get("projectId") || "");
   if (!projectId) redirect("/admin/lpj");
+  await requireLpjAccess(projectId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },

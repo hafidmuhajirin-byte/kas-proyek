@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRoleAdmin } from "@/lib/auth";
+import { requireLpjAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/ui";
 import { ForcePrintLandscape } from "@/components/lpj/ForcePrintLandscape";
@@ -38,8 +38,8 @@ export default async function AdminLpjCetakBookPage({
 }: {
   params: Promise<{ projectId: string; book: string }>;
 }) {
-  await requireRoleAdmin();
   const { projectId, book: bookParam } = await params;
+  await requireLpjAccess(projectId);
   if (!isBookKey(bookParam)) notFound();
   const book = bookParam;
 

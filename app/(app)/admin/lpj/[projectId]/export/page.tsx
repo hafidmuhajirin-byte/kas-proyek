@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRoleAdmin } from "@/lib/auth";
+import { requireLpjAccess } from "@/lib/auth";
 import { tidyCase } from "@/lib/text";
 import { formatRupiah } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -41,8 +41,8 @@ export default async function AdminLpjExportPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  await requireRoleAdmin();
   const { projectId } = await params;
+  await requireLpjAccess(projectId);
   const books = await loadLpjBooks(projectId);
   if (!books) notFound();
 

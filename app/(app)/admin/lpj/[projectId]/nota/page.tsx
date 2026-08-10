@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRoleAdmin } from "@/lib/auth";
+import { isAdmin, requireLpjAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeVoucherTax } from "@/lib/lpj/tax-compliance";
 import {
@@ -15,8 +15,9 @@ export default async function AdminLpjNotaPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  await requireRoleAdmin();
   const { projectId } = await params;
+  const user = await requireLpjAccess(projectId);
+  const canAddLpjNota = isAdmin(user);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -230,7 +231,9 @@ export default async function AdminLpjNotaPage({
         }
       />
 
-      <AdminAddLpjNotaForm projectId={project.id} categories={categories} />
+      {canAddLpjNota ? (
+        <AdminAddLpjNotaForm projectId={project.id} categories={categories} />
+      ) : null}
 
       {groups.length === 0 ? (
         <EmptyState message="Belum ada nota Mandor / Admin LPJ untuk proyek ini." />

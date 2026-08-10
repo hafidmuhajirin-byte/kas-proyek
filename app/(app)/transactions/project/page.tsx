@@ -85,8 +85,8 @@ export default async function KasProyekPage({
 
   const advanceWhere = {
     ...(needsProject ? { id: "__none__" } : {}),
-    ...(params.projectId
-      ? { contractor: { projectId: params.projectId } }
+    ...(scopedProjectId
+      ? { contractor: { projectId: scopedProjectId } }
       : {}),
     ...(params.q
       ? {
@@ -180,6 +180,7 @@ export default async function KasProyekPage({
         })
       : Promise.resolve([]),
     prisma.project.findMany({
+      where: accessible === "all" ? undefined : { id: { in: accessible } },
       orderBy: { name: "asc" },
       select: {
         id: true,
@@ -187,9 +188,9 @@ export default async function KasProyekPage({
         openingBalance: true,
       },
     }),
-    params.projectId
+    scopedProjectId
       ? prisma.worker.findMany({
-          where: { projectId: params.projectId, active: true },
+          where: { projectId: scopedProjectId, active: true },
           orderBy: { name: "asc" },
           select: { name: true, role: true, dailyWage: true },
         })
@@ -202,12 +203,12 @@ export default async function KasProyekPage({
     dailyWage: w.dailyWage,
   }));
 
-  const projectsInScope = params.projectId
-    ? projects.filter((p) => p.id === params.projectId)
+  const projectsInScope = scopedProjectId
+    ? projects.filter((p) => p.id === scopedProjectId)
     : [];
 
   const opening =
-    params.projectId && !params.q && !hasTypeFilter
+    scopedProjectId && !params.q && !hasTypeFilter
       ? projectsInScope.reduce((sum, p) => sum + p.openingBalance, 0)
       : 0;
 
@@ -429,16 +430,27 @@ export default async function KasProyekPage({
     <div>
       <PageHeader
         title="Kas Proyek"
-        description="Buku kas per proyek. Baris * = bukti Mandor (laporan, tidak potong saldo)."
+        description={
+          adminProyek
+            ? "Buku kas proyek mandiri Anda. Baris * = bukti Mandor (laporan, tidak potong saldo)."
+            : "Buku kas per proyek. Baris * = bukti Mandor (laporan, tidak potong saldo)."
+        }
         actions={
           <div className="flex flex-wrap gap-2">
-            {!readOnlyAdmin ? (
+            {!readOnlyAdmin && !adminProyek ? (
               <Link href="/transactions" className={btnSecondaryClass}>
                 Kas Besar
               </Link>
             ) : null}
-            {owner ? (
-              <Link href="/transactions/new" className={btnSecondaryClass}>
+            {owner || adminProyek ? (
+              <Link
+                href={
+                  adminProyek && scopedProjectId
+                    ? `/transactions/new?projectId=${scopedProjectId}`
+                    : "/transactions/new"
+                }
+                className={btnSecondaryClass}
+              >
                 + Catat transaksi
               </Link>
             ) : null}
@@ -447,26 +459,37 @@ export default async function KasProyekPage({
       />
 
       <Card className="mb-4 print:hidden">
-        <form className="grid gap-3 sm:grid-cols-4">
+        <form
+          className={`grid gap-3 ${adminProyek ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
+        >
           <input
             name="q"
             defaultValue={params.q}
             placeholder="Cari keterangan…"
             className="min-h-11 rounded-xl border border-teal-900/15 bg-white px-3 py-2.5 text-base outline-none focus:border-teal-600 sm:col-span-2 sm:text-sm"
           />
-          <select
-            name="projectId"
-            defaultValue={params.projectId ?? ""}
-            className="min-h-11 rounded-xl border border-teal-900/15 bg-white px-3 py-2.5 text-base outline-none focus:border-teal-600 sm:text-sm"
-            required
-          >
-            <option value="">Pilih proyek…</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {tidyCase(p.name)}
-              </option>
-            ))}
-          </select>
+          {adminProyek && scopedProjectId ? (
+            <>
+              <input type="hidden" name="projectId" value={scopedProjectId} />
+              <div className="min-h-11 rounded-xl border border-teal-900/10 bg-teal-50/60 px-3 py-2.5 text-sm text-teal-950">
+                {tidyCase(projectsInScope[0]?.name ?? "Proyek mandiri")}
+              </div>
+            </>
+          ) : (
+            <select
+              name="projectId"
+              defaultValue={params.projectId ?? ""}
+              className="min-h-11 rounded-xl border border-teal-900/15 bg-white px-3 py-2.5 text-base outline-none focus:border-teal-600 sm:text-sm"
+              required
+            >
+              <option value="">Pilih proyek…</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {tidyCase(p.name)}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="flex flex-col gap-2 sm:flex-row">
             <select
               name="type"

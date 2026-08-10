@@ -89,8 +89,17 @@ export default async function AdminProyekHomePage() {
           </div>
         </dl>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link href={`/projects/${project.id}`} className={btnPrimaryClass}>
-            Buka detail proyek
+          <Link
+            href={`/admin/lpj/${project.id}`}
+            className={btnPrimaryClass}
+          >
+            Buka LPJ
+          </Link>
+          <Link
+            href={`/projects/${project.id}`}
+            className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm"
+          >
+            Detail proyek
           </Link>
           <Link
             href="/transactions/project"

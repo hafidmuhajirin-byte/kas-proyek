@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRoleAdmin } from "@/lib/auth";
+import { requireLpjAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
@@ -45,8 +45,8 @@ export default async function AdminLpjProjectMenuPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  await requireRoleAdmin();
   const { projectId } = await params;
+  await requireLpjAccess(projectId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },

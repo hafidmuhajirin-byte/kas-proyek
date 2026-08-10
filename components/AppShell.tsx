@@ -34,6 +34,7 @@ function navForRole(role: SessionUser["role"]): {
   if (role === "ADMIN_PROYEK") {
     const primary = [
       { href: "/admin-proyek", label: "Proyek Saya", short: "Proyek" },
+      { href: "/admin/lpj", label: "LPJ", short: "LPJ" },
       { href: "/transactions/project", label: "Kas Proyek", short: "Kas" },
       { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
     ];

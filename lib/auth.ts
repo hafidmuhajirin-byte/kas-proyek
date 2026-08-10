@@ -70,13 +70,29 @@ export async function requireAdmin(): Promise<SessionUser> {
   return requireOwner();
 }
 
-/** Gate modul LPJ / Buku Kas — hanya role ADMIN. Tidak mengubah requireAdmin(). */
+/** Gate modul LPJ / Buku Kas — hanya role ADMIN (AdminOK). Tidak mengubah requireAdmin(). */
 export async function requireRoleAdmin(): Promise<SessionUser> {
   const session = await requireSession();
   if (session.role !== "ADMIN") {
     redirect(homePathForUser(session));
   }
   return session;
+}
+
+/**
+ * Akses modul LPJ: AdminOK (semua proyek) atau Admin Proyek (proyek penugasan saja).
+ * Pass projectId di halaman/aksi per-proyek.
+ */
+export async function requireLpjAccess(
+  projectId?: string,
+): Promise<SessionUser> {
+  const session = await requireSession();
+  if (session.role === "ADMIN") return session;
+  if (session.role === "ADMIN_PROYEK") {
+    if (projectId) await requireProjectAccess(session, projectId);
+    return session;
+  }
+  redirect(homePathForUser(session));
 }
 
 export function isOwner(user: SessionUser): boolean {

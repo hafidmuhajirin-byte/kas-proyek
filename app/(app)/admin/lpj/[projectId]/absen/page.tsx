@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRoleAdmin } from "@/lib/auth";
+import { requireLpjAccess } from "@/lib/auth";
 import {
   loadAbsenProject,
   loadAbsenWeekDetail,
@@ -18,8 +18,8 @@ export default async function AdminLpjAbsenPage({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ view?: string; week?: string }>;
 }) {
-  await requireRoleAdmin();
   const { projectId } = await params;
+  await requireLpjAccess(projectId);
   const sp = await searchParams;
 
   const loaded = await loadAbsenProject(projectId);

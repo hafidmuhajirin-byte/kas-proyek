@@ -1,15 +1,40 @@
 import Link from "next/link";
-import { requireRoleAdmin } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import {
+  getAccessibleProjectIds,
+  isAdminProyek,
+  requireLpjAccess,
+} from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 
 export default async function AdminLpjProjectListPage() {
-  await requireRoleAdmin();
+  const user = await requireLpjAccess();
+  const accessible = await getAccessibleProjectIds(user);
+
+  // Admin Proyek: langsung ke menu LPJ proyeknya (1 proyek)
+  if (isAdminProyek(user)) {
+    if (accessible === "all" || accessible.length === 0) {
+      return (
+        <div>
+          <PageHeader
+            title="Proyek LPJ"
+            description="Belum ada proyek mandiri yang ditugaskan."
+          />
+          <EmptyState message="Hubungi Owner untuk menugaskan Anda ke satu proyek mandiri." />
+        </div>
+      );
+    }
+    redirect(`/admin/lpj/${accessible[0]}`);
+  }
 
   const projects = await prisma.project.findMany({
-    where: { status: "ACTIVE" },
+    where: {
+      status: "ACTIVE",
+      ...(accessible === "all" ? {} : { id: { in: accessible } }),
+    },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -57,8 +82,8 @@ export default async function AdminLpjProjectListPage() {
       )}
 
       <Card className="mt-6 text-sm text-[var(--ink-muted)]">
-        Modul ini hanya untuk Admin. Data kas diisi Owner; Admin membaca dan
-        menyusun LPJ tanpa mengubah Kas Besar / Kas Proyek Owner.
+        Modul LPJ AdminOK: baca buku kas dan susun LPJ. Split nota / + tambah
+        nota tetap khusus AdminOK.
       </Card>
     </div>
   );
