@@ -7,7 +7,6 @@ import {
   uploadSitePhotosBatchAction,
 } from "@/lib/actions/mandor-lokasi";
 import {
-  MAX_SITE_PHOTOS,
   MAX_UPLOAD_PER_CLICK,
   SitePhotoMultiCapture,
   type QueuedSitePhoto,
@@ -19,29 +18,25 @@ import {
   inputClass,
 } from "@/components/ui";
 
-type ProjectOption = { id: string; name: string };
-
 const UPLOAD_BATCH = 5;
 
 function todayYmd() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Form foto — proyek sudah terkunci (dipilih di langkah sebelumnya). */
 export function MandorSitePhotoForm({
-  projects,
-  defaultProjectId,
+  projectId,
+  projectName,
 }: {
-  projects: ProjectOption[];
-  defaultProjectId?: string;
+  projectId: string;
+  projectName: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState(
-    defaultProjectId ?? projects[0]?.id ?? "",
-  );
   const [photoDate, setPhotoDate] = useState(todayYmd);
   const [caption, setCaption] = useState("");
   const [photos, setPhotos] = useState<QueuedSitePhoto[]>([]);
@@ -56,7 +51,6 @@ export function MandorSitePhotoForm({
       setGpsStatus("unavailable");
       return;
     }
-    // Tunda GPS setelah paint pertama — jangan blok loading halaman di HP
     const timer = window.setTimeout(() => {
       setGpsStatus("loading");
       navigator.geolocation.getCurrentPosition(
@@ -80,7 +74,6 @@ export function MandorSitePhotoForm({
     e.preventDefault();
     if (photos.length === 0 || pending) return;
 
-    // Ambil maksimal 20 per klik; sisa antrean tetap untuk unggah berikutnya.
     const toUpload = photos.slice(0, MAX_UPLOAD_PER_CLICK);
     const remaining = photos.slice(MAX_UPLOAD_PER_CLICK);
 
@@ -100,15 +93,12 @@ export function MandorSitePhotoForm({
           `${Math.min((b + 1) * UPLOAD_BATCH, total)}/${total}`,
         );
 
-        // FormData dari state — jangan dari DOM form (bisa putus saat refresh).
         const fd = new FormData();
         fd.set("projectId", projectId);
         fd.set("date", photoDate);
         fd.set("caption", caption);
         fd.set("latitude", latitude);
         fd.set("longitude", longitude);
-        // Skip revalidate di batch tengah & batch terakhir bila masih ada sisa
-        // (revalidate dipanggil sekali di akhir).
         fd.set("skipRevalidate", "1");
         for (const item of slice) {
           fd.append("photos", item.file);
@@ -117,7 +107,6 @@ export function MandorSitePhotoForm({
 
         const result = await uploadSitePhotosBatchAction({}, fd);
         if (result.error) {
-          // Hapus yang sudah sukses dari kotak; sisanya (gagal + belum) tetap.
           const keep = photos.filter((p) => !doneIds.has(p.id));
           setPhotos(keep);
           setError(
@@ -131,7 +120,6 @@ export function MandorSitePhotoForm({
         for (const item of slice) doneIds.add(item.id);
       }
 
-      // Yang sudah terunggah hilang dari kotak; sisa (jika >20) tetap.
       for (const item of toUpload) {
         URL.revokeObjectURL(item.previewUrl);
       }
@@ -166,23 +154,10 @@ export function MandorSitePhotoForm({
       {error ? <Alert>{error}</Alert> : null}
       {success ? <Alert tone="success">{success}</Alert> : null}
 
-      <Field label="Proyek" htmlFor="projectId">
-        <select
-          id="projectId"
-          name="projectId"
-          className={inputClass}
-          required
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          disabled={pending}
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <input type="hidden" name="projectId" value={projectId} />
+      <p className="rounded-lg border border-teal-200/80 bg-teal-50/70 px-3 py-2 text-sm text-teal-950">
+        Foto untuk: <span className="font-medium">{projectName}</span>
+      </p>
 
       <Field label="Tanggal foto" htmlFor="date">
         <input

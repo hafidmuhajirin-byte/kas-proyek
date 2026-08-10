@@ -1,6 +1,5 @@
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   getAccessibleProjectIds,
@@ -9,6 +8,10 @@ import {
   requireSession,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  MandorLockedProjectHeader,
+  MandorProjectPicker,
+} from "@/components/MandorProjectPicker";
 import { MandorSitePhotoForm } from "@/components/MandorSitePhotoForm";
 import { Card } from "@/components/ui";
 
@@ -36,14 +39,29 @@ export default async function MandorLokasiPage({
     select: { id: true, name: true },
   });
 
-  const defaultProjectId =
+  const projectId =
     params.projectId && ids.includes(params.projectId)
       ? params.projectId
-      : projects[0]?.id;
+      : undefined;
+
+  // Langkah 1: pilih proyek dulu
+  if (!projectId) {
+    return (
+      <MandorProjectPicker
+        title="Foto proyek"
+        hint="Pilih proyek dulu, baru ambil/unggah foto."
+        projects={projects}
+        hrefFor={(id) => `/mandor/lokasi?projectId=${encodeURIComponent(id)}`}
+      />
+    );
+  }
+
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) redirect("/mandor/lokasi");
 
   const recent = await prisma.projectSitePhoto.findMany({
     where: {
-      projectId: { in: ids },
+      projectId,
       createdById: user.id,
     },
     orderBy: { takenAt: "desc" },
@@ -53,17 +71,18 @@ export default async function MandorLokasiPage({
       photoUrl: true,
       caption: true,
       takenAt: true,
-      latitude: true,
-      longitude: true,
-      project: { select: { name: true } },
     },
   });
 
-  const admFoto = isAdmFoto(user);
+  const homeHref = isAdmFoto(user) ? "/mandor/lokasi" : "/mandor";
 
   return (
     <div className="space-y-5">
-      <h1 className="font-serif text-2xl text-[var(--ink)]">Foto proyek</h1>
+      <MandorLockedProjectHeader
+        projectName={project.name}
+        homeHref={homeHref}
+        homeLabel="Home"
+      />
 
       {params.ok === "1" ? (
         <p className="text-sm text-teal-900">
@@ -75,15 +94,19 @@ export default async function MandorLokasiPage({
 
       <Card>
         <MandorSitePhotoForm
-          projects={projects}
-          defaultProjectId={defaultProjectId}
+          projectId={project.id}
+          projectName={project.name}
         />
       </Card>
 
       <section className="space-y-2">
-        <h2 className="font-serif text-xl text-[var(--ink)]">Terbaru</h2>
+        <h2 className="font-serif text-xl text-[var(--ink)]">
+          Terbaru · {project.name}
+        </h2>
         {recent.length === 0 ? (
-          <p className="text-sm text-[var(--ink-faint)]">Belum ada foto.</p>
+          <p className="text-sm text-[var(--ink-faint)]">
+            Belum ada foto di proyek ini.
+          </p>
         ) : (
           <ul className="grid grid-cols-4 gap-1.5">
             {recent.map((photo) => (
@@ -109,14 +132,6 @@ export default async function MandorLokasiPage({
           </ul>
         )}
       </section>
-
-      {!admFoto ? (
-        <p className="text-center text-sm">
-          <Link href="/mandor" className="text-[var(--accent)] underline">
-            Beranda
-          </Link>
-        </p>
-      ) : null}
     </div>
   );
 }

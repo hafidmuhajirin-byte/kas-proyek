@@ -7,6 +7,10 @@ import {
 } from "@/lib/auth";
 import { getPencairanOptionsForProject } from "@/lib/mandor-pencairan";
 import { prisma } from "@/lib/prisma";
+import {
+  MandorLockedProjectHeader,
+  MandorProjectPicker,
+} from "@/components/MandorProjectPicker";
 import { MandorUploadForm } from "@/components/MandorUploadForm";
 import { Card } from "@/components/ui";
 
@@ -35,33 +39,43 @@ export default async function MandorUploadPage({
     select: { id: true, name: true },
   });
 
-  const defaultProjectId =
+  const projectId =
     params.projectId && ids.includes(params.projectId)
       ? params.projectId
-      : projects[0]?.id;
+      : undefined;
 
-  const pencairanChecks = await Promise.all(
-    projects.map(async (p) => {
-      const opts = await getPencairanOptionsForProject(p.id, {
-        mandorId: user.id,
-      });
-      return opts.some((o) => o.remaining > 0);
-    }),
-  );
-  const hasPencairan = pencairanChecks.some(Boolean);
+  // Langkah 1: pilih proyek dulu
+  if (!projectId) {
+    return (
+      <MandorProjectPicker
+        title="Upload bukti"
+        hint="Pilih proyek dulu, baru foto/unggah nota."
+        projects={projects}
+        hrefFor={(id) => `/mandor/upload?projectId=${encodeURIComponent(id)}`}
+      />
+    );
+  }
+
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) redirect("/mandor/upload");
+
+  const pencairanOpts = await getPencairanOptionsForProject(project.id, {
+    mandorId: user.id,
+  });
+  const hasPencairan = pencairanOpts.some((o) => o.remaining > 0);
 
   return (
     <div className="space-y-4">
-      <h1 className="text-center text-2xl font-bold uppercase tracking-wide text-[var(--ink)]">
-        Upload bukti
-      </h1>
-      <p className="text-center text-sm text-[var(--ink-muted)]">
-        Foto nota, isi nominal, pilih keterangan, lalu simpan.
-      </p>
+      <MandorLockedProjectHeader
+        projectName={project.name}
+        homeHref="/mandor"
+        homeLabel="Home"
+      />
+
       <Card>
         <MandorUploadForm
-          projects={projects}
-          defaultProjectId={defaultProjectId}
+          projectId={project.id}
+          projectName={project.name}
           hasPencairan={hasPencairan}
         />
       </Card>

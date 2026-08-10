@@ -17,17 +17,20 @@ export function MandorShell({
   const admFoto = user.role === "ADM_FOTO";
 
   const nav = admFoto
-    ? [{ href: "/mandor/lokasi", label: "Foto Proyek", short: "Foto" }]
+    ? [{ href: "/mandor/lokasi", label: "Home", short: "Home" }]
     : [
         { href: "/mandor", label: "Beranda", short: "Home" },
         { href: "/mandor/upload", label: "Upload", short: "Upload" },
         { href: "/mandor/lokasi", label: "Foto Proyek", short: "Foto" },
       ];
 
-  const isActive = (href: string) =>
-    href === "/mandor"
-      ? pathname === "/mandor"
-      : pathname === href || pathname.startsWith(`${href}/`);
+  // Nav ke daftar proyek (tanpa projectId), bukan halaman terkunci
+  const isActive = (href: string) => {
+    if (href === "/mandor") return pathname === "/mandor";
+    if (href === "/mandor/lokasi") return pathname.startsWith("/mandor/lokasi");
+    if (href === "/mandor/upload") return pathname.startsWith("/mandor/upload");
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   return (
     <div className="min-h-screen bg-[var(--paper)]">

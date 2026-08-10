@@ -14,24 +14,19 @@ import {
 import type { ReceiptOcrSuggestion } from "@/lib/receipt-ocr";
 import { formatNumberId } from "@/lib/money";
 
-type ProjectOption = { id: string; name: string };
-
+/** Form upload bukti — proyek sudah terkunci. */
 export function MandorUploadForm({
-  projects,
-  defaultProjectId,
+  projectId,
+  projectName,
   hasPencairan = true,
 }: {
-  projects: ProjectOption[];
-  defaultProjectId?: string;
-  /** Ada dana cair Mandor di proyek default / setidaknya satu proyek. */
+  projectId: string;
+  projectName: string;
   hasPencairan?: boolean;
 }) {
   const [state, action, pending] = useActionState(createMandorExpenseAction, {});
   const [amountKey, setAmountKey] = useState(0);
   const [amountDefault, setAmountDefault] = useState(0);
-  const [projectId, setProjectId] = useState(
-    defaultProjectId ?? projects[0]?.id ?? "",
-  );
 
   function applyOcr(s: ReceiptOcrSuggestion) {
     if (s.amount != null && s.amount > 0) {
@@ -46,22 +41,10 @@ export function MandorUploadForm({
     <form action={action} className="space-y-4">
       {state.error ? <Alert>{state.error}</Alert> : null}
 
-      <Field label="Proyek" htmlFor="projectId">
-        <select
-          id="projectId"
-          name="projectId"
-          className={inputClass}
-          required
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <input type="hidden" name="projectId" value={projectId} />
+      <p className="rounded-lg border border-teal-200/80 bg-teal-50/70 px-3 py-2 text-sm text-teal-950">
+        Bukti untuk: <span className="font-medium">{projectName}</span>
+      </p>
 
       <Field label="Tanggal" htmlFor="date">
         <input
@@ -110,7 +93,7 @@ export function MandorUploadForm({
 
       {!hasPencairan ? (
         <p className="text-sm text-amber-900">
-          Belum ada dana cair dari Owner untuk proyek Anda. Hubungi Owner dulu.
+          Belum ada dana cair dari Owner untuk proyek ini. Hubungi Owner dulu.
         </p>
       ) : null}
 
