@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createMandorExpenseAction } from "@/lib/actions/mandor-expense";
+import { MANDOR_EXPENSE_DESCRIPTIONS } from "@/lib/mandor-expense-labels";
 import { ProofCapture } from "@/components/ProofCapture";
 import { RupiahInput } from "@/components/RupiahInput";
 import {
@@ -10,33 +11,27 @@ import {
   Field,
   inputClass,
 } from "@/components/ui";
-import { useState } from "react";
 import type { ReceiptOcrSuggestion } from "@/lib/receipt-ocr";
 import { formatNumberId } from "@/lib/money";
 
-type ProjectOption = { id: string; name: string };
-
+/** Form upload bukti — proyek sudah terkunci. */
 export function MandorUploadForm({
-  projects,
-  defaultProjectId,
+  projectId,
+  projectName,
+  hasPencairan = true,
 }: {
-  projects: ProjectOption[];
-  defaultProjectId?: string;
+  projectId: string;
+  projectName: string;
+  hasPencairan?: boolean;
 }) {
   const [state, action, pending] = useActionState(createMandorExpenseAction, {});
   const [amountKey, setAmountKey] = useState(0);
   const [amountDefault, setAmountDefault] = useState(0);
-  const [descKey, setDescKey] = useState(0);
-  const [descDefault, setDescDefault] = useState("");
 
   function applyOcr(s: ReceiptOcrSuggestion) {
     if (s.amount != null && s.amount > 0) {
       setAmountDefault(s.amount);
       setAmountKey((k) => k + 1);
-    }
-    if (s.descriptionHint) {
-      setDescDefault(s.descriptionHint);
-      setDescKey((k) => k + 1);
     }
   }
 
@@ -46,21 +41,10 @@ export function MandorUploadForm({
     <form action={action} className="space-y-4">
       {state.error ? <Alert>{state.error}</Alert> : null}
 
-      <Field label="Proyek" htmlFor="projectId">
-        <select
-          id="projectId"
-          name="projectId"
-          className={inputClass}
-          required
-          defaultValue={defaultProjectId ?? projects[0]?.id}
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <input type="hidden" name="projectId" value={projectId} />
+      <p className="rounded-lg border border-teal-200/80 bg-teal-50/70 px-3 py-2 text-sm text-teal-950">
+        Bukti untuk: <span className="font-medium">{projectName}</span>
+      </p>
 
       <Field label="Tanggal" htmlFor="date">
         <input
@@ -85,26 +69,38 @@ export function MandorUploadForm({
       </Field>
 
       <Field label="Keterangan" htmlFor="description">
-        <textarea
-          key={descKey}
+        <select
           id="description"
           name="description"
           className={inputClass}
-          rows={3}
           required
-          defaultValue={descDefault}
-          placeholder="Contoh: Beli semen 10 zak"
-        />
+          defaultValue=""
+        >
+          <option value="" disabled>
+            Pilih keterangan…
+          </option>
+          {MANDOR_EXPENSE_DESCRIPTIONS.map((label) => (
+            <option key={label} value={label}>
+              {label}
+            </option>
+          ))}
+        </select>
       </Field>
 
-      <Field label="Bukti (wajib)" htmlFor="proof">
+      <Field label="Bukti (wajib)">
         <ProofCapture onApplySuggestion={applyOcr} />
       </Field>
+
+      {!hasPencairan ? (
+        <p className="text-sm text-amber-900">
+          Belum ada dana cair dari Owner untuk proyek ini. Hubungi Owner dulu.
+        </p>
+      ) : null}
 
       <button
         type="submit"
         className={`${btnPrimaryClass} w-full min-h-14 text-base`}
-        disabled={pending}
+        disabled={pending || !hasPencairan}
       >
         {pending ? "Mengirim..." : "Simpan bukti belanja"}
       </button>

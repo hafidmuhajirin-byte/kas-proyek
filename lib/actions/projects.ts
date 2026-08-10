@@ -101,10 +101,18 @@ export async function createProjectAction(
     return { error: "Mode pembayaran tidak valid." };
   }
 
+  const standaloneBookkeeping =
+    formData.get("standaloneBookkeeping") === "on" ||
+    formData.get("standaloneBookkeeping") === "1";
+
   // Kerja dulu bayar di akhir: tidak memakai nilai kontrak; saldo awal selalu 0
-  if (billingMode === "PAY_AT_END") {
+  // (kecuali proyek mandiri — tetap boleh punya saldo proyek)
+  if (billingMode === "PAY_AT_END" && !standaloneBookkeeping) {
     contractValue = 0;
     openingBalance = 0;
+  }
+  if (billingMode === "PAY_AT_END" && standaloneBookkeeping) {
+    contractValue = 0;
   }
 
   await prisma.project.create({
@@ -116,10 +124,17 @@ export async function createProjectAction(
       billingMode,
       openingBalance,
       contractValue,
+      standaloneBookkeeping,
     },
   });
   revalidatePath("/projects");
   revalidatePath("/dashboard");
+  if (standaloneBookkeeping) {
+    return {
+      success:
+        "Proyek mandiri dibuat. Kas terpisah dari kas besar Owner — tugaskan Admin Proyek, Mandor, dan ADM Foto.",
+    };
+  }
   return {
     success:
       billingMode === "PAY_AT_END"
@@ -160,9 +175,17 @@ export async function updateProjectAction(
     return { error: "Mode pembayaran tidak valid." };
   }
 
-  if (billingMode === "PAY_AT_END") {
+  const existing = await prisma.project.findUnique({
+    where: { id },
+    select: { standaloneBookkeeping: true },
+  });
+  if (!existing) return { error: "Proyek tidak ditemukan." };
+
+  if (billingMode === "PAY_AT_END" && !existing.standaloneBookkeeping) {
     contractValue = 0;
     openingBalance = 0;
+  } else if (billingMode === "PAY_AT_END" && existing.standaloneBookkeeping) {
+    contractValue = 0;
   } else {
     const paid = await prisma.transaction.aggregate({
       where: {
@@ -185,6 +208,7 @@ export async function updateProjectAction(
     if (block) return { error: block };
   }
 
+  // standaloneBookkeeping tidak bisa diubah setelah dibuat
   await prisma.project.update({
     where: { id },
     data: {
