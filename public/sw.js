@@ -1,5 +1,5 @@
 /* Kas Proyek — service worker ringan (installable PWA, tanpa cache offline berat). */
-const SW_VERSION = "kas-proyek-sw-v1";
+const SW_VERSION = "kas-proyek-sw-v2";
 
 self.addEventListener("install", (event) => {
   // Aktif segera — tidak meng-cache aset agar HP tetap ringan.

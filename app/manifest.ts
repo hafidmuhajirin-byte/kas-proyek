@@ -9,7 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    orientation: "portrait-primary",
+    // Biarkan HP auto-rotate (jangan kunci portrait)
+    orientation: "any",
     background_color: "#fffcf7",
     theme_color: "#1f4a43",
     lang: "id",
