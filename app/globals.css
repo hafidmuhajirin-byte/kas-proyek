@@ -128,15 +128,27 @@ select,
   padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Saat panel bukti terbuka di PC: dorong konten agar tabel pecah isi tidak tertutup */
+/* Saat panel bukti terbuka di PC:
+ * 1) konten geser ke kiri dulu (margin menyusut dari posisi tengah)
+ * 2) setelah mentok tepi kiri, max-width mengecil mengikuti panel
+ */
 @media (min-width: 1024px) {
   html.proof-review-open .mobile-main-pad {
-    padding-right: calc(var(--proof-panel-w, 360px) + 1rem);
-    transition: padding-right 0.05s linear;
-  }
-
-  html.proof-review-open body {
-    cursor: inherit;
+    --proof-gap: 1.25rem;
+    width: 100%;
+    max-width: min(
+      72rem,
+      calc(100% - var(--proof-panel-w, 360px) - var(--proof-gap))
+    );
+    /* Dari tengah: kurangi margin kiri sebesar lebar panel → geser kiri */
+    margin-left: max(
+      0px,
+      calc((100% - 72rem) / 2 - var(--proof-panel-w, 360px))
+    );
+    margin-right: auto;
+    transition:
+      max-width 0.04s linear,
+      margin-left 0.04s linear;
   }
 }
 
