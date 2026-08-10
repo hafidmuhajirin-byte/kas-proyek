@@ -1,42 +1,19 @@
-import { format } from "date-fns";
 import {
-  createContractorAdvanceAction,
-  createContractorExpenseAction,
-  deleteContractorAdvanceAction,
-  deleteContractorExpenseAction,
-  upsertContractorAction,
-} from "@/lib/actions/contractor";
-import {
-  assessContractorBudget,
   calcContractorBudgetAmount,
-  CONTRACTOR_MAX_SAFE_PERCENT,
   CONTRACTOR_TARGET_PERCENT,
-  contractorExpenseKindLabels,
-  contractorStatusLabels,
-  summarizeContractor,
+  mandorWorkEstimateMax,
 } from "@/lib/contractor";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
+import { MandorAssignPanel } from "@/components/MandorAssignPanel";
+import { MandorBoronganCalcTable } from "@/components/MandorBoronganCalcTable";
+import { MandorDisbursementPanel } from "@/components/MandorDisbursementPanel";
 import { RupiahInput } from "@/components/RupiahInput";
-import {
-  btnSecondaryClass,
-  Card,
-  EmptyState,
-} from "@/components/ui";
+import { btnSecondaryClass, Card } from "@/components/ui";
+import { upsertContractorAction } from "@/lib/actions/contractor";
 
 type SourceOption = { id: string; name: string };
-
-type AdvanceRow = {
-  id: string;
-  date: Date;
-  amount: number;
-  fromProjectAmount: number;
-  fromGlobalAmount: number;
-  description: string;
-  proofUrl: string | null;
-  cashSource: { name: string };
-};
 
 type ExpenseRow = {
   id: string;
@@ -47,11 +24,35 @@ type ExpenseRow = {
   proofUrl: string | null;
 };
 
+type MandorDisbursementRow = {
+  id: string;
+  date: string;
+  label: string;
+  amount: number;
+  mandorName: string;
+  proofUrl: string | null;
+  hasKasBesar?: boolean;
+};
+
+type MandorOption = {
+  id: string;
+  name: string;
+  username?: string;
+  role?: string;
+};
+
+export type SpkManajemenPagu = {
+  perencanaan: number;
+  pengawasan: number;
+  pengelolaan: number;
+};
+
 function ContractorForm({
   projectId,
   contractValue,
   contractor,
   submitLabel,
+  suggestedBorongan,
 }: {
   projectId: string;
   contractValue: number;
@@ -62,19 +63,19 @@ function ContractorForm({
     agreedAmount: number;
   } | null;
   submitLabel: string;
+  /** Estimasi dari rumus SPK — dipakai default jika belum ada nilai borongan. */
+  suggestedBorongan?: number;
 }) {
-  const targetAmount = calcContractorBudgetAmount(
+  const fallbackTarget = calcContractorBudgetAmount(
     contractValue,
     CONTRACTOR_TARGET_PERCENT,
-  );
-  const maxSafeAmount = calcContractorBudgetAmount(
-    contractValue,
-    CONTRACTOR_MAX_SAFE_PERCENT,
   );
   const defaultAgreed =
     contractor?.agreedAmount && contractor.agreedAmount > 0
       ? contractor.agreedAmount
-      : targetAmount;
+      : suggestedBorongan && suggestedBorongan > 0
+        ? suggestedBorongan
+        : fallbackTarget;
 
   return (
     <ActionForm action={upsertContractorAction} submitLabel={submitLabel}>
@@ -94,19 +95,17 @@ function ContractorForm({
           defaultValue={contractor?.phone ?? ""}
         />
       </Field>
-      <Field
-        label="Nilai borongan"
-        hint={
-          contractValue > 0
-            ? `Target ${CONTRACTOR_TARGET_PERCENT}% = ${formatRupiah(targetAmount)} · maks aman ${CONTRACTOR_MAX_SAFE_PERCENT}% = ${formatRupiah(maxSafeAmount)}`
-            : `Target ${CONTRACTOR_TARGET_PERCENT}% kontrak (aman s.d. ${CONTRACTOR_MAX_SAFE_PERCENT}%). Isi nilai kontrak dulu.`
-        }
-      >
+      <Field label="Nilai borongan">
         <RupiahInput
           name="agreedAmount"
           defaultValue={defaultAgreed}
           required
         />
+        {suggestedBorongan && suggestedBorongan > 0 ? (
+          <p className="mt-1 text-[11px] text-[var(--ink-faint)]">
+            Saran dari rumus SPK: {formatRupiah(suggestedBorongan)}
+          </p>
+        ) : null}
       </Field>
       <Field label="Catatan">
         <textarea
@@ -120,110 +119,150 @@ function ContractorForm({
   );
 }
 
+/** Panel pemborong + Dana ke Mandor — ringkas. */
 export function ContractorPanel({
   projectId,
   admin,
-  projectCash,
+  projectCash: _projectCash,
   contractValue,
   sources,
   contractor,
+  mandors = [],
+  allMandors = [],
+  mandorDisbursements = [],
+  mandorOverspend,
+  spkManajemen,
 }: {
   projectId: string;
   admin: boolean;
   projectCash: number;
   contractValue: number;
-  globalCash?: number;
-  globalCashTunai?: number;
-  globalCashBank?: number;
   sources: SourceOption[];
   contractor: {
     name: string;
     phone: string | null;
     notes: string | null;
     agreedAmount: number;
-    advances: AdvanceRow[];
-    expenses: ExpenseRow[];
+    expenses?: ExpenseRow[];
   } | null;
+  /** Mandor yang sudah ditugaskan ke proyek ini. */
+  mandors?: MandorOption[];
+  /** Semua akun Mandor (untuk form penugasan). */
+  allMandors?: MandorOption[];
+  mandorDisbursements?: MandorDisbursementRow[];
+  mandorOverspend?: { mandorName: string; amount: number }[];
+  /** Pagu manajemen dari Ringkasan SPK (Admin). */
+  spkManajemen?: SpkManajemenPagu;
 }) {
-  const summary = summarizeContractor({
-    agreedAmount: contractor?.agreedAmount ?? 0,
-    advances: contractor?.advances ?? [],
-    expenses: contractor?.expenses ?? [],
-  });
-  const budget = assessContractorBudget(
-    contractor?.agreedAmount ?? 0,
-    contractValue,
+  const mandorPayments = mandorDisbursements.filter(
+    (r) => r.hasKasBesar !== false,
   );
-  const budgetTone =
-    budget.band === "ideal"
-      ? "text-teal-800"
-      : budget.band === "aman"
-        ? "text-amber-800"
-        : budget.band === "berisiko"
-          ? "text-rose-700"
-          : "text-teal-900/55";
+  const mandorCairTotal = mandorPayments.reduce((s, r) => s + r.amount, 0);
+
+  const estimate = mandorWorkEstimateMax({
+    contractValue,
+    perencanaan: spkManajemen?.perencanaan ?? 0,
+    pengawasan: spkManajemen?.pengawasan ?? 0,
+    pengelolaan: spkManajemen?.pengelolaan ?? 0,
+  });
+
+  const assignCard = (
+    <Card>
+      <MandorAssignPanel
+        projectId={projectId}
+        canEdit={admin}
+        assigned={mandors}
+        allMandors={allMandors}
+      />
+    </Card>
+  );
+
+  const showDisbursement =
+    mandors.length > 0 || mandorDisbursements.length > 0;
+
+  const disbursementSection = showDisbursement ? (
+    <Card>
+      <MandorDisbursementPanel
+        projectId={projectId}
+        canEdit={admin}
+        mandors={mandors}
+        sources={sources}
+        rows={mandorDisbursements}
+        overspend={mandorOverspend}
+        compact
+      />
+    </Card>
+  ) : null;
+
+  const calcDetail = (
+    <div className="mt-3">
+      <p className="text-xs font-medium text-[var(--ink-muted)]">
+        Detail perhitungan estimasi borongan Mandor
+      </p>
+      <MandorBoronganCalcTable estimate={estimate} />
+    </div>
+  );
 
   if (!contractor) {
     return (
-      <Card className="mt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <div className="mt-4 space-y-4">
+        {assignCard}
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-base font-medium text-teal-950">Pemborong</h3>
-            <p className="mt-0.5 text-sm text-teal-900/55">
-              Belum ada data. Target borongan {CONTRACTOR_TARGET_PERCENT}%
-              kontrak (aman {CONTRACTOR_TARGET_PERCENT}–
-              {CONTRACTOR_MAX_SAFE_PERCENT}%).
-            </p>
+            {admin ? (
+              <details className="w-full max-w-md sm:w-auto">
+                <summary
+                  className={`${btnSecondaryClass} cursor-pointer list-none`}
+                >
+                  + Tambah pemborong
+                </summary>
+                <div className="mt-3">
+                  <ContractorForm
+                    projectId={projectId}
+                    contractValue={contractValue}
+                    submitLabel="Simpan pemborong"
+                    suggestedBorongan={estimate.amount}
+                  />
+                </div>
+              </details>
+            ) : null}
           </div>
-          {admin ? (
-            <details className="w-full max-w-md sm:w-auto">
-              <summary
-                className={`${btnSecondaryClass} cursor-pointer list-none`}
-              >
-                + Tambah pemborong
-              </summary>
-              <div className="mt-3">
-                <ContractorForm
-                  projectId={projectId}
-                  contractValue={contractValue}
-                  submitLabel="Simpan pemborong"
-                />
-              </div>
-            </details>
-          ) : null}
-        </div>
-      </Card>
+          {calcDetail}
+          <p className="mt-2 text-xs text-teal-900/60">
+            Tip: jika nama pemborong sama dengan akun Mandor, penugasan
+            otomatis dibuat saat disimpan.
+          </p>
+        </Card>
+        {disbursementSection}
+      </div>
     );
   }
 
   return (
     <div className="mt-4 space-y-4">
+      {assignCard}
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3 text-sm">
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="text-base font-medium text-teal-950">
               {tidyCase(contractor.name)}
             </h3>
             <p className="mt-1 text-teal-900/65">
-              Borongan {formatRupiah(summary.agreedAmount)} · Termin{" "}
-              {formatRupiah(summary.totalAdvances)} · Bukti{" "}
-              {formatRupiah(summary.totalExpenses)} ·{" "}
-              {contractorStatusLabels[summary.status]}
-              {contractor.phone ? ` · ${contractor.phone}` : ""}
+              Borongan {formatRupiah(contractor.agreedAmount)} · Cair{" "}
+              {formatRupiah(mandorCairTotal)}
             </p>
-            <p className={`mt-1 ${budgetTone}`}>{budget.label}</p>
-            <p className="mt-1 text-teal-900/55">
-              Kas proyek {formatRupiah(projectCash)} · Sisa plafon{" "}
-              {formatRupiah(summary.remainingCeiling)}
-              {budget.targetAmount > 0
-                ? ` · Target ${formatRupiah(budget.targetAmount)}`
-                : ""}
-            </p>
+            {estimate.amount > 0 ? (
+              <p className="mt-1 text-xs text-[var(--ink-faint)]">
+                Estimasi rumus SPK: {formatRupiah(estimate.amount)}
+              </p>
+            ) : null}
+            {calcDetail}
           </div>
           {admin ? (
             <details>
               <summary className="cursor-pointer text-sm text-teal-700 underline">
-                Ubah data
+                Ubah
               </summary>
               <div className="mt-3 max-w-md">
                 <ContractorForm
@@ -231,247 +270,15 @@ export function ContractorPanel({
                   contractValue={contractValue}
                   contractor={contractor}
                   submitLabel="Simpan"
+                  suggestedBorongan={estimate.amount}
                 />
               </div>
             </details>
           ) : null}
         </div>
-
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-teal-900/10">
-          <div
-            className="h-full rounded-full bg-teal-700"
-            style={{ width: `${summary.progressPercent}%` }}
-          />
-        </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h3 className="text-base font-medium text-teal-950">Termin</h3>
-          {admin ? (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-sm text-teal-700 underline">
-                + Catat termin
-              </summary>
-              <div className="mt-3">
-                <ActionForm
-                  action={createContractorAdvanceAction}
-                  submitLabel="Catat termin"
-                >
-                  <input type="hidden" name="projectId" value={projectId} />
-                  <Field label="Tanggal">
-                    <input
-                      name="date"
-                      type="date"
-                      className={inputClass}
-                      defaultValue={format(new Date(), "yyyy-MM-dd")}
-                      required
-                    />
-                  </Field>
-                  <Field label="Sumber kas">
-                    <select name="cashSourceId" className={inputClass} required>
-                      <option value="">Pilih sumber</option>
-                      {sources.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {tidyCase(s.name)}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Nominal">
-                    <RupiahInput name="amount" defaultValue={0} required />
-                  </Field>
-                  <Field label="Keterangan">
-                    <input name="description" className={inputClass} required />
-                  </Field>
-                  <Field label="Bukti (opsional)">
-                    <input
-                      name="proof"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      className={inputClass}
-                    />
-                  </Field>
-                </ActionForm>
-              </div>
-            </details>
-          ) : null}
-
-          <div className="mt-3 space-y-2 text-sm">
-            {contractor.advances.length === 0 ? (
-              <EmptyState message="Belum ada termin." />
-            ) : (
-              contractor.advances.map((row) => (
-                <div
-                  key={row.id}
-                  className="flex flex-wrap items-start justify-between gap-2 border-b border-teal-900/6 py-2 last:border-0"
-                >
-                  <div>
-                    <p className="text-teal-950">{tidyCase(row.description)}</p>
-                    <p className="text-teal-900/55">
-                      {format(row.date, "dd/MM/yyyy")} ·{" "}
-                      {tidyCase(row.cashSource.name)}
-                      {row.proofUrl ? (
-                        <>
-                          {" "}
-                          ·{" "}
-                          <a
-                            href={row.proofUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-teal-700 underline"
-                          >
-                            bukti
-                          </a>
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="tabular-nums text-rose-700">
-                      {formatRupiah(row.amount)}
-                    </p>
-                    {admin ? (
-                      <form action={deleteContractorAdvanceAction}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <button
-                          type="submit"
-                          className="text-sm text-rose-700 underline"
-                        >
-                          Hapus
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <details>
-            <summary className="cursor-pointer list-none">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-medium text-teal-950">
-                    Bukti pengeluaran
-                  </h3>
-                  <p className="mt-0.5 text-sm text-teal-900/55">
-                    {contractor.expenses.length} catatan ·{" "}
-                    {formatRupiah(
-                      contractor.expenses.reduce((s, e) => s + e.amount, 0),
-                    )}
-                  </p>
-                </div>
-                <span className="text-sm text-teal-700">Buka</span>
-              </div>
-            </summary>
-
-            <div className="mt-3 border-t border-teal-900/10 pt-3">
-              {admin ? (
-                <details className="mt-0">
-                  <summary className="cursor-pointer text-sm text-teal-700 underline">
-                    + Catat bukti
-                  </summary>
-                  <div className="mt-3">
-                    <ActionForm
-                      action={createContractorExpenseAction}
-                      submitLabel="Catat bukti"
-                    >
-                      <input type="hidden" name="projectId" value={projectId} />
-                      <Field label="Tanggal">
-                        <input
-                          name="date"
-                          type="date"
-                          className={inputClass}
-                          defaultValue={format(new Date(), "yyyy-MM-dd")}
-                          required
-                        />
-                      </Field>
-                      <Field label="Jenis">
-                        <select
-                          name="kind"
-                          className={inputClass}
-                          defaultValue="MATERIAL"
-                          required
-                        >
-                          <option value="MATERIAL">
-                            {contractorExpenseKindLabels.MATERIAL}
-                          </option>
-                          <option value="WAGES">
-                            {contractorExpenseKindLabels.WAGES}
-                          </option>
-                          <option value="OTHER">
-                            {contractorExpenseKindLabels.OTHER}
-                          </option>
-                        </select>
-                      </Field>
-                      <Field label="Nominal">
-                        <RupiahInput name="amount" defaultValue={0} required />
-                      </Field>
-                      <Field label="Uraian">
-                        <input
-                          name="description"
-                          className={inputClass}
-                          required
-                        />
-                      </Field>
-                      <Field label="Bukti (opsional)">
-                        <input
-                          name="proof"
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,application/pdf"
-                          className={inputClass}
-                        />
-                      </Field>
-                    </ActionForm>
-                  </div>
-                </details>
-              ) : null}
-
-              <div className="mt-3 space-y-2 text-sm">
-                {contractor.expenses.length === 0 ? (
-                  <EmptyState message="Belum ada bukti." />
-                ) : (
-                  contractor.expenses.map((row) => (
-                    <div
-                      key={row.id}
-                      className="flex flex-wrap items-start justify-between gap-2 border-b border-teal-900/6 py-2 last:border-0"
-                    >
-                      <div>
-                        <p className="text-teal-950">
-                          {tidyCase(row.description)}
-                        </p>
-                        <p className="text-teal-900/55">
-                          {format(row.date, "dd/MM/yyyy")} ·{" "}
-                          {contractorExpenseKindLabels[row.kind] ?? row.kind}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="tabular-nums text-teal-950">
-                          {formatRupiah(row.amount)}
-                        </p>
-                        {admin ? (
-                          <form action={deleteContractorExpenseAction}>
-                            <input type="hidden" name="id" value={row.id} />
-                            <button
-                              type="submit"
-                              className="text-sm text-rose-700 underline"
-                            >
-                              Hapus
-                            </button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </details>
-        </Card>
-      </div>
+      {disbursementSection}
     </div>
   );
 }

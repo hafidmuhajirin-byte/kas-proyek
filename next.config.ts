@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/adapter-mariadb", "mariadb"],
   experimental: {
     serverActions: {
-      // Bukti transaksi max 5 MB + overhead form
-      bodySizeLimit: "6mb",
+      // Bukti / batch foto lokasi (~5 × ~180 KB) + overhead form
+      bodySizeLimit: "8mb",
     },
   },
 };

@@ -46,22 +46,21 @@ export function ProjectCompletionPanel({
     checks.checkNoRetention && saveRemaining > 0 && projectCash > 0;
 
   return (
-    <Card className="mt-4">
+    <Card className="mt-2">
       <details>
         <summary className="cursor-pointer list-none">
-          <div className="flex flex-wrap items-start justify-between gap-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-medium text-teal-950">
-                Penyelesaian proyek
+              <h3 className="text-sm font-medium text-[var(--ink)]">
+                Penyelesaian
               </h3>
-              <p className="mt-0.5 text-teal-900/55">
-                Jarang dipakai · checklist {checkedCount}/{total} · kas{" "}
-                {formatRupiah(projectCash)}
+              <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">
+                Checklist {checkedCount}/{total} · kas {formatRupiah(projectCash)}
               </p>
             </div>
-            <span className="text-[var(--accent)]">Buka</span>
+            <span className="text-xs text-[var(--accent)]">Buka</span>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-teal-900/10">
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-teal-900/10">
             <div
               className="h-full rounded-full bg-teal-700"
               style={{ width: `${progress}%` }}
@@ -69,7 +68,7 @@ export function ProjectCompletionPanel({
           </div>
         </summary>
 
-        <div className="mt-4 border-t border-teal-900/10 pt-4">
+        <div className="mt-2 border-t border-teal-900/10 pt-2">
           {admin ? (
             <ActionForm
               action={updateProjectChecklistAction}
