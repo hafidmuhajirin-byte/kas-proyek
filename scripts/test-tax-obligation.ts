@@ -50,8 +50,8 @@ ok(
   "PENDING → belum ada kewajiban",
 );
 
-// Default BKU: pajak belum potong kas sampai isTaxPayment
-const bkuUnpaid = buildBkuMonthBlocks([
+// Default BKU: pajak virtual langsung potong kas saat nota
+const bkuDefault = buildBkuMonthBlocks([
   {
     id: "n1",
     date: new Date("2026-03-10"),
@@ -70,14 +70,19 @@ const bkuUnpaid = buildBkuMonthBlocks([
     ],
   },
 ]);
-ok(bkuUnpaid.length === 1, "satu bulan BKU");
+ok(bkuDefault.length === 1, "satu bulan BKU");
 ok(
-  !bkuUnpaid[0]!.expenses.some((e) => e.isTaxRow),
-  "default: tanpa baris pajak virtual",
+  bkuDefault[0]!.expenses.some((e) => e.isTaxRow),
+  "default: ada baris pajak virtual (potong kas)",
 );
-ok(bkuUnpaid[0]!.totalExpense === 5_000_000, "hanya belanja, belum pajak");
+const taxAmt = Math.round(5e6 * 0.11) + Math.round(5e6 * 0.015);
+ok(
+  bkuDefault[0]!.totalExpense === 5_000_000 + taxAmt,
+  "pengeluaran = belanja + pajak",
+);
 
-const bkuPaid = buildBkuMonthBlocks([
+// isTaxPayment tidak dobel jika immediateTaxCash (default)
+const bkuNoDouble = buildBkuMonthBlocks([
   {
     id: "n1",
     date: new Date("2026-03-10"),
@@ -106,12 +111,36 @@ const bkuPaid = buildBkuMonthBlocks([
   },
 ]);
 ok(
-  bkuPaid[0]!.expenses.some((e) => e.isTaxRow && /PPN/i.test(e.description)),
-  "setelah bayar: baris isTaxPayment di BKU",
+  bkuNoDouble[0]!.totalExpense === 5_000_000 + taxAmt,
+  "bukti bayar tidak dobel potong kas BKU",
+);
+
+// Mode uji: tanpa pajak virtual
+const bkuDeferred = buildBkuMonthBlocks(
+  [
+    {
+      id: "n1",
+      date: new Date("2026-03-10"),
+      description: "Besi",
+      type: "EXPENSE",
+      amount: 5_000_000,
+      isMandorExpense: true,
+      breakdownStatus: "APPROVED",
+      categoryName: "Material",
+      expenseLines: [
+        {
+          amount: 5_000_000,
+          description: "Besi",
+          kind: "MATERIAL",
+        },
+      ],
+    },
+  ],
+  { immediateTaxCash: false },
 );
 ok(
-  bkuPaid[0]!.totalExpense === 5_000_000 + Math.round(5e6 * 0.11),
-  "pengeluaran naik setelah pajak dibayar",
+  !bkuDeferred[0]!.expenses.some((e) => e.isTaxRow),
+  "immediateTaxCash:false → tanpa pajak virtual",
 );
 
 console.log("\nSemua uji tax-obligation lulus.");

@@ -241,18 +241,20 @@ export function buildBkuMonthBlocks(
     openingCashBalance?: number;
     bankBlocks?: BankMonthBlock[];
     /**
-     * true = baris pajak virtual langsung setelah nota (uji format lama).
-     * false/default = pajak potong kas hanya lewat transaksi isTaxPayment (setelah bayar).
+     * true/default = baris pajak virtual langsung setelah nota (potong kas BKU).
+     * false = hanya lewat isTaxPayment (uji alur bayar terpisah).
      */
     immediateTaxCash?: boolean;
   },
 ): BkuMonthBlock[] {
   const openingCash = options?.openingCashBalance ?? 0;
   const bankBlocks = options?.bankBlocks ?? [];
-  const immediateTaxCash = options?.immediateTaxCash === true;
+  const immediateTaxCash = options?.immediateTaxCash !== false;
 
   const sorted = [...txs]
     .filter((tx) => !tx.isMandorDisbursement)
+    // Hindari dobel: bukti bayar pajak tidak masuk BKU jika pajak virtual sudah potong kas
+    .filter((tx) => !(immediateTaxCash && tx.isTaxPayment))
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   const months = new Map<number, BkuLedgerTx[]>();

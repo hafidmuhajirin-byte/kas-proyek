@@ -48,34 +48,6 @@ function canPayTax(user: SessionUser): boolean {
   return isOwner(user) || isAdmin(user) || isAdminProyek(user);
 }
 
-async function ensureTaxExpenseCategory(): Promise<string> {
-  const name = "Pembayaran Pajak";
-  const existing = await prisma.category.findFirst({
-    where: { name, type: "EXPENSE" },
-    select: { id: true },
-  });
-  if (existing) return existing.id;
-  const created = await prisma.category.create({
-    data: { name, type: "EXPENSE" },
-    select: { id: true },
-  });
-  return created.id;
-}
-
-async function ensurePphFinalIncomeCategory(): Promise<string> {
-  const name = "Terima PPh Final";
-  const existing = await prisma.category.findFirst({
-    where: { name, type: "INCOME" },
-    select: { id: true },
-  });
-  if (existing) return existing.id;
-  const created = await prisma.category.create({
-    data: { name, type: "INCOME" },
-    select: { id: true },
-  });
-  return created.id;
-}
-
 function revalidateTaxPaths(projectId: string) {
   revalidatePath("/transactions");
   revalidatePath("/transactions/project");
@@ -87,8 +59,9 @@ function revalidateTaxPaths(projectId: string) {
 }
 
 /**
- * Bayar kewajiban pajak: upload bukti + ID billing → buat pengeluaran kas + tandai PAID.
- * PPh Final: juga catat penerimaan pasangan agar saldo net 0 (sama BKU).
+ * Catat pelunasan pajak: ID billing + bukti bayar.
+ * Kas BKU/BKT sudah dipotong saat nota; aksi ini hanya melunasi kewajiban
+ * (pengeluaran terhutang) tanpa membuat transaksi kas baru.
  */
 export async function payTaxObligationAction(
   _prev: FormState,
@@ -101,12 +74,10 @@ export async function payTaxObligationAction(
 
   const obligationId = String(formData.get("obligationId") ?? "").trim();
   const billingId = String(formData.get("billingId") ?? "").trim();
-  const cashSourceId = String(formData.get("cashSourceId") ?? "").trim();
   const dateRaw = String(formData.get("date") ?? "").trim();
 
   if (!obligationId) return { error: "Kewajiban pajak tidak ditemukan." };
   if (!billingId) return { error: "ID billing / NTPN wajib diisi." };
-  if (!cashSourceId) return { error: "Pilih sumber kas pembayaran." };
 
   const paidAt = dateRaw ? new Date(dateRaw) : new Date();
   if (Number.isNaN(paidAt.getTime())) {
@@ -115,11 +86,6 @@ export async function payTaxObligationAction(
 
   const obligation = await prisma.taxWithholdingLine.findUnique({
     where: { id: obligationId },
-    include: {
-      transaction: {
-        select: { description: true, date: true },
-      },
-    },
   });
   if (!obligation) return { error: "Kewajiban pajak tidak ditemukan." };
   if (obligation.status === "PAID") {
@@ -130,12 +96,6 @@ export async function payTaxObligationAction(
   if (user.role === "ADMIN_PROYEK") {
     await requireProjectAccess(user, obligation.projectId);
   }
-
-  const cashSource = await prisma.cashSource.findUnique({
-    where: { id: cashSourceId },
-    select: { id: true },
-  });
-  if (!cashSource) return { error: "Sumber kas tidak valid." };
 
   let proofUrl: string | null = null;
   try {
@@ -149,54 +109,6 @@ export async function payTaxObligationAction(
     return { error: "Bukti bayar pajak wajib diunggah." };
   }
 
-  const expenseCategoryId = await ensureTaxExpenseCategory();
-  const sourceNote = obligation.transaction?.description
-    ? ` · nota: ${obligation.transaction.description.slice(0, 80)}`
-    : "";
-  const payDescription = `${kindPayLabel(obligation.kind)} · billing ${billingId}${sourceNote}`;
-
-  const paymentTx = await prisma.transaction.create({
-    data: {
-      date: paidAt,
-      type: "EXPENSE",
-      amount: obligation.taxAmount,
-      description: payDescription,
-      proofUrl,
-      projectId: obligation.projectId,
-      cashSourceId,
-      categoryId: expenseCategoryId,
-      createdById: user.id,
-      isTaxPayment: true,
-      isOwnerPersonal: false,
-      isFromGlobalCash: false,
-      isFeeTransfer: false,
-      isMandorDisbursement: false,
-      isMandorExpense: false,
-      breakdownStatus: "APPROVED",
-    },
-  });
-
-  // PPh Final: pasangan penerimaan agar net kas 0 (format BKU)
-  if (obligation.kind === "PPH_FINAL_35") {
-    const incomeCategoryId = await ensurePphFinalIncomeCategory();
-    await prisma.transaction.create({
-      data: {
-        date: paidAt,
-        type: "INCOME",
-        amount: obligation.taxAmount,
-        description: `Terima PPh Pasal 4 ayat 2 (3,5%) · billing ${billingId}${sourceNote}`,
-        proofUrl,
-        projectId: obligation.projectId,
-        cashSourceId,
-        categoryId: incomeCategoryId,
-        createdById: user.id,
-        isTaxPayment: true,
-        isOwnerPersonal: false,
-        breakdownStatus: "APPROVED",
-      },
-    });
-  }
-
   await prisma.taxWithholdingLine.update({
     where: { id: obligation.id },
     data: {
@@ -205,18 +117,15 @@ export async function payTaxObligationAction(
       proofUrl,
       paidAt,
       paidById: user.id,
-      paymentTransactionId: paymentTx.id,
+      paymentTransactionId: null,
     },
   });
 
   revalidateTaxPaths(obligation.projectId);
-  return { success: "Pajak berhasil dibayar. Pengeluaran kas bertambah." };
-}
-
-function kindPayLabel(kind: string): string {
-  if (kind === "PPN_11") return "Bayar Pajak PPN (11%)";
-  if (kind === "PPH_15") return "Bayar Pajak PPH (1,5%)";
-  return "Bayar PPh Pasal 4 ayat 2 (3,5%)";
+  return {
+    success:
+      "Bukti bayar tersimpan. Pajak terhutang dilunasi (kas BKU/BKT sudah dipotong saat nota).",
+  };
 }
 
 /** Sinkron ulang kewajiban pajak proyek (AdminOK / Admin Proyek). */

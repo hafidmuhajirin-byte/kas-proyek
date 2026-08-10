@@ -16,20 +16,100 @@ export type TaxObligationPayItem = {
   sourceDate: string | null;
 };
 
-type CashSourceOpt = { id: string; name: string };
+/**
+ * Pemberitahuan pengeluaran terhutang — klik untuk daftar pajak yang harus dibayar.
+ */
+export function TaxTerhutangNotice({
+  unpaid,
+  total,
+}: {
+  unpaid: TaxObligationPayItem[];
+  total: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [payId, setPayId] = useState<string | null>(null);
 
+  if (unpaid.length === 0) return null;
+
+  return (
+    <div className="mb-3 print:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-start justify-between gap-3 rounded-xl border border-amber-300/90 bg-amber-50 px-3 py-3 text-left transition hover:bg-amber-100/80 sm:px-4"
+        aria-expanded={open}
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-amber-950">
+            Pengeluaran terhutang · {formatRupiah(total)}
+          </p>
+          <p className="mt-0.5 text-xs text-amber-900/70">
+            {unpaid.length} pajak menunggu pembayaran.{" "}
+            {open ? "Klik untuk menutup." : "Klik untuk melihat daftar & bayar."}
+          </p>
+        </div>
+        <span className="shrink-0 text-xs font-medium text-amber-900/80 underline">
+          {open ? "Tutup" : "Lihat"}
+        </span>
+      </button>
+
+      {open ? (
+        <ul className="mt-2 space-y-2 rounded-xl border border-amber-200/80 bg-[#fffcf7] p-2 sm:p-3">
+          {unpaid.map((item) => {
+            const paying = payId === item.id;
+            return (
+              <li
+                key={item.id}
+                className="rounded-lg border border-teal-900/10 bg-white px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-teal-950">
+                      <span className="font-medium">{item.kindLabel}</span>
+                      {" · "}
+                      {formatRupiah(item.taxAmount)}
+                    </p>
+                    <p className="truncate text-xs text-teal-900/55">
+                      {item.monthKey}
+                      {item.sourceDescription
+                        ? ` · ${item.sourceDescription}`
+                        : ""}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={btnSecondaryClass}
+                    onClick={() => setPayId(paying ? null : item.id)}
+                  >
+                    {paying ? "Batal" : "Bayar"}
+                  </button>
+                </div>
+                {paying ? (
+                  <PayForm
+                    obligationId={item.id}
+                    onDone={() => setPayId(null)}
+                  />
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/** Panel daftar (selalu terbuka) — dipakai di halaman Pajak AdminOK. */
 export function TaxObligationPayPanel({
   unpaid,
-  cashSources,
   title = "Pajak terhutang — segera bayar",
 }: {
   unpaid: TaxObligationPayItem[];
-  cashSources: CashSourceOpt[];
+  /** @deprecated tidak dipakai — kas tidak dipotong ulang saat bayar */
+  cashSources?: Array<{ id: string; name: string }>;
   title?: string;
 }) {
-  const [openId, setOpenId] = useState<string | null>(
-    unpaid.length === 1 ? unpaid[0]!.id : null,
-  );
+  const [openId, setOpenId] = useState<string | null>(null);
 
   if (unpaid.length === 0) return null;
 
@@ -37,14 +117,12 @@ export function TaxObligationPayPanel({
 
   return (
     <div className="mb-4 rounded-xl border border-amber-300/80 bg-amber-50/90 p-3 sm:p-4 print:hidden">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium text-amber-950">{title}</p>
-          <p className="mt-0.5 text-xs text-amber-900/70">
-            {unpaid.length} kewajiban · total {formatRupiah(total)}. Unggah bukti
-            bayar + ID billing untuk melunasi (pengeluaran kas bertambah).
-          </p>
-        </div>
+      <div>
+        <p className="text-sm font-medium text-amber-950">{title}</p>
+        <p className="mt-0.5 text-xs text-amber-900/70">
+          {unpaid.length} kewajiban · total {formatRupiah(total)}. Unggah bukti
+          bayar + ID billing. Kas BKU/BKT sudah dipotong saat nota.
+        </p>
       </div>
 
       <ul className="mt-3 space-y-2">
@@ -80,7 +158,6 @@ export function TaxObligationPayPanel({
               {open ? (
                 <PayForm
                   obligationId={item.id}
-                  cashSources={cashSources}
                   onDone={() => setOpenId(null)}
                 />
               ) : null}
@@ -94,11 +171,9 @@ export function TaxObligationPayPanel({
 
 function PayForm({
   obligationId,
-  cashSources,
   onDone,
 }: {
   obligationId: string;
-  cashSources: CashSourceOpt[];
   onDone: () => void;
 }) {
   const [state, action, pending] = useActionState(
@@ -113,7 +188,10 @@ function PayForm({
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <form action={action} className="mt-3 grid gap-2 border-t border-amber-100 pt-3 sm:grid-cols-2">
+    <form
+      action={action}
+      className="mt-3 grid gap-2 border-t border-amber-100 pt-3 sm:grid-cols-2"
+    >
       <input type="hidden" name="obligationId" value={obligationId} />
       <label className="block text-xs text-teal-900/70 sm:col-span-2">
         ID billing / NTPN
@@ -135,21 +213,6 @@ function PayForm({
         />
       </label>
       <label className="block text-xs text-teal-900/70">
-        Sumber kas
-        <select
-          name="cashSourceId"
-          required
-          defaultValue={cashSources[0]?.id ?? ""}
-          className="mt-1 min-h-11 w-full rounded-xl border border-teal-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600"
-        >
-          {cashSources.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="block text-xs text-teal-900/70 sm:col-span-2">
         Bukti bayar (JPG/PNG/PDF)
         <input
           type="file"

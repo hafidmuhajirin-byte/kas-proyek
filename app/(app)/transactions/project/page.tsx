@@ -27,7 +27,7 @@ import {
   type ExpenseLineRow,
 } from "@/components/MandorExpenseBreakdownForm";
 import {
-  TaxObligationPayPanel,
+  TaxTerhutangNotice,
   TaxObligationPaidList,
 } from "@/components/TaxObligationPayPanel";
 import {
@@ -108,8 +108,7 @@ export default async function KasProyekPage({
       : {}),
   };
 
-  const [transactions, advances, projects, workers, cashSources] =
-    await Promise.all([
+  const [transactions, advances, projects, workers] = await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
@@ -205,10 +204,6 @@ export default async function KasProyekPage({
           select: { name: true, role: true, dailyWage: true },
         })
       : Promise.resolve([]),
-    prisma.cashSource.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
   ]);
 
   if (scopedProjectId && (adminProyek || readOnlyAdmin || owner)) {
@@ -551,7 +546,8 @@ export default async function KasProyekPage({
       ) : (
         <>
           {(adminProyek || readOnlyAdmin || owner) && unpaidTax.length > 0 ? (
-            <TaxObligationPayPanel
+            <TaxTerhutangNotice
+              total={pengeluaranTerhutang}
               unpaid={unpaidTax.map((u) => ({
                 id: u.id,
                 kindLabel: u.kindLabel,
@@ -563,7 +559,6 @@ export default async function KasProyekPage({
                   ? u.sourceDate.toISOString()
                   : null,
               }))}
-              cashSources={cashSources}
             />
           ) : null}
 
@@ -577,13 +572,16 @@ export default async function KasProyekPage({
               {
                 label: "Pengeluaran",
                 value: formatRupiah(totalOut),
-                hint: "Termasuk pajak yang sudah dibayar",
+                hint: "Tanpa bukti Mandor",
                 tone: "out",
               },
               {
                 label: "Pengeluaran terhutang",
                 value: formatRupiah(pengeluaranTerhutang),
-                hint: "Pajak tercatat, belum bayar",
+                hint:
+                  pengeluaranTerhutang > 0
+                    ? "Klik pemberitahuan di atas"
+                    : "Pajak tercatat, belum bayar",
                 tone: "out",
               },
               {

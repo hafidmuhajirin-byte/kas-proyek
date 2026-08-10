@@ -57,7 +57,7 @@ export default async function AdminLpjPajakPage({
 
   await syncProjectTaxObligations(projectId);
 
-  const [expenses, unpaidTax, paidTax, cashSources] = await Promise.all([
+  const [expenses, unpaidTax, paidTax] = await Promise.all([
     prisma.transaction.findMany({
       where: {
         projectId,
@@ -91,10 +91,6 @@ export default async function AdminLpjPajakPage({
     }),
     listTaxObligations(projectId, "UNPAID"),
     listTaxObligations(projectId, "PAID"),
-    prisma.cashSource.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
   ]);
 
   const years = suggestTaxYears(expenses);
@@ -179,7 +175,6 @@ export default async function AdminLpjPajakPage({
             sourceDescription: u.sourceDescription,
             sourceDate: u.sourceDate ? u.sourceDate.toISOString() : null,
           }))}
-          cashSources={cashSources}
           title="Notifikasi: pajak terhutang menunggu pembayaran"
         />
 
@@ -218,9 +213,9 @@ export default async function AdminLpjPajakPage({
         <Card className="mt-4 text-sm text-[var(--ink-muted)]">
           Rekapitulasi diisi otomatis dari nota (PPN 11% + PPh 22 untuk belanja
           manufaktur &gt; Rp 2 jt; PPh Final 3,5% Bayar jasa
-          perencana/Pengawas). Setelah pajak terhitung, bayar lewat notifikasi
-          di atas (bukti + ID billing). Pengeluaran kas hanya bertambah setelah
-          lunas.
+          perencana/Pengawas). BKU/BKT memotong kas pajak saat nota. Di Kas
+          Proyek, pajak belum dilunasi muncul sebagai pengeluaran terhutang —
+          bayar dengan bukti + ID billing di notifikasi di atas.
         </Card>
 
         <TaxObligationPaidList

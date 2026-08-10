@@ -190,10 +190,11 @@ export function buildBktMonthBlocks(
   },
 ): BktMonthBlock[] {
   const opening = options?.openingCashBalance ?? 0;
-  const immediateTaxCash = options?.immediateTaxCash === true;
+  const immediateTaxCash = options?.immediateTaxCash !== false;
 
   const sorted = [...txs]
     .filter((tx) => !tx.isMandorDisbursement)
+    .filter((tx) => !(immediateTaxCash && tx.isTaxPayment))
     .filter((tx) => {
       // Prefer sumber CASH; jika flag tidak ada, ikutkan (data LPJ)
       if (!tx.cashSourceType) return true;
