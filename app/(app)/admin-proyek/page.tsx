@@ -96,12 +96,6 @@ export default async function AdminProyekHomePage() {
             Buka LPJ
           </Link>
           <Link
-            href={`/projects/${project.id}`}
-            className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm"
-          >
-            Detail proyek
-          </Link>
-          <Link
             href="/transactions/project"
             className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm"
           >

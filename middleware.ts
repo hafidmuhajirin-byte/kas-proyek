@@ -104,7 +104,6 @@ export async function middleware(request: NextRequest) {
     const allowed =
       pathname.startsWith("/admin-proyek") ||
       pathname.startsWith("/admin/lpj") ||
-      pathname.startsWith("/projects") ||
       pathname === "/transactions/project" ||
       pathname.startsWith("/transactions/project/") ||
       pathname === "/transactions/new" ||

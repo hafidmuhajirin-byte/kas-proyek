@@ -344,8 +344,8 @@ export async function createTransactionAction(
   });
 
   revalidateTransactionPaths(fields.projectId);
-  if (session.role === "ADMIN_PROYEK" && fields.projectId) {
-    redirect(`/projects/${fields.projectId}`);
+  if (session.role === "ADMIN_PROYEK") {
+    redirect("/transactions/project");
   }
   redirect("/transactions");
 }

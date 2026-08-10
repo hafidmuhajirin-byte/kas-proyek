@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   createFundingStageAction,
   deleteFundingStageAction,
@@ -69,10 +69,13 @@ export default async function ProjectDetailPage({
 }) {
   const user = await requireSession();
   const { id } = await params;
+  // Admin Proyek tidak memakai halaman detail — LPJ + Kas Proyek saja
+  if (isAdminProyek(user)) {
+    redirect("/admin-proyek");
+  }
   await requireProjectAccess(user, id);
   const admin = isOwner(user);
-  const adminProyek = isAdminProyek(user);
-  const canManageProject = admin || adminProyek;
+  const canManageProject = admin;
   const canDisburse = canRecordDisbursement(user);
   const canBreakDown = canBreakDownMandorExpense(user);
   const canRecordManagement = canBreakDown;
@@ -485,10 +488,7 @@ export default async function ProjectDetailPage({
         description={`${tidyCase(project.location)} · ${projectStatusLabels[project.status]} · ${billingModeLabels[project.billingMode]}${project.standaloneBookkeeping ? " · Mandiri" : ""}`}
         actions={
           <>
-            <Link
-              href={adminProyek ? "/admin-proyek" : "/projects"}
-              className={btnSecondaryClass}
-            >
+            <Link href="/projects" className={btnSecondaryClass}>
               Kembali
             </Link>
             {canManageProject ? (
