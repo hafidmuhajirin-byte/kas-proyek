@@ -14,6 +14,10 @@ import { RekapitulasiPembayaranPajak } from "@/components/lpj/RekapitulasiPembay
 import { PajakRekapToolbar } from "@/components/lpj/PajakRekapToolbar";
 import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
 import {
+  LpjSignatureProvider,
+  LpjSignatureToolbar,
+} from "@/components/lpj/LpjSignatureControls";
+import {
   TaxObligationPayPanel,
   TaxObligationPaidList,
 } from "@/components/TaxObligationPayPanel";
@@ -156,6 +160,7 @@ export default async function AdminLpjPajakPage({
   };
 
   return (
+    <LpjSignatureProvider projectId={project.id}>
     <div className="absen-print-landscape">
       <div className="print:hidden">
         <PageHeader
@@ -245,6 +250,8 @@ export default async function AdminLpjPajakPage({
             npwp={project.lpjNpwp ?? ""}
           />
         </div>
+
+        <LpjSignatureToolbar className="mt-4" />
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white p-3 print:overflow-visible print:border-0 print:p-0">
@@ -255,5 +262,6 @@ export default async function AdminLpjPajakPage({
         />
       </div>
     </div>
+    </LpjSignatureProvider>
   );
 }

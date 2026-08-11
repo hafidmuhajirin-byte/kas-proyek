@@ -7,6 +7,7 @@ import { LABOR_GOL_LABELS } from "@/lib/labor-golongan";
 import type { AbsenWeekDetail } from "@/lib/lpj/load-absen-weeks";
 import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
 import { AttendanceMarkButton } from "@/components/lpj/AttendanceMarkButton";
+import { LpjSignatureMark } from "@/components/lpj/LpjSignatureControls";
 
 function utcKey(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -43,12 +44,20 @@ function SignCol({
       {org ? <p className="mt-0.5">{tidyCase(org)}</p> : null}
       <div className="relative my-2 h-10">
         {signatureUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={signatureUrl} alt={`TTD ${title}`} className="absolute inset-0 h-full w-full object-contain" />
+          <LpjSignatureMark
+            kind="ttd"
+            markId={`absen-ttd-${title}`}
+            src={signatureUrl}
+            alt={`TTD ${title}`}
+          />
         ) : null}
         {stampUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={stampUrl} alt={`Stempel ${title}`} className="absolute left-1 top-0 h-10 w-10 object-contain opacity-90" />
+          <LpjSignatureMark
+            kind="stamp"
+            markId={`absen-stamp-${title}`}
+            src={stampUrl}
+            alt={`Stempel ${title}`}
+          />
         ) : null}
       </div>
       <p className="font-medium underline decoration-1">

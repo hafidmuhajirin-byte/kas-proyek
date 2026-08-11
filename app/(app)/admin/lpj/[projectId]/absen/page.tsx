@@ -9,6 +9,10 @@ import { AbsenWeekToolbar } from "@/components/lpj/AbsenWeekToolbar";
 import { DaftarHadirMingguan } from "@/components/lpj/DaftarHadirMingguan";
 import { RekapitulasiPembayaranPekerja } from "@/components/lpj/RekapitulasiPembayaranPekerja";
 import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
+import {
+  LpjSignatureProvider,
+  LpjSignatureToolbar,
+} from "@/components/lpj/LpjSignatureControls";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 
 export default async function AdminLpjAbsenPage({
@@ -58,6 +62,7 @@ export default async function AdminLpjAbsenPage({
       : null;
 
   return (
+    <LpjSignatureProvider projectId={project.id}>
     <div
       className={
         view === "hadir" ? "absen-print-landscape" : "absen-print-portrait"
@@ -89,6 +94,8 @@ export default async function AdminLpjAbsenPage({
             : " Akses LPJ Proyek hanya baca untuk halaman ini."}{" "}
           Cetak tanpa scrollbar.
         </Card>
+
+        <LpjSignatureToolbar className="mb-4" />
 
         <AbsenWeekToolbar
           projectId={project.id}
@@ -126,5 +133,6 @@ export default async function AdminLpjAbsenPage({
         <EmptyState message="Pilih minggu untuk melihat daftar hadir." />
       )}
     </div>
+    </LpjSignatureProvider>
   );
 }

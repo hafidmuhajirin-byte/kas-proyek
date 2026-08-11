@@ -15,6 +15,7 @@ import type { CashBookLine } from "@/lib/project-cash-book";
 import type { LpjTaxRow } from "@/lib/lpj/load-lpj-books";
 import type { TaxCeilingStatus } from "@/lib/lpj/tax-compliance";
 import { TaxCeilingBar } from "@/components/lpj/TaxCeilingBar";
+import { LpjSignatureMark } from "@/components/lpj/LpjSignatureControls";
 
 export type LpjHeaderMeta = {
   schoolName: string;
@@ -143,19 +144,19 @@ function SignatoryBlock({
       </p>
       <div className="relative mx-auto my-2 h-12 w-full shrink-0 sm:my-2.5 sm:h-14" aria-hidden>
         {signatureUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <LpjSignatureMark
+            kind="ttd"
+            markId={`ttd-${title}`}
             src={signatureUrl}
             alt={`TTD ${title}`}
-            className="absolute inset-0 h-full w-full object-contain"
           />
         ) : null}
         {stampUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <LpjSignatureMark
+            kind="stamp"
+            markId={`stamp-${title}`}
             src={stampUrl}
             alt={`Stempel ${title}`}
-            className="absolute left-1 top-0 h-12 w-12 object-contain opacity-90 sm:h-14 sm:w-14"
           />
         ) : null}
       </div>

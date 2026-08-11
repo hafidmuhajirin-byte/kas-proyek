@@ -17,6 +17,12 @@ import {
 } from "@/components/lpj/LpjBookPreviews";
 import { RekapitulasiPembayaranPajak } from "@/components/lpj/RekapitulasiPembayaranPajak";
 import { LpjExcelDownloadButton } from "@/components/lpj/LpjExcelDownloadButton";
+import {
+  LpjSignatureProvider,
+  LpjSignatureToolbar,
+} from "@/components/lpj/LpjSignatureControls";
+import { buildBkkVouchersFromBkt } from "@/lib/lpj/build-bkk-vouchers";
+import { BkkKuitansiViewer } from "@/components/lpj/BkkKuitansi";
 
 const CETAK_LINKS = [
   {
@@ -33,6 +39,11 @@ const CETAK_LINKS = [
     href: "bkt",
     title: "Cetak Buku Kas Tunai",
     desc: "Hanya BKT — A4 landscape, per bulan",
+  },
+  {
+    href: "bkk",
+    title: "Cetak Kuitansi BKK",
+    desc: "A4 potret — Prev/Next di layar, cetak semua BKK 1…N",
   },
 ] as const;
 
@@ -122,8 +133,10 @@ export default async function AdminLpjExportPage({
     bendaharaTtdUrl: project.lpjBendaharaTtdUrl,
     stempelUrl: project.lpjStempelUrl,
   };
+  const bkkVouchers = buildBkkVouchersFromBkt(books.bktBlocks);
 
   return (
+    <LpjSignatureProvider projectId={project.id}>
     <div>
       <PageHeader
         title="Laporan LPJ"
@@ -144,8 +157,8 @@ export default async function AdminLpjExportPage({
       <Card className="mb-4 space-y-2 text-sm text-[var(--ink-muted)]">
         <p>
           Cetak dipisah per buku agar file PDF tidak bercampur. Tiap bulan
-          diusahakan memenuhi 1 lembar <strong>A4 landscape</strong>. Di dialog
-          cetak/PDF, pastikan <strong>Orientasi = Landscape</strong>.
+          diusahakan memenuhi 1 lembar <strong>A4 landscape</strong> (kecuali
+          kuitansi BKK = potret). Di dialog cetak/PDF, sesuaikan orientasi.
         </p>
         <p>
           <strong>Unduh Excel Workbook</strong> berisi sheet BUKU BANK, BKU per
@@ -153,7 +166,9 @@ export default async function AdminLpjExportPage({
         </p>
       </Card>
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-3">
+      <LpjSignatureToolbar className="mb-4" />
+
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {CETAK_LINKS.map((item) => (
           <Link
             key={item.href}
@@ -204,6 +219,29 @@ export default async function AdminLpjExportPage({
         </Card>
       </section>
 
+      <section id="bkk" className="mb-8 scroll-mt-20">
+        <Card>
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
+            Pratinjau Kuitansi BKK
+          </h2>
+          <p className="mb-3 text-sm text-[var(--ink-muted)]">
+            Untuk cetak massal buka{" "}
+            <Link
+              href={`/admin/lpj/${project.id}/cetak/bkk`}
+              className="text-[var(--accent)] underline"
+            >
+              Cetak Kuitansi BKK
+            </Link>
+            .
+          </p>
+          <BkkKuitansiViewer
+            vouchers={bkkVouchers}
+            meta={meta}
+            projectTitle={projectTitle}
+          />
+        </Card>
+      </section>
+
       <section id="pajak" className="mb-8 scroll-mt-20">
         <Card>
           <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">
@@ -230,5 +268,6 @@ export default async function AdminLpjExportPage({
         </Card>
       </section>
     </div>
+    </LpjSignatureProvider>
   );
 }

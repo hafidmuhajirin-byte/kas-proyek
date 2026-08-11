@@ -39,6 +39,10 @@ import {
   buildBktMonthBlocks,
 } from "../lib/buku-kas/bkt";
 import {
+  buildBkkVouchersFromBkt,
+  terbilangRupiah,
+} from "../lib/lpj/build-bkk-vouchers";
+import {
   collectOwnerPengambilan,
   isOwnerPengambilanFromUser,
 } from "../lib/lpj/owner-pengambilan";
@@ -721,6 +725,20 @@ function assert(cond: boolean, msg: string) {
     terima?.income === pphFinal && bayarFinal?.expense === pphFinal,
     "bkt PPh Final terima=bayar",
   );
+
+  const vouchers = buildBkkVouchersFromBkt(bktTax);
+  assert(vouchers.length === 3, `3 kuitansi BKK got ${vouchers.length}`);
+  assert(vouchers[0]?.proofNo === "BKK.1", "voucher 1");
+  assert(vouchers[1]?.proofNo === "BKK.2", "voucher 2");
+  assert(vouchers[2]?.proofNo === "BKK.3", "voucher 3");
+  assert(vouchers[0]?.total === material, "voucher 1 total = material");
+  assert(vouchers[1]?.total === pengawasan, "voucher 2 total = pengawasan");
+  assert(vouchers[2]?.total === 2_000_000, "voucher 3 total = upah");
+  assert(
+    terbilangRupiah(1_250_000).toLowerCase().includes("satu juta"),
+    "terbilang 1.25jt",
+  );
+  assert(terbilangRupiah(0) === "Nol rupiah", "terbilang 0");
 }
 
 if (failed > 0) {

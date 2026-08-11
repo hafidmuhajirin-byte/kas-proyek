@@ -4,6 +4,7 @@ import { tidyCase } from "@/lib/text";
 import { parseProjectLocation } from "@/lib/project-bkk-report";
 import type { AbsenWeekSummary } from "@/lib/lpj/load-absen-weeks";
 import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
+import { LpjSignatureMark } from "@/components/lpj/LpjSignatureControls";
 
 function formatShortId(d: Date) {
   return format(d, "d-MMM-yy", { locale: localeId });
@@ -40,12 +41,20 @@ function SignCol({
       {org ? <p className="mt-0.5">{tidyCase(org)}</p> : null}
       <div className="relative my-2 h-10">
         {signatureUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={signatureUrl} alt={`TTD ${title}`} className="absolute inset-0 h-full w-full object-contain" />
+          <LpjSignatureMark
+            kind="ttd"
+            markId={`rekap-pekerja-ttd-${title}`}
+            src={signatureUrl}
+            alt={`TTD ${title}`}
+          />
         ) : null}
         {stampUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={stampUrl} alt={`Stempel ${title}`} className="absolute left-1 top-0 h-10 w-10 object-contain opacity-90" />
+          <LpjSignatureMark
+            kind="stamp"
+            markId={`rekap-pekerja-stamp-${title}`}
+            src={stampUrl}
+            alt={`Stempel ${title}`}
+          />
         ) : null}
       </div>
       <p className="font-medium underline decoration-1">

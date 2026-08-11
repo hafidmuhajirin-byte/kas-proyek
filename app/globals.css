@@ -386,4 +386,38 @@ select,
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /* ——— Kuitansi BKK A4 potret ——— */
+  @page bkk-kuitansi-portrait {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  .bkk-kuitansi-root,
+  .bkk-kuitansi-print {
+    page: bkk-kuitansi-portrait;
+  }
+
+  .bkk-kuitansi-root,
+  .bkk-kuitansi-root *,
+  .bkk-kuitansi-print,
+  .bkk-kuitansi-print * {
+    overflow: visible !important;
+  }
+
+  .bkk-kuitansi-page {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .bkk-kuitansi-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .bkk-kuitansi-sheet {
+    width: 100% !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
+  }
 }
