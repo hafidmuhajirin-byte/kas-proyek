@@ -238,7 +238,11 @@ export default async function AdminLpjNotaPage({
       {groups.length === 0 ? (
         <EmptyState message="Belum ada nota Mandor / Admin LPJ untuk proyek ini." />
       ) : (
-        <AdminMandorNotaReview groups={groups} knownWorkers={knownWorkers} />
+        <AdminMandorNotaReview
+          groups={groups}
+          knownWorkers={knownWorkers}
+          projectId={projectId}
+        />
       )}
     </div>
   );

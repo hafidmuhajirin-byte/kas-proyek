@@ -11,13 +11,14 @@ type ChatItem = {
   blocks?: AssistantBlock[];
 };
 
-const suggestions = [
-  "Pengingat hari ini",
-  "Kas besar?",
-  "Fee tersisa?",
-  "Proyek mana kritis?",
-  "Keuntungan proyek",
-];
+export const ASSISTANT_OPEN_EVENT = "kas-assistant-open";
+
+export type AssistantOpenDetail = {
+  message?: string;
+  reply?: AssistantReply;
+  /** If true, show as assistant message without calling API again */
+  preset?: boolean;
+};
 
 function Blocks({ blocks }: { blocks: AssistantBlock[] }) {
   if (!blocks.length) return null;
@@ -74,19 +75,33 @@ function Blocks({ blocks }: { blocks: AssistantBlock[] }) {
   );
 }
 
+/** Open Asisten chat from anywhere (forms, guards). */
+export function openAssistantChat(detail: AssistantOpenDetail) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(ASSISTANT_OPEN_EVENT, { detail }),
+  );
+}
+
 export function AssistantKas() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([
+    "Pengingat hari ini",
+    "Menu saya",
+    "Bantuan",
+  ]);
   const [items, setItems] = useState<ChatItem[]>([
     {
       id: "welcome",
       role: "assistant",
-      text: "Saya Asisten Kas — pengingat dan ringkasan dari data pembukuan Anda. Tanya kas, fee, keuntungan, atau minta pengingat hari ini.",
+      text: "Saya Asisten Kas — memuat data Anda…",
     },
   ]);
   const [pending, startTransition] = useTransition();
   const [badge, setBadge] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const bootstrapped = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -94,18 +109,76 @@ export function AssistantKas() {
   }, [items, open]);
 
   useEffect(() => {
-    // Prefetch reminder count quietly
+    function onOpen(ev: Event) {
+      const detail = (ev as CustomEvent<AssistantOpenDetail>).detail ?? {};
+      setOpen(true);
+      if (detail.preset && detail.reply) {
+        setItems((prev) => [
+          ...prev,
+          {
+            id: `a-${Date.now()}`,
+            role: "assistant",
+            text: detail.reply!.text,
+            blocks: detail.reply!.blocks,
+          },
+        ]);
+        return;
+      }
+      if (detail.message) {
+        ask(detail.message);
+      }
+    }
+    window.addEventListener(ASSISTANT_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(ASSISTANT_OPEN_EVENT, onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
     fetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "pengingat hari ini" }),
+      body: JSON.stringify({ message: "prioritas hari ini", bootstrap: true }),
     })
       .then((r) => r.json())
-      .then((data: { reminderCount?: number }) => {
-        if (typeof data.reminderCount === "number") {
-          setBadge(data.reminderCount);
-        }
-      })
+      .then(
+        (data: {
+          reply?: AssistantReply;
+          reminderCount?: number;
+          openChat?: boolean;
+          suggestions?: string[];
+          welcome?: string;
+        }) => {
+          if (data.welcome) {
+            setItems([
+              {
+                id: "welcome",
+                role: "assistant",
+                text: data.welcome,
+              },
+            ]);
+          }
+          if (Array.isArray(data.suggestions) && data.suggestions.length) {
+            setSuggestions(data.suggestions);
+          }
+          if (typeof data.reminderCount === "number") {
+            setBadge(data.reminderCount);
+          }
+          if (data.openChat && data.reply) {
+            setOpen(true);
+            setItems((prev) => [
+              ...prev,
+              {
+                id: `boot-${Date.now()}`,
+                role: "assistant",
+                text: data.reply!.text,
+                blocks: data.reply!.blocks,
+              },
+            ]);
+          }
+        },
+      )
       .catch(() => {});
   }, []);
 
@@ -130,10 +203,14 @@ export function AssistantKas() {
         const data = (await res.json()) as {
           reply?: AssistantReply;
           reminderCount?: number;
+          suggestions?: string[];
           error?: string;
         };
         if (typeof data.reminderCount === "number") {
           setBadge(data.reminderCount);
+        }
+        if (Array.isArray(data.suggestions) && data.suggestions.length) {
+          setSuggestions(data.suggestions);
         }
         if (!res.ok || !data.reply) {
           setItems((prev) => [
@@ -198,7 +275,7 @@ export function AssistantKas() {
               <div>
                 <p className="font-serif text-lg text-[var(--ink)]">Asisten Kas</p>
                 <p className="text-[11px] text-[var(--ink-faint)]">
-                  Pengingat & ringkasan dari data Anda
+                  Pantau data · saran perbaikan · menu
                 </p>
               </div>
               <button
@@ -239,7 +316,7 @@ export function AssistantKas() {
                         : "border border-[var(--line-soft)] bg-[var(--paper)] text-[var(--ink)]"
                     }`}
                   >
-                    <p className="leading-snug">{item.text}</p>
+                    <p className="leading-snug whitespace-pre-wrap">{item.text}</p>
                     {item.blocks ? <Blocks blocks={item.blocks} /> : null}
                   </div>
                 </div>
@@ -257,7 +334,7 @@ export function AssistantKas() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Tanya kas, fee, pengingat…"
+                placeholder="Tanya menu, nota, pajak, pengingat…"
                 className="min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15"
                 disabled={pending}
               />

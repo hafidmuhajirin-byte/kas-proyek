@@ -9,6 +9,11 @@ import type { SessionUser } from "@/lib/auth";
 import { roleLabels } from "@/lib/labels";
 import { ProofReviewHost } from "@/components/ProofReviewLink";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
+import {
+  ownerMobileMenus,
+  primaryMenusForRole,
+  secondaryMenusForRole,
+} from "@/lib/nav/app-menus";
 
 const AssistantKas = dynamic(
   () => import("@/components/AssistantKas").then((m) => m.AssistantKas),
@@ -23,61 +28,25 @@ function navForRole(role: SessionUser["role"]): {
   mobile: NavItem[];
   showAssistant: boolean;
 } {
-  if (role === "ADMIN") {
-    const primary = [
-      { href: "/admin/lpj", label: "Proyek LPJ", short: "LPJ" },
-      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
-    ];
-    return { primary, secondary: [], mobile: primary, showAssistant: false };
-  }
+  const toItem = (m: { href: string; label: string; short?: string }): NavItem => ({
+    href: m.href,
+    label: m.label,
+    short: m.short,
+  });
 
-  if (role === "ADMIN_PROYEK") {
-    const primary = [
-      { href: "/admin-proyek", label: "Proyek Saya", short: "Proyek" },
-      { href: "/admin/lpj", label: "LPJ", short: "LPJ" },
-      { href: "/transactions/project", label: "Kas Proyek", short: "Kas" },
-      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
-    ];
-    return { primary, secondary: [], mobile: primary, showAssistant: false };
-  }
-
-  if (role === "LPJ_VIEWER") {
-    const primary = [
-      { href: "/admin/lpj", label: "LPJ", short: "LPJ" },
-      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
-    ];
-    return { primary, secondary: [], mobile: primary, showAssistant: false };
-  }
-
-  if (role === "MANDOR") {
+  if (role === "MANDOR" || role === "ADM_FOTO") {
     return { primary: [], secondary: [], mobile: [], showAssistant: false };
   }
 
-  const primary = [
-    { href: "/dashboard", label: "Dashboard", short: "Home" },
-    { href: "/admin/lpj", label: "AdminOK", short: "Admin" },
-    { href: "/projects", label: "Proyek", short: "Proyek" },
-    { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
-    { href: "/transactions", label: "Kas Besar", short: "Besar" },
-    { href: "/transactions/project", label: "Kas Proyek", short: "Proyek" },
-    { href: "/reports", label: "Laporan", short: "Lapor" },
-  ];
-  const secondary = [
-    { href: "/users", label: "Pengguna" },
-    { href: "/sources", label: "Sumber Kas" },
-    { href: "/transfers", label: "Transfer Kas" },
-    { href: "/categories", label: "Kategori" },
-  ];
+  const primary = primaryMenusForRole(role).map(toItem);
+  const secondary = secondaryMenusForRole(role).map(toItem);
+  const mobile =
+    role === "OWNER" ? ownerMobileMenus().map(toItem) : primary;
+
   return {
     primary,
     secondary,
-    mobile: [
-      { href: "/dashboard", label: "Dashboard", short: "Home" },
-      { href: "/projects", label: "Proyek", short: "Proyek" },
-      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
-      { href: "/transactions", label: "Kas Besar", short: "Besar" },
-      { href: "/reports", label: "Laporan", short: "Lapor" },
-    ],
+    mobile,
     showAssistant: true,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   approveMandorExpenseBreakdownAction,
   rejectMandorExpenseBreakdownAction,
@@ -12,6 +12,8 @@ import { LABOR_ROLES, isLaborRole, normalizeWorkerName } from "@/lib/labor-roles
 import { toDateInputValue } from "@/lib/labor-period";
 import { formatNumberId, formatRupiah, parseRupiahInput } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
+import { openAssistantChat } from "@/components/AssistantKas";
+import type { AssistantReply } from "@/lib/assistant/engine";
 
 export type ExpenseLineRow = {
   id: string;
@@ -92,6 +94,7 @@ const cell =
 
 export function MandorExpenseBreakdownForm({
   transactionId,
+  projectId,
   proofAmount,
   lines,
   canEdit,
@@ -106,6 +109,8 @@ export function MandorExpenseBreakdownForm({
   laborWeekIndex = null,
 }: {
   transactionId: string;
+  /** Untuk memory satuan bahan (Asisten) */
+  projectId?: string;
   proofAmount: number;
   lines: ExpenseLineRow[];
   canEdit: boolean;
@@ -137,6 +142,7 @@ export function MandorExpenseBreakdownForm({
   );
   const [rejectOpen, setRejectOpen] = useState(false);
   const [open, setOpen] = useState(defaultOpen);
+  const mismatchNotified = useRef<string>("");
 
   const [saveState, saveAction, savePending] = useActionState(
     saveMandorExpenseBreakdownAction,
@@ -154,6 +160,52 @@ export function MandorExpenseBreakdownForm({
   const matches = draftTotal === proofAmount && draftTotal > 0;
   const savedTotal = lines.reduce((s, l) => s + l.amount, 0);
   const savedMatches = savedTotal === proofAmount && lines.length > 0;
+
+  useEffect(() => {
+    if (!canEdit || !open || kind !== "MATERIAL") return;
+    if (matches || draftTotal <= 0) return;
+    const key = `${transactionId}:${draftTotal}:${proofAmount}`;
+    if (mismatchNotified.current === key) return;
+    mismatchNotified.current = key;
+    const selisih = Math.abs(proofAmount - draftTotal);
+    const reply: AssistantReply = {
+      text: `Total pecah isi ${formatRupiah(draftTotal)} belum sama dengan nominal BKK/nota ${formatRupiah(proofAmount)} (selisih ${formatRupiah(selisih)}).`,
+      blocks: [
+        {
+          type: "list",
+          items: [
+            "→ Koreksi qty/harga baris sampai total = nominal.",
+            "→ Atau Split Nota lalu isi BKK tambahan untuk sisa.",
+            "→ Jangan Setujui sebelum selisih nol.",
+          ],
+        },
+      ],
+      urgent: true,
+    };
+    openAssistantChat({ preset: true, reply });
+  }, [canEdit, open, kind, matches, draftTotal, proofAmount, transactionId]);
+
+  async function checkMaterialUnit(description: string, unit: string) {
+    if (kind !== "MATERIAL" || !description.trim() || !unit.trim()) return;
+    try {
+      const res = await fetch("/api/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          checkUnit: { projectId, description, unit },
+        }),
+      });
+      const data = (await res.json()) as {
+        reply?: AssistantReply;
+        openChat?: boolean;
+      };
+      if (data.openChat && data.reply) {
+        openAssistantChat({ preset: true, reply: data.reply });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   function updateRow(
     key: string,
@@ -492,6 +544,9 @@ export function MandorExpenseBreakdownForm({
                         onChange={(e) =>
                           updateRow(r.key, { unit: e.target.value }, "other")
                         }
+                        onBlur={() =>
+                          void checkMaterialUnit(r.description, r.unit)
+                        }
                       />
                     </td>
                     <td className="px-1 py-1 align-top">
@@ -504,6 +559,9 @@ export function MandorExpenseBreakdownForm({
                         }
                         onChange={(e) =>
                           pickKnownWorker(r.key, e.target.value)
+                        }
+                        onBlur={() =>
+                          void checkMaterialUnit(r.description, r.unit)
                         }
                       />
                       {dup ? (

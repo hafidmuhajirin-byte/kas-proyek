@@ -71,9 +71,11 @@ function pecahHint(bkk: AdminNotaBkk) {
 export function AdminMandorNotaReview({
   groups,
   knownWorkers = [],
+  projectId,
 }: {
   groups: AdminNotaGroup[];
   knownWorkers?: KnownWorkerOption[];
+  projectId: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -199,6 +201,7 @@ export function AdminMandorNotaReview({
                       {open ? (
                         <MandorExpenseBreakdownForm
                           transactionId={bkk.id}
+                          projectId={projectId}
                           proofAmount={bkk.amount}
                           lines={bkk.lines}
                           canEdit

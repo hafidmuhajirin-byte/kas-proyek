@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { ProofReviewHost } from "@/components/ProofReviewLink";
 import type { SessionUser } from "@/lib/session";
+import { primaryMenusForRole } from "@/lib/nav/app-menus";
+
+const AssistantKas = dynamic(
+  () => import("@/components/AssistantKas").then((m) => m.AssistantKas),
+  { ssr: false },
+);
 
 export function MandorShell({
   user,
@@ -17,15 +24,12 @@ export function MandorShell({
   const pathname = usePathname();
   const admFoto = user.role === "ADM_FOTO";
 
-  const nav = admFoto
-    ? [{ href: "/mandor/lokasi", label: "Home", short: "Home" }]
-    : [
-        { href: "/mandor", label: "Beranda", short: "Home" },
-        { href: "/mandor/upload", label: "Upload", short: "Upload" },
-        { href: "/mandor/lokasi", label: "Foto Proyek", short: "Foto" },
-      ];
+  const nav = primaryMenusForRole(user.role).map((m) => ({
+    href: m.href,
+    label: m.label,
+    short: m.short ?? m.label,
+  }));
 
-  // Nav ke daftar proyek (tanpa projectId), bukan halaman terkunci
   const isActive = (href: string) => {
     if (href === "/mandor") return pathname === "/mandor";
     if (href === "/mandor/lokasi") return pathname.startsWith("/mandor/lokasi");
@@ -88,6 +92,7 @@ export function MandorShell({
         </div>
       </nav>
 
+      <AssistantKas />
       <ProofReviewHost />
     </div>
   );

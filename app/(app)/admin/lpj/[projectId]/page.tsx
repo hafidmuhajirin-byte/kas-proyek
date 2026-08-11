@@ -6,39 +6,17 @@ import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
 import { Card, PageHeader } from "@/components/ui";
 import { collectOwnerPengambilan } from "@/lib/lpj/owner-pengambilan";
+import { lpjSubmenusForRole } from "@/lib/nav/app-menus";
+import { helpForMenu } from "@/lib/assistant/catalog";
 
-const MENU = [
-  {
-    href: "spk",
-    title: "Ringkasan SPK",
-    desc: "Pecah nilai kontrak ke kategori pagu + target upah/material",
-  },
-  {
-    href: "bank",
-    title: "Pencairan & Buku Bank",
-    desc: "Cair 70%/30% + pengambilan User→Owner (otomatis dari pemasukan Owner)",
-  },
-  {
-    href: "nota",
-    title: "Review Nota Mandor",
-    desc: "Lihat nota, pecahan bahan–upah, dan hitungan pajak",
-  },
-  {
-    href: "absen",
-    title: "Absen & Rekap Gaji",
-    desc: "Daftar pekerja, absensi, HOK = hadir × upah harian",
-  },
-  {
-    href: "pajak",
-    title: "Pajak",
-    desc: "Progress plafon 3,5% SPK + daftar PPN/PPh",
-  },
-  {
-    href: "export",
-    title: "Laporan LPJ",
-    desc: "Pratinjau + cetak Buku Bank, BKU, BKT, dan kuitansi BKK",
-  },
-] as const;
+const LPJ_MENU_FALLBACK_DESC: Record<string, string> = {
+  spk: "Pecah nilai kontrak ke kategori pagu + target upah/material",
+  bank: "Cair 70%/30% + pengambilan User→Owner (otomatis dari pemasukan Owner)",
+  nota: "Lihat nota, pecahan bahan–upah, dan hitungan pajak",
+  absen: "Daftar pekerja, absensi, HOK = hadir × upah harian",
+  pajak: "Progress plafon 3,5% SPK + daftar PPN/PPh",
+  export: "Pratinjau + cetak Buku Bank, BKU, BKT, dan kuitansi BKK",
+};
 
 export default async function AdminLpjProjectMenuPage({
   params,
@@ -84,12 +62,20 @@ export default async function AdminLpjProjectMenuPage({
     })),
   );
   const totalPengambilan = pengambilan.reduce((s, t) => s + t.amount, 0);
-  const menu =
-    isLpjViewer(user)
-      ? MENU.filter((item) =>
-          ["bank", "absen", "pajak", "export"].includes(item.href),
-        )
-      : MENU;
+  const menu = lpjSubmenusForRole(user.role).map((m) => ({
+    href: m.href,
+    title: m.label,
+    desc:
+      helpForMenu(m).summary ||
+      LPJ_MENU_FALLBACK_DESC[m.href] ||
+      m.label,
+  }));
+  // LPJ_VIEWER: hide nota (same as before)
+  const visibleMenu = isLpjViewer(user)
+    ? menu.filter((item) =>
+        ["bank", "absen", "pajak", "export"].includes(item.href),
+      )
+    : menu;
 
   return (
     <div>
@@ -132,7 +118,7 @@ export default async function AdminLpjProjectMenuPage({
 
       <nav aria-label="Menu LPJ proyek">
         <ul className="grid gap-3 sm:grid-cols-2">
-          {menu.map((item) => (
+          {visibleMenu.map((item) => (
             <li key={item.href}>
               <Link
                 href={`/admin/lpj/${project.id}/${item.href}`}
