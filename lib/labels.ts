@@ -17,8 +17,10 @@ export const projectStatusLabels: Record<string, string> = {
 
 export const roleLabels: Record<string, string> = {
   OWNER: "Owner",
-  ADMIN: "Admin",
+  ADMIN: "AdminOK",
+  ADMIN_PROYEK: "Admin Proyek",
   MANDOR: "Mandor",
+  ADM_FOTO: "ADM Foto",
 };
 
 export const fundingStatusLabels: Record<string, string> = {
@@ -42,3 +44,15 @@ export const billingModeHints: Record<string, string> = {
   PAY_AT_END:
     "Tanpa kontrak. Pengeluaran dari kas besar; jika habis wajib setor dana pribadi. Bayar di akhir dari pekerjaan selesai.",
 };
+
+/** Hint mode pembayaran untuk proyek mandiri (kas terpisah). */
+export const standaloneBillingModeHints: Record<string, string> = {
+  ON_REQUEST:
+    "Proyek mandiri: kas terpisah dari Owner. Saldo awal = dana di proyek ini saja.",
+  TERMIN_PLAN:
+    "Proyek mandiri: kas terpisah. Rencana termin hanya di buku proyek ini.",
+  PAY_AT_END:
+    "Proyek mandiri: tidak mengambil dari kas besar Owner. Danai dari saldo proyek.",
+};
+
+export { SPK_CATEGORY_LABELS as spkCategoryLabels } from "@/lib/lpj/smart-estimator";

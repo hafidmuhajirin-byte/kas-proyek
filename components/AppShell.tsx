@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 import { logoutAction } from "@/lib/actions/auth";
 import type { SessionUser } from "@/lib/auth";
 import { roleLabels } from "@/lib/labels";
+import { ProofReviewHost } from "@/components/ProofReviewLink";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 
 const AssistantKas = dynamic(
   () => import("@/components/AssistantKas").then((m) => m.AssistantKas),
@@ -23,9 +25,18 @@ function navForRole(role: SessionUser["role"]): {
 } {
   if (role === "ADMIN") {
     const primary = [
-      { href: "/dashboard", label: "Dashboard", short: "Home" },
-      { href: "/projects", label: "Proyek", short: "Proyek" },
-      { href: "/transactions", label: "Buku Kas", short: "Kas" },
+      { href: "/admin/lpj", label: "Proyek LPJ", short: "LPJ" },
+      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
+    ];
+    return { primary, secondary: [], mobile: primary, showAssistant: false };
+  }
+
+  if (role === "ADMIN_PROYEK") {
+    const primary = [
+      { href: "/admin-proyek", label: "Proyek Saya", short: "Proyek" },
+      { href: "/admin/lpj", label: "LPJ", short: "LPJ" },
+      { href: "/transactions/project", label: "Kas Proyek", short: "Kas" },
+      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
     ];
     return { primary, secondary: [], mobile: primary, showAssistant: false };
   }
@@ -36,8 +47,11 @@ function navForRole(role: SessionUser["role"]): {
 
   const primary = [
     { href: "/dashboard", label: "Dashboard", short: "Home" },
+    { href: "/admin/lpj", label: "AdminOK", short: "Admin" },
     { href: "/projects", label: "Proyek", short: "Proyek" },
-    { href: "/transactions", label: "Buku Kas", short: "Kas" },
+    { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
+    { href: "/transactions", label: "Kas Besar", short: "Besar" },
+    { href: "/transactions/project", label: "Kas Proyek", short: "Proyek" },
     { href: "/reports", label: "Laporan", short: "Lapor" },
   ];
   const secondary = [
@@ -49,7 +63,13 @@ function navForRole(role: SessionUser["role"]): {
   return {
     primary,
     secondary,
-    mobile: primary,
+    mobile: [
+      { href: "/dashboard", label: "Dashboard", short: "Home" },
+      { href: "/projects", label: "Proyek", short: "Proyek" },
+      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
+      { href: "/transactions", label: "Kas Besar", short: "Besar" },
+      { href: "/reports", label: "Laporan", short: "Lapor" },
+    ],
     showAssistant: true,
   };
 }
@@ -77,8 +97,15 @@ export function AppShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const nav = useMemo(() => navForRole(user.role), [user.role]);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = (href: string) => {
+    if (href === "/transactions") {
+      return pathname === "/transactions" || pathname.startsWith("/transactions/new") || /^\/transactions\/[^/]+\/edit/.test(pathname);
+    }
+    if (href === "/transactions/project") {
+      return pathname === "/transactions/project" || pathname.startsWith("/transactions/project/");
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   const secondaryActive = nav.secondary.some((item) => isActive(item.href));
   const [setupOpen, setSetupOpen] = useState(secondaryActive);
@@ -101,13 +128,30 @@ export function AppShell({
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr] print:block">
       <aside className="relative z-[1] hidden flex-col bg-[var(--accent)] text-[#eef4f1] print:hidden lg:flex lg:min-h-screen">
-        <div className="px-5 py-7">
-          <p className="font-serif text-2xl tracking-tight text-[#f7f4ee]">
-            Kas Proyek
-          </p>
-          <p className="mt-1 text-sm text-[#c5d4cf]">Buku kas multi lokasi</p>
+        <div className="border-b border-white/10 px-5 py-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-serif text-2xl tracking-tight text-[#f7f4ee]">
+                Kas Proyek
+              </p>
+              <p className="mt-1 truncate text-sm text-[#c5d4cf]">
+                {user.name}
+              </p>
+              <p className="truncate text-xs text-[#a8bbb4]">
+                {roleLabels[user.role] ?? user.role} · @{user.username}
+              </p>
+            </div>
+            <form action={logoutAction} className="shrink-0 pt-0.5">
+              <button
+                type="submit"
+                className="inline-flex min-h-9 items-center rounded-lg border border-white/20 bg-white/8 px-3 text-sm font-medium text-[#eef4f1] transition hover:border-white/35 hover:bg-white/14 hover:text-white"
+              >
+                Keluar
+              </button>
+            </form>
+          </div>
         </div>
-        <nav className="flex flex-1 flex-col gap-0.5 px-3 pb-4">
+        <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4">
           {nav.primary.map((item) => (
             <Link
               key={item.href}
@@ -153,20 +197,6 @@ export function AppShell({
             </div>
           ) : null}
         </nav>
-        <div className="border-t border-white/10 px-5 py-4">
-          <p className="text-sm font-medium text-white">{user.name}</p>
-          <p className="text-xs text-[#a8bbb4]">
-            {roleLabels[user.role] ?? user.role} · @{user.username}
-          </p>
-          <form action={logoutAction} className="mt-3">
-            <button
-              type="submit"
-              className="text-xs text-[#c5d4cf] underline-offset-2 hover:text-white hover:underline"
-            >
-              Keluar
-            </button>
-          </form>
-        </div>
       </aside>
 
       <div className="sticky top-0 z-30 border-b border-[var(--line-soft)] bg-[var(--paper)]/95 backdrop-blur print:hidden lg:hidden">
@@ -190,6 +220,9 @@ export function AppShell({
 
       <main className="app-paper relative min-h-screen print:bg-white">
         <div className="mobile-main-pad relative z-[1] mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8 print:max-w-none print:px-0 print:py-0 print:pb-0">
+          <div className="mb-3 print:hidden lg:hidden">
+            <PwaInstallPrompt compact />
+          </div>
           {children}
         </div>
       </main>
@@ -301,6 +334,7 @@ export function AppShell({
       ) : null}
 
       {nav.showAssistant ? <AssistantKas /> : null}
+      <ProofReviewHost />
     </div>
   );
 }
