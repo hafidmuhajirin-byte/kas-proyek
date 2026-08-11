@@ -16,7 +16,7 @@ import {
   inputClass,
 } from "@/components/ui";
 
-type ProjectOption = { id: string; name: string };
+type ProjectOption = { id: string; name: string; standalone?: boolean };
 type UserRow = {
   id: string;
   username: string;
@@ -25,9 +25,76 @@ type UserRow = {
   projectIds: string[];
 };
 
+function needsProjects(role: string) {
+  return (
+    role === "MANDOR" ||
+    role === "ADM_FOTO" ||
+    role === "ADMIN_PROYEK" ||
+    role === "LPJ_VIEWER"
+  );
+}
+
+function ProjectAssignField({
+  projects,
+  assigned,
+  edit,
+  single,
+}: {
+  projects: ProjectOption[];
+  assigned?: Set<string>;
+  edit?: boolean;
+  /** Admin Proyek / LPJ Proyek: tepat 1 proyek */
+  single?: boolean;
+}) {
+  return (
+    <Field
+      label="Proyek ditugaskan"
+      hint={
+        single
+          ? "Pilih tepat 1 proyek."
+          : edit
+            ? "Wajib minimal 1 proyek."
+            : "Wajib pilih minimal 1 proyek"
+      }
+    >
+      <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
+        {projects.length === 0 ? (
+          <p className="text-sm text-[var(--ink-faint)]">
+            {single
+              ? "Belum ada proyek mandiri. Buat proyek dengan opsi mandiri dulu."
+              : "Belum ada proyek."}
+          </p>
+        ) : (
+          projects.map((p) => (
+            <label key={p.id} className="flex items-center gap-2 text-sm">
+              {edit ? (
+                <input type="hidden" name="formProjectIds" value={p.id} />
+              ) : null}
+              <input
+                type={single ? "radio" : "checkbox"}
+                name="projectIds"
+                value={p.id}
+                defaultChecked={assigned?.has(p.id)}
+              />
+              {p.name}
+              {p.standalone ? (
+                <span className="text-xs text-[var(--ink-faint)]">· mandiri</span>
+              ) : null}
+            </label>
+          ))
+        )}
+      </div>
+    </Field>
+  );
+}
+
 export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
   const [state, action, pending] = useActionState(createUserAction, {});
   const [role, setRole] = useState("MANDOR");
+  const assignProjects =
+    role === "ADMIN_PROYEK"
+      ? projects.filter((p) => p.standalone)
+      : projects;
 
   return (
     <form action={action} className="space-y-3">
@@ -65,26 +132,19 @@ export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
             onChange={(e) => setRole(e.target.value)}
           >
             <option value="OWNER">Owner</option>
-            <option value="ADMIN">Admin</option>
+            <option value="ADMIN">AdminOK</option>
+            <option value="ADMIN_PROYEK">Admin Proyek</option>
+            <option value="LPJ_VIEWER">LPJ Proyek</option>
             <option value="MANDOR">Mandor</option>
+            <option value="ADM_FOTO">ADM Foto</option>
           </select>
         </Field>
       </div>
-      {role === "MANDOR" ? (
-        <Field label="Proyek ditugaskan">
-          <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
-            {projects.length === 0 ? (
-              <p className="text-sm text-[var(--ink-faint)]">Belum ada proyek.</p>
-            ) : (
-              projects.map((p) => (
-                <label key={p.id} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="projectIds" value={p.id} />
-                  {p.name}
-                </label>
-              ))
-            )}
-          </div>
-        </Field>
+      {needsProjects(role) ? (
+        <ProjectAssignField
+          projects={assignProjects}
+          single={role === "ADMIN_PROYEK" || role === "LPJ_VIEWER"}
+        />
       ) : null}
       <button type="submit" className={btnPrimaryClass} disabled={pending}>
         {pending ? "Menyimpan..." : "Tambah pengguna"}
@@ -103,6 +163,10 @@ export function UserEditForm({
   const [state, action, pending] = useActionState(updateUserAction, {});
   const [role, setRole] = useState(user.role);
   const assigned = new Set(user.projectIds);
+  const assignProjects =
+    role === "ADMIN_PROYEK"
+      ? projects.filter((p) => p.standalone || assigned.has(p.id))
+      : projects;
 
   return (
     <form action={action} className="space-y-3 border-t border-[var(--line-soft)] pt-3">
@@ -128,8 +192,11 @@ export function UserEditForm({
             onChange={(e) => setRole(e.target.value)}
           >
             <option value="OWNER">Owner</option>
-            <option value="ADMIN">Admin</option>
+            <option value="ADMIN">AdminOK</option>
+            <option value="ADMIN_PROYEK">Admin Proyek</option>
+            <option value="LPJ_VIEWER">LPJ Proyek</option>
             <option value="MANDOR">Mandor</option>
+            <option value="ADM_FOTO">ADM Foto</option>
           </select>
         </Field>
         <Field
@@ -146,22 +213,13 @@ export function UserEditForm({
           />
         </Field>
       </div>
-      {role === "MANDOR" ? (
-        <Field label="Proyek ditugaskan">
-          <div className="max-h-40 space-y-2 overflow-auto rounded-lg border border-[var(--line)] p-3">
-            {projects.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="projectIds"
-                  value={p.id}
-                  defaultChecked={assigned.has(p.id)}
-                />
-                {p.name}
-              </label>
-            ))}
-          </div>
-        </Field>
+      {needsProjects(role) ? (
+        <ProjectAssignField
+          projects={assignProjects}
+          assigned={assigned}
+          edit
+          single={role === "ADMIN_PROYEK" || role === "LPJ_VIEWER"}
+        />
       ) : null}
       <button type="submit" className={btnSecondaryClass} disabled={pending}>
         {pending ? "Menyimpan..." : "Simpan perubahan"}

@@ -1,0 +1,9 @@
+-- Pejabat tanda tangan LPJ / Buku Bank
+ALTER TABLE `Project` ADD COLUMN `lpjKepalaNama` VARCHAR(191) NULL;
+ALTER TABLE `Project` ADD COLUMN `lpjKepalaNip` VARCHAR(191) NULL;
+ALTER TABLE `Project` ADD COLUMN `lpjKetuaNama` VARCHAR(191) NULL;
+ALTER TABLE `Project` ADD COLUMN `lpjKetuaNip` VARCHAR(191) NULL;
+ALTER TABLE `Project` ADD COLUMN `lpjBendaharaNama` VARCHAR(191) NULL;
+ALTER TABLE `Project` ADD COLUMN `lpjBendaharaNip` VARCHAR(191) NULL;
+ALTER TABLE `Project` ADD COLUMN `lpjKabKota` VARCHAR(191) NULL;
+ALTER TABLE `Project` ADD COLUMN `lpjProvinsi` VARCHAR(191) NULL;

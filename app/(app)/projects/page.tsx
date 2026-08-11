@@ -1,24 +1,30 @@
 import Link from "next/link";
 import {
   createProjectAction,
-  deleteProjectAction,
   updateProjectAction,
 } from "@/lib/actions/projects";
 import { getProjectBalances } from "@/lib/balance";
-import { isOwner, requireSession } from "@/lib/auth";
+import {
+  getAccessibleProjectIds,
+  isAdminProyek,
+  isOwner,
+  requireSession,
+} from "@/lib/auth";
 import { formatRupiah } from "@/lib/money";
 import { billingModeLabels, projectStatusLabels } from "@/lib/labels";
 import { tidyCase } from "@/lib/text";
 import { ActionForm, Field, inputClass } from "@/components/ActionForm";
+import { DeleteProjectButton } from "@/components/DeleteProjectButton";
 import { ProjectBillingFields } from "@/components/ProjectBillingFields";
 import {
   Alert,
-  btnDangerClass,
+  btnPrimaryClass,
   btnSecondaryClass,
   Card,
   EmptyState,
   PageHeader,
 } from "@/components/ui";
+import { redirect } from "next/navigation";
 
 type StatusFilter = "ACTIVE" | "COMPLETED" | "ALL";
 
@@ -27,6 +33,12 @@ function parseStatus(value?: string): StatusFilter {
     return value;
   }
   return "ACTIVE";
+}
+
+function detailLabel(billingMode: string) {
+  if (billingMode === "PAY_AT_END") return "Pekerjaan & tagihan";
+  if (billingMode === "TERMIN_PLAN") return "Tahapan dana";
+  return "Detail proyek";
 }
 
 export default async function ProjectsPage({
@@ -40,7 +52,11 @@ export default async function ProjectsPage({
   }>;
 }) {
   const user = await requireSession();
+  if (isAdminProyek(user)) {
+    redirect("/admin-proyek");
+  }
   const admin = isOwner(user);
+  const accessible = await getAccessibleProjectIds(user);
   const balances = await getProjectBalances();
   const params = await searchParams;
 
@@ -53,6 +69,9 @@ export default async function ProjectsPage({
   ].sort((a, b) => a.localeCompare(b, "id"));
 
   const filtered = balances.filter((project) => {
+    if (accessible !== "all" && !accessible.includes(project.id)) {
+      return false;
+    }
     if (statusFilter !== "ALL" && project.status !== statusFilter) {
       return false;
     }
@@ -145,207 +164,193 @@ export default async function ProjectsPage({
       </form>
 
       <div className={`grid gap-6 ${admin ? "lg:grid-cols-[1fr_320px]" : ""}`}>
-        <Card className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
+        <div className="min-w-0 space-y-3">
           {filtered.length === 0 ? (
-            <EmptyState message="Tidak ada proyek untuk filter ini." />
+            <Card>
+              <EmptyState message="Tidak ada proyek untuk filter ini." />
+            </Card>
           ) : (
-            <table className="min-w-[640px] text-left text-sm">
-              <thead className="border-b border-teal-900/10 text-xs tracking-wide text-teal-900/55 uppercase">
-                <tr>
-                  <th className="pb-3 pr-3 font-medium">Proyek</th>
-                  <th className="pb-3 pr-3 font-medium">Lokasi</th>
-                  {hideDetail ? null : (
-                    <th className="pb-3 pr-3 font-medium">Progress bayar</th>
-                  )}
-                  <th className="pb-3 pr-3 font-medium text-right">Saldo</th>
-                  <th className="pb-3 font-medium">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((project) => (
-                  <tr
-                    key={project.id}
-                    className="border-b border-teal-900/5 align-top"
-                  >
-                    <td className="py-3 pr-3">
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className="font-medium text-teal-950 hover:underline"
-                      >
-                        {tidyCase(project.name)}
-                      </Link>
-                      <p className="text-xs text-teal-900/50">
-                        {projectStatusLabels[project.status]} ·{" "}
-                        {billingModeLabels[project.billingMode]}
+            filtered.map((project) => (
+              <Card key={project.id} className="min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/projects/${project.id}`}
+                      className="font-medium text-teal-950 hover:underline"
+                    >
+                      {tidyCase(project.name)}
+                    </Link>
+                    <p className="text-xs text-teal-900/50">
+                      {projectStatusLabels[project.status]} ·{" "}
+                      {billingModeLabels[project.billingMode]}
+                      {project.standaloneBookkeeping ? " · Mandiri" : ""}
+                    </p>
+                    {hideDetail ? null : project.billingMode ===
+                      "PAY_AT_END" ? (
+                      <p className="mt-0.5 text-xs font-medium text-sky-800">
+                        Kerja {formatRupiah(project.workCompletedValue)} ·
+                        tanpa kontrak & saldo awal
                       </p>
-                      {hideDetail ? null : project.billingMode ===
-                        "PAY_AT_END" ? (
-                        <p className="mt-0.5 text-xs font-medium text-sky-800">
-                          Kerja {formatRupiah(project.workCompletedValue)} ·
-                          tanpa kontrak & saldo awal
-                        </p>
-                      ) : (
-                        <p className="mt-0.5 text-xs font-medium text-teal-800">
-                          Kontrak {formatRupiah(project.contractValue)}
-                        </p>
-                      )}
-                      {admin && !hideDetail ? (
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-xs text-teal-700">
-                            Edit cepat
-                          </summary>
-                          <div className="mt-2 max-w-md">
-                            <ActionForm
-                              action={updateProjectAction}
-                              submitLabel="Update"
-                            >
-                              <input
-                                type="hidden"
-                                name="id"
-                                value={project.id}
-                              />
-                              <Field label="Nama">
-                                <input
-                                  name="name"
-                                  className={inputClass}
-                                  defaultValue={project.name}
-                                  required
-                                />
-                              </Field>
-                              <Field label="Lokasi">
-                                <input
-                                  name="location"
-                                  className={inputClass}
-                                  defaultValue={project.location}
-                                  required
-                                />
-                              </Field>
-                              <Field label="Status">
-                                <select
-                                  name="status"
-                                  className={inputClass}
-                                  defaultValue={project.status}
-                                >
-                                  <option value="ACTIVE">Aktif</option>
-                                  <option value="COMPLETED">Selesai</option>
-                                </select>
-                                <p className="mt-1 text-xs text-teal-900/50">
-                                  Status Selesai hanya jika checklist di detail
-                                  proyek lengkap dan kas proyek = Rp 0.
-                                </p>
-                              </Field>
-                              <ProjectBillingFields
-                                defaultBillingMode={project.billingMode}
-                                defaultContractValue={project.contractValue}
-                                defaultOpeningBalance={project.openingBalance}
-                              />
-                              <Field label="Catatan">
-                                <textarea
-                                  name="notes"
-                                  className={inputClass}
-                                  rows={2}
-                                />
-                              </Field>
-                            </ActionForm>
-                          </div>
-                        </details>
-                      ) : null}
-                    </td>
-                    <td className="py-3 pr-3 text-teal-900/75">
-                      {tidyCase(project.location)}
-                    </td>
-                    {hideDetail ? null : (
-                      <td className="py-3 pr-3">
-                        <div className="min-w-[140px]">
-                          {project.billingMode === "PAY_AT_END" ? (
-                            <>
-                              <div className="mb-1 flex justify-between text-xs text-teal-900/60">
-                                <span>{project.workPaidPercent}% dibayar</span>
-                                <span>
-                                  Piutang {formatRupiah(project.receivable)}
-                                </span>
-                              </div>
-                              <div className="h-2 overflow-hidden rounded-full bg-teal-900/10">
-                                <div
-                                  className="h-full rounded-full bg-teal-700"
-                                  style={{
-                                    width: `${project.workPaidPercent}%`,
-                                  }}
-                                />
-                              </div>
-                              <p className="mt-1 text-xs text-teal-900/55">
-                                Kerja {formatRupiah(project.workCompletedValue)}{" "}
-                                · Bayar {formatRupiah(project.income)}
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <div className="mb-1 flex justify-between text-xs text-teal-900/60">
-                                <span>{project.fundingProgressPercent}%</span>
-                                <span>
-                                  {project.billingMode === "TERMIN_PLAN"
-                                    ? `${project.stages.length} tahap`
-                                    : "sesuai permintaan"}
-                                </span>
-                              </div>
-                              <div className="h-2 overflow-hidden rounded-full bg-teal-900/10">
-                                <div
-                                  className="h-full rounded-full bg-teal-700"
-                                  style={{
-                                    width: `${project.fundingProgressPercent}%`,
-                                  }}
-                                />
-                              </div>
-                              <p className="mt-1 text-xs text-teal-900/55">
-                                Masuk {formatRupiah(project.income)}
-                              </p>
-                            </>
-                          )}
-                        </div>
-                      </td>
+                    ) : (
+                      <p className="mt-0.5 text-xs font-medium text-teal-800">
+                        Kontrak {formatRupiah(project.contractValue)}
+                      </p>
                     )}
-                    <td className="py-3 pr-3 text-right font-medium text-teal-900">
+                  </div>
+                  <p className="shrink-0 text-right">
+                    <span className="block text-[10px] tracking-wide text-teal-900/50 uppercase">
+                      Saldo
+                    </span>
+                    <span className="font-medium text-teal-900">
                       {formatRupiah(project.balance)}
-                    </td>
-                    <td className="py-3">
-                      <div className="flex flex-col gap-2">
-                        <Link
-                          href={`/projects/${project.id}`}
-                          className="text-xs text-teal-700 underline"
+                    </span>
+                  </p>
+                </div>
+
+                <p className="mt-2 text-sm text-teal-900/75">
+                  <span className="text-xs text-teal-900/50">Lokasi · </span>
+                  {tidyCase(project.location)}
+                </p>
+
+                {hideDetail ? null : (
+                  <div className="mt-3">
+                    {project.billingMode === "PAY_AT_END" ? (
+                      <>
+                        <div className="mb-1 flex justify-between text-xs text-teal-900/60">
+                          <span>{project.workPaidPercent}% dibayar</span>
+                          <span>
+                            Piutang {formatRupiah(project.receivable)}
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-teal-900/10">
+                          <div
+                            className="h-full rounded-full bg-teal-700"
+                            style={{
+                              width: `${project.workPaidPercent}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-teal-900/55">
+                          Kerja {formatRupiah(project.workCompletedValue)} ·
+                          Bayar {formatRupiah(project.income)}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mb-1 flex justify-between text-xs text-teal-900/60">
+                          <span>{project.fundingProgressPercent}%</span>
+                          <span>
+                            {project.billingMode === "TERMIN_PLAN"
+                              ? `${project.stages.length} tahap`
+                              : "sesuai permintaan"}
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-teal-900/10">
+                          <div
+                            className="h-full rounded-full bg-teal-700"
+                            style={{
+                              width: `${project.fundingProgressPercent}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-teal-900/55">
+                          Masuk {formatRupiah(project.income)}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-4 space-y-3">
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className={`${btnPrimaryClass} w-full`}
+                  >
+                    {detailLabel(project.billingMode)}
+                  </Link>
+
+                  {admin && !hideDetail ? (
+                    <details className="rounded-lg border border-teal-900/10 bg-[#fffcf7]/50 px-3 py-2">
+                      <summary className="cursor-pointer text-xs text-teal-700">
+                        Edit cepat
+                      </summary>
+                      <div className="mt-2">
+                        <ActionForm
+                          action={updateProjectAction}
+                          submitLabel="Update"
                         >
-                          {project.billingMode === "PAY_AT_END"
-                            ? "Pekerjaan & tagihan"
-                            : project.billingMode === "TERMIN_PLAN"
-                              ? "Tahapan dana"
-                              : "Detail proyek"}
-                        </Link>
-                        {admin ? (
-                          <form action={deleteProjectAction}>
+                          <input
+                            type="hidden"
+                            name="id"
+                            value={project.id}
+                          />
+                          <Field label="Nama">
                             <input
-                              type="hidden"
-                              name="id"
-                              value={project.id}
+                              name="name"
+                              className={inputClass}
+                              defaultValue={project.name}
+                              required
                             />
-                            <button type="submit" className={btnDangerClass}>
-                              Hapus
-                            </button>
-                          </form>
-                        ) : null}
+                          </Field>
+                          <Field label="Lokasi">
+                            <input
+                              name="location"
+                              className={inputClass}
+                              defaultValue={project.location}
+                              required
+                            />
+                          </Field>
+                          <Field label="Status">
+                            <select
+                              name="status"
+                              className={inputClass}
+                              defaultValue={project.status}
+                            >
+                              <option value="ACTIVE">Aktif</option>
+                              <option value="COMPLETED">Selesai</option>
+                            </select>
+                            <p className="mt-1 text-xs text-teal-900/50">
+                              Status Selesai hanya jika checklist di detail
+                              proyek lengkap dan kas proyek = Rp 0.
+                            </p>
+                          </Field>
+                          <ProjectBillingFields
+                            defaultBillingMode={project.billingMode}
+                            defaultContractValue={project.contractValue}
+                            defaultOpeningBalance={project.openingBalance}
+                          />
+                          <Field label="Catatan">
+                            <textarea
+                              name="notes"
+                              className={inputClass}
+                              rows={2}
+                            />
+                          </Field>
+                        </ActionForm>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </details>
+                  ) : null}
+
+                  {admin ? (
+                    <div className="flex justify-end border-t border-teal-900/5 pt-2">
+                      <DeleteProjectButton
+                        projectId={project.id}
+                        projectName={tidyCase(project.name)}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </Card>
+            ))
           )}
-        </Card>
+        </div>
 
         {admin ? (
           <Card>
             <h3 className="font-serif text-xl text-teal-950">Tambah proyek</h3>
             <p className="mt-1 text-xs text-teal-900/55">
-              Saldo awal opsional. Kosong = ambil dari kas besar. Jika kas besar
-              habis/minus, wajib setor dana pribadi.
+              Saldo awal opsional. Kosong = ambil dari kas besar. Centang
+              mandiri jika kas proyek terpisah permanen dari Owner.
             </p>
             <div className="mt-4">
               <ActionForm
@@ -372,6 +377,22 @@ export default async function ProjectsPage({
                     <option value="ACTIVE">Aktif</option>
                   </select>
                 </Field>
+                <label className="flex items-start gap-2 rounded-lg border border-teal-900/15 bg-teal-50/50 px-3 py-2 text-sm text-teal-950">
+                  <input
+                    type="checkbox"
+                    name="standaloneBookkeeping"
+                    value="on"
+                    className="mt-1 size-4 accent-teal-800"
+                  />
+                  <span>
+                    <span className="font-medium">Proyek mandiri</span>
+                    <span className="mt-0.5 block text-xs text-teal-900/65">
+                      Kas terpisah dari kas besar Owner. Hanya untuk proyek baru
+                      — tidak bisa diubah kemudian. Tugaskan Admin Proyek +
+                      Mandor + ADM Foto.
+                    </span>
+                  </span>
+                </label>
                 <ProjectBillingFields />
                 <Field label="Catatan">
                   <textarea name="notes" className={inputClass} rows={3} />

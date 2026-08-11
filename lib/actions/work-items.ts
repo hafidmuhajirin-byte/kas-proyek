@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin, requireSession } from "@/lib/auth";
+import { requireProjectBookkeeper } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseRupiahInput } from "@/lib/money";
 import type { FormState } from "@/lib/actions/projects";
@@ -10,8 +10,9 @@ export async function createWorkItemAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireSession();
   const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) return { error: "Proyek wajib." };
+  await requireProjectBookkeeper(projectId);
   const dateRaw = String(formData.get("date") ?? "");
   const description = String(formData.get("description") ?? "").trim();
   const unit = String(formData.get("unit") ?? "").trim() || null;
@@ -55,7 +56,6 @@ export async function updateWorkItemAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const dateRaw = String(formData.get("date") ?? "");
   const description = String(formData.get("description") ?? "").trim();
@@ -74,6 +74,7 @@ export async function updateWorkItemAction(
 
   const item = await prisma.workItem.findUnique({ where: { id } });
   if (!item) return { error: "Data pekerjaan tidak ditemukan." };
+  await requireProjectBookkeeper(item.projectId);
 
   await prisma.workItem.update({
     where: { id },
@@ -94,9 +95,14 @@ export async function updateWorkItemAction(
 }
 
 export async function deleteWorkItemAction(formData: FormData) {
-  await requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+  const existing = await prisma.workItem.findUnique({
+    where: { id },
+    select: { projectId: true },
+  });
+  if (!existing) return;
+  await requireProjectBookkeeper(existing.projectId);
 
   const item = await prisma.workItem.findUnique({ where: { id } });
   if (!item) return;
