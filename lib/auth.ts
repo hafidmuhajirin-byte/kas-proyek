@@ -80,13 +80,15 @@ export async function requireRoleAdmin(): Promise<SessionUser> {
 }
 
 /**
- * Akses modul LPJ: AdminOK (semua proyek) atau Admin Proyek (proyek penugasan saja).
+ * Akses modul LPJ: Owner (pengecekan), AdminOK (semua proyek),
+ * atau Admin Proyek (proyek penugasan saja).
  * Pass projectId di halaman/aksi per-proyek.
  */
 export async function requireLpjAccess(
   projectId?: string,
 ): Promise<SessionUser> {
   const session = await requireSession();
+  if (session.role === "OWNER") return session;
   if (session.role === "ADMIN") return session;
   if (session.role === "ADMIN_PROYEK") {
     if (projectId) await requireProjectAccess(session, projectId);
