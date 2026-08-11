@@ -126,45 +126,68 @@ function VoucherSheet({
           </FieldRow>
         </div>
 
-        <div className="mt-3 flex-1">
-          <table className="w-full border-collapse text-left">
-            <tbody>
-              {voucher.lines.map((line, i) => (
-                <tr
-                  key={`${voucher.proofNo}-${i}`}
-                  className="border-b border-dotted border-stone-400 align-top"
-                >
-                  <td className="w-[3.2rem] py-1 pr-2 tabular-nums text-stone-800">
-                    {formatQtyDisplay(line.quantity)}
-                  </td>
-                  <td className="w-[2.4rem] py-1 pr-2 text-stone-700">
-                    {line.unit ?? ""}
-                  </td>
-                  <td className="py-1 font-serif italic text-stone-900">
-                    {line.description}
-                  </td>
-                </tr>
-              ))}
-              {/* Baris kosong agar area daftar tidak terlalu pendek */}
-              {voucher.lines.length < 5
-                ? Array.from({ length: 5 - voucher.lines.length }).map((_, i) => (
+        <div className="mt-2">
+          {(() => {
+            const colSize = 5;
+            const left = voucher.lines.slice(0, colSize);
+            const right = voucher.lines.slice(colSize);
+            const renderCol = (
+              lines: typeof voucher.lines,
+              keyPrefix: string,
+            ) => (
+              <table className="w-full border-collapse text-left text-[9px] leading-tight sm:text-[10px]">
+                <tbody>
+                  {lines.map((line, i) => (
                     <tr
-                      key={`pad-${i}`}
-                      className="border-b border-dotted border-stone-300"
+                      key={`${keyPrefix}-${i}`}
+                      className="border-b border-dotted border-stone-400 align-top"
                     >
-                      <td className="py-2.5" colSpan={3} />
+                      <td className="w-[2.2rem] py-0.5 pr-1 tabular-nums text-stone-800">
+                        {formatQtyDisplay(line.quantity)}
+                      </td>
+                      <td className="w-[2rem] py-0.5 pr-1 text-stone-700">
+                        {line.unit ?? ""}
+                      </td>
+                      <td className="py-0.5 font-serif italic text-stone-900">
+                        {line.description}
+                      </td>
                     </tr>
-                  ))
-                : null}
-            </tbody>
-          </table>
+                  ))}
+                  {lines.length < colSize
+                    ? Array.from({ length: colSize - lines.length }).map(
+                        (_, i) => (
+                          <tr
+                            key={`${keyPrefix}-pad-${i}`}
+                            className="border-b border-dotted border-stone-300"
+                          >
+                            <td className="py-2" colSpan={3} />
+                          </tr>
+                        ),
+                      )
+                    : null}
+                </tbody>
+              </table>
+            );
+            return (
+              <div
+                className={`grid gap-x-3 ${
+                  right.length > 0 ? "grid-cols-2" : "grid-cols-1"
+                }`}
+              >
+                {renderCol(left, `${voucher.proofNo}-a`)}
+                {right.length > 0
+                  ? renderCol(right, `${voucher.proofNo}-b`)
+                  : null}
+              </div>
+            );
+          })()}
         </div>
 
-        <div className="mt-3 flex items-stretch border border-stone-800">
-          <div className="flex items-center border-r border-stone-800 px-3 py-2 text-sm font-semibold">
+        <div className="mt-2 ml-auto flex w-[11rem] items-stretch border border-stone-800 sm:w-[12.5rem]">
+          <div className="flex items-center border-r border-stone-800 px-2 py-1 text-[10px] font-semibold">
             Rp.
           </div>
-          <div className="flex flex-1 items-center justify-end px-3 py-2 text-base font-bold tabular-nums sm:text-lg">
+          <div className="flex flex-1 items-center justify-end px-2 py-1 text-[11px] font-bold tabular-nums sm:text-xs">
             {formatRp(voucher.total)}
           </div>
         </div>
