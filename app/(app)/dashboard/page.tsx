@@ -123,9 +123,14 @@ export default async function DashboardPage() {
         description="Kas, fee, dan jadwal proyek."
         actions={
           owner ? (
-            <Link href="/transactions/new" className={btnSecondaryClass}>
-              + Transaksi
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/admin/lpj" className={btnSecondaryClass}>
+                Masuk AdminOK
+              </Link>
+              <Link href="/transactions/new" className={btnSecondaryClass}>
+                + Transaksi
+              </Link>
+            </div>
           ) : undefined
         }
       />

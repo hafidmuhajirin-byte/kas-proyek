@@ -47,6 +47,7 @@ function navForRole(role: SessionUser["role"]): {
 
   const primary = [
     { href: "/dashboard", label: "Dashboard", short: "Home" },
+    { href: "/admin/lpj", label: "AdminOK", short: "Admin" },
     { href: "/projects", label: "Proyek", short: "Proyek" },
     { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
     { href: "/transactions", label: "Kas Besar", short: "Besar" },
