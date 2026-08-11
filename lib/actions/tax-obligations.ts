@@ -5,11 +5,13 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import {
   requireLpjAccess,
+  requireLpjEditor,
   requireProjectAccess,
   requireSession,
   isOwner,
   isAdmin,
   isAdminProyek,
+  isLpjViewer,
   type SessionUser,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -45,7 +47,7 @@ async function saveTaxProof(file: File | null): Promise<string | null> {
 }
 
 function canPayTax(user: SessionUser): boolean {
-  return isOwner(user) || isAdmin(user) || isAdminProyek(user);
+  return isOwner(user) || isAdmin(user) || isAdminProyek(user) || isLpjViewer(user);
 }
 
 function revalidateTaxPaths(projectId: string) {
@@ -92,7 +94,7 @@ export async function payTaxObligationAction(
     return { error: "Pajak ini sudah dibayar." };
   }
 
-  await requireLpjAccess(obligation.projectId);
+  await requireLpjEditor(obligation.projectId);
   if (user.role === "ADMIN_PROYEK") {
     await requireProjectAccess(user, obligation.projectId);
   }
@@ -138,7 +140,7 @@ export async function syncTaxObligationsAction(
 
   const projectId = String(formData.get("projectId") ?? "").trim();
   if (!projectId) return { error: "Proyek wajib." };
-  await requireLpjAccess(projectId);
+  await requireLpjEditor(projectId);
 
   const expenses = await prisma.transaction.findMany({
     where: {

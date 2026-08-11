@@ -41,6 +41,14 @@ function navForRole(role: SessionUser["role"]): {
     return { primary, secondary: [], mobile: primary, showAssistant: false };
   }
 
+  if (role === "LPJ_VIEWER") {
+    const primary = [
+      { href: "/admin/lpj", label: "LPJ", short: "LPJ" },
+      { href: "/foto-proyek", label: "Foto Proyek", short: "Foto" },
+    ];
+    return { primary, secondary: [], mobile: primary, showAssistant: false };
+  }
+
   if (role === "MANDOR") {
     return { primary: [], secondary: [], mobile: [], showAssistant: false };
   }

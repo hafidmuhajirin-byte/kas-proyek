@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireLpjAccess } from "@/lib/auth";
+import { isLpjViewer, requireLpjAccess } from "@/lib/auth";
 import {
   loadAbsenProject,
   loadAbsenWeekDetail,
@@ -19,8 +19,9 @@ export default async function AdminLpjAbsenPage({
   searchParams: Promise<{ view?: string; week?: string }>;
 }) {
   const { projectId } = await params;
-  await requireLpjAccess(projectId);
+  const user = await requireLpjAccess(projectId);
   const sp = await searchParams;
+  const canEdit = !isLpjViewer(user);
 
   const loaded = await loadAbsenProject(projectId);
   if (!loaded || loaded.project.status !== "ACTIVE") notFound();
@@ -78,9 +79,11 @@ export default async function AdminLpjAbsenPage({
           {project.notes?.trim()
             ? ` (“${project.notes.trim().toUpperCase()}”).`
             : " (isi Catatan di halaman proyek jika kosong)."}{" "}
-          Minggu selalu libur; hari hadir diacak Senin–Sabtu. Klik sel absen
-          untuk ubah, atau tombol <strong>Acak kehadiran</strong>. Cetak tanpa
-          scrollbar.
+          Minggu selalu libur; hari hadir diacak Senin–Sabtu.
+          {canEdit
+            ? " Klik sel absen untuk ubah, atau tombol Acak kehadiran."
+            : " Akses LPJ Proyek hanya baca untuk halaman ini."}{" "}
+          Cetak tanpa scrollbar.
         </Card>
 
         <AbsenWeekToolbar
@@ -91,6 +94,7 @@ export default async function AdminLpjAbsenPage({
           }))}
           selectedWeek={selectedWeek}
           view={view}
+          canEdit={canEdit}
         />
       </div>
 
@@ -111,6 +115,7 @@ export default async function AdminLpjAbsenPage({
             meta={meta}
             projectTitle={projectTitle}
             projectId={project.id}
+            canEdit={canEdit}
           />
         </div>
       ) : (

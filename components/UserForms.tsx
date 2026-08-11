@@ -26,7 +26,12 @@ type UserRow = {
 };
 
 function needsProjects(role: string) {
-  return role === "MANDOR" || role === "ADM_FOTO" || role === "ADMIN_PROYEK";
+  return (
+    role === "MANDOR" ||
+    role === "ADM_FOTO" ||
+    role === "ADMIN_PROYEK" ||
+    role === "LPJ_VIEWER"
+  );
 }
 
 function ProjectAssignField({
@@ -38,7 +43,7 @@ function ProjectAssignField({
   projects: ProjectOption[];
   assigned?: Set<string>;
   edit?: boolean;
-  /** Admin Proyek: tepat 1 proyek mandiri */
+  /** Admin Proyek / LPJ Proyek: tepat 1 proyek */
   single?: boolean;
 }) {
   return (
@@ -46,7 +51,7 @@ function ProjectAssignField({
       label="Proyek ditugaskan"
       hint={
         single
-          ? "Pilih tepat 1 proyek mandiri (kas terpisah)."
+          ? "Pilih tepat 1 proyek."
           : edit
             ? "Wajib minimal 1 proyek."
             : "Wajib pilih minimal 1 proyek"
@@ -129,6 +134,7 @@ export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
             <option value="OWNER">Owner</option>
             <option value="ADMIN">AdminOK</option>
             <option value="ADMIN_PROYEK">Admin Proyek</option>
+            <option value="LPJ_VIEWER">LPJ Proyek</option>
             <option value="MANDOR">Mandor</option>
             <option value="ADM_FOTO">ADM Foto</option>
           </select>
@@ -137,7 +143,7 @@ export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
       {needsProjects(role) ? (
         <ProjectAssignField
           projects={assignProjects}
-          single={role === "ADMIN_PROYEK"}
+          single={role === "ADMIN_PROYEK" || role === "LPJ_VIEWER"}
         />
       ) : null}
       <button type="submit" className={btnPrimaryClass} disabled={pending}>
@@ -188,6 +194,7 @@ export function UserEditForm({
             <option value="OWNER">Owner</option>
             <option value="ADMIN">AdminOK</option>
             <option value="ADMIN_PROYEK">Admin Proyek</option>
+            <option value="LPJ_VIEWER">LPJ Proyek</option>
             <option value="MANDOR">Mandor</option>
             <option value="ADM_FOTO">ADM Foto</option>
           </select>
@@ -211,7 +218,7 @@ export function UserEditForm({
           projects={assignProjects}
           assigned={assigned}
           edit
-          single={role === "ADMIN_PROYEK"}
+          single={role === "ADMIN_PROYEK" || role === "LPJ_VIEWER"}
         />
       ) : null}
       <button type="submit" className={btnSecondaryClass} disabled={pending}>

@@ -19,6 +19,7 @@ export const roleLabels: Record<string, string> = {
   OWNER: "Owner",
   ADMIN: "AdminOK",
   ADMIN_PROYEK: "Admin Proyek",
+  LPJ_VIEWER: "LPJ Proyek",
   MANDOR: "Mandor",
   ADM_FOTO: "ADM Foto",
 };

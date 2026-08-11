@@ -5,6 +5,7 @@ import {
   getSession,
   isAdmin,
   isAdminProyek,
+  isLpjViewer,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loadLpjBooks } from "@/lib/lpj/load-lpj-books";
@@ -19,7 +20,7 @@ export async function GET(
     return new NextResponse("Unauthorized", { status: 401 });
   }
   const { projectId } = await ctx.params;
-  if (isAdminProyek(session)) {
+  if (isAdminProyek(session) || isLpjViewer(session)) {
     if (!(await assertProjectAccess(session, projectId))) {
       return new NextResponse("Forbidden", { status: 403 });
     }

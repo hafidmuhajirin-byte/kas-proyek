@@ -11,6 +11,7 @@ enum Role {
   OWNER
   ADMIN
   ADMIN_PROYEK
+  LPJ_VIEWER
   MANDOR
   ADM_FOTO
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireLpjAccess } from "@/lib/auth";
+import { requireLpjEditor } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
 
@@ -11,7 +11,7 @@ export async function updateLpjNpwpAction(
 ): Promise<FormState> {
   const projectId = String(formData.get("projectId") ?? "");
   if (!projectId) return { error: "Proyek tidak valid." };
-  await requireLpjAccess(projectId);
+  await requireLpjEditor(projectId);
   const npwp = String(formData.get("lpjNpwp") ?? "").trim() || null;
 
   await prisma.project.update({
@@ -36,7 +36,7 @@ export async function updateTaxMonthNoteAction(
   if (!projectId || !(year > 2000) || month < 1 || month > 12) {
     return { error: "Data bulan tidak valid." };
   }
-  await requireLpjAccess(projectId);
+  await requireLpjEditor(projectId);
 
   await prisma.taxMonthNote.upsert({
     where: {

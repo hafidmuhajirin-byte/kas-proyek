@@ -11,6 +11,7 @@ export function AttendanceMarkButton({
   dateKey,
   present,
   workable,
+  canEdit = true,
 }: {
   workerId: string;
   projectId: string;
@@ -18,11 +19,16 @@ export function AttendanceMarkButton({
   dateKey: string;
   present: boolean;
   workable: boolean;
+  canEdit?: boolean;
 }) {
   const [pending, start] = useTransition();
 
   if (!workable) {
     return <span className="inline-block min-w-[0.75rem]">&nbsp;</span>;
+  }
+
+  if (!canEdit) {
+    return <span className="inline-block min-w-[0.85rem] font-semibold">{present ? "V" : "\u00a0"}</span>;
   }
 
   return (

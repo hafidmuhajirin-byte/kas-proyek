@@ -57,12 +57,14 @@ export function DaftarHadirMingguan({
   meta,
   projectTitle,
   projectId,
+  canEdit = true,
 }: {
   detail: AbsenWeekDetail;
   meta: LpjHeaderMeta;
   /** Catatan proyek → judul pekerjaan di bawah header */
   projectTitle: string;
   projectId: string;
+  canEdit?: boolean;
 }) {
   const school = meta.schoolName.trim().toUpperCase();
   const loc = parseProjectLocation(meta.location);
@@ -223,6 +225,7 @@ export function DaftarHadirMingguan({
                             dateKey={utcKey(d.date)}
                             present={present}
                             workable={d.inPeriod}
+                            canEdit={canEdit}
                           />
                         </td>
                         <td className="border border-black px-0.5 py-1" />

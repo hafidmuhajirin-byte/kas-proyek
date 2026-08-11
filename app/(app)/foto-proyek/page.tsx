@@ -5,6 +5,7 @@ import {
   getAccessibleProjectIds,
   homePathForUser,
   isAdminProyek,
+  isLpjViewer,
   isMandorLike,
   isOwner,
   requireSession,
@@ -24,6 +25,7 @@ export default async function FotoProyekPage({
   if (isMandorLike(user)) redirect(homePathForUser(user));
   const owner = isOwner(user);
   const adminProyek = isAdminProyek(user);
+  const lpjViewer = isLpjViewer(user);
 
   const params = await searchParams;
   const accessible = await getAccessibleProjectIds(user);
@@ -37,7 +39,7 @@ export default async function FotoProyekPage({
   const projectId =
     params.projectId && projects.some((p) => p.id === params.projectId)
       ? params.projectId
-      : adminProyek && projects.length === 1
+      : (adminProyek || lpjViewer) && projects.length === 1
         ? projects[0]!.id
         : undefined;
 

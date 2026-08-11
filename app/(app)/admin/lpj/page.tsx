@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   getAccessibleProjectIds,
   isAdminProyek,
+  isLpjViewer,
   requireLpjAccess,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -14,16 +15,16 @@ export default async function AdminLpjProjectListPage() {
   const user = await requireLpjAccess();
   const accessible = await getAccessibleProjectIds(user);
 
-  // Admin Proyek: langsung ke menu LPJ proyeknya (1 proyek)
-  if (isAdminProyek(user)) {
+  // Admin Proyek / LPJ Proyek: langsung ke menu LPJ proyeknya (1 proyek)
+  if (isAdminProyek(user) || isLpjViewer(user)) {
     if (accessible === "all" || accessible.length === 0) {
       return (
         <div>
           <PageHeader
             title="Proyek LPJ"
-            description="Belum ada proyek mandiri yang ditugaskan."
+            description="Belum ada proyek yang ditugaskan."
           />
-          <EmptyState message="Hubungi Owner untuk menugaskan Anda ke satu proyek mandiri." />
+          <EmptyState message="Hubungi Owner untuk menugaskan Anda ke satu proyek." />
         </div>
       );
     }

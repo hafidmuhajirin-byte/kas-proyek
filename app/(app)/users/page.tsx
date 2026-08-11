@@ -31,7 +31,7 @@ export default async function UsersPage() {
     <div>
       <PageHeader
         title="Pengguna"
-        description="Kelola Owner, AdminOK, Admin Proyek, Mandor, dan ADM Foto. Admin Proyek = 1 proyek mandiri."
+        description="Kelola Owner, AdminOK, Admin Proyek, LPJ Proyek, Mandor, dan ADM Foto. Admin Proyek = 1 proyek mandiri."
       />
 
       <Card className="mb-6">
@@ -61,14 +61,15 @@ export default async function UsersPage() {
                   <p className="font-medium text-[var(--ink)]">{u.name}</p>
                   <p className="text-sm text-[var(--ink-faint)]">
                     @{u.username} · {roleLabels[u.role] ?? u.role}
-                    {(u.role === "MANDOR" ||
+                    {((u.role === "MANDOR" ||
                       u.role === "ADM_FOTO" ||
-                      u.role === "ADMIN_PROYEK") &&
+                      u.role === "ADMIN_PROYEK" ||
+                      u.role === "LPJ_VIEWER") &&
                     assignedIds.size === 0 ? (
                       <span className="ml-2 text-amber-700">
                         · belum ada proyek
                       </span>
-                    ) : null}
+                    ) : null)}
                   </p>
                 </div>
                 <DeleteUserButton userId={u.id} username={u.username} />

@@ -6,6 +6,7 @@ export type SessionRole =
   | "OWNER"
   | "ADMIN"
   | "ADMIN_PROYEK"
+  | "LPJ_VIEWER"
   | "MANDOR"
   | "ADM_FOTO";
 
@@ -29,6 +30,7 @@ function isSessionRole(role: unknown): role is SessionRole {
     role === "OWNER" ||
     role === "ADMIN" ||
     role === "ADMIN_PROYEK" ||
+    role === "LPJ_VIEWER" ||
     role === "MANDOR" ||
     role === "ADM_FOTO"
   );

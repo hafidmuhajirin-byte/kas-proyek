@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireLpjAccess } from "@/lib/auth";
+import { isLpjViewer, requireLpjAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatRupiah } from "@/lib/money";
 import { tidyCase } from "@/lib/text";
@@ -46,7 +46,7 @@ export default async function AdminLpjProjectMenuPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  await requireLpjAccess(projectId);
+  const user = await requireLpjAccess(projectId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -84,6 +84,12 @@ export default async function AdminLpjProjectMenuPage({
     })),
   );
   const totalPengambilan = pengambilan.reduce((s, t) => s + t.amount, 0);
+  const menu =
+    isLpjViewer(user)
+      ? MENU.filter((item) =>
+          ["bank", "absen", "pajak", "export"].includes(item.href),
+        )
+      : MENU;
 
   return (
     <div>
@@ -126,7 +132,7 @@ export default async function AdminLpjProjectMenuPage({
 
       <nav aria-label="Menu LPJ proyek">
         <ul className="grid gap-3 sm:grid-cols-2">
-          {MENU.map((item) => (
+          {menu.map((item) => (
             <li key={item.href}>
               <Link
                 href={`/admin/lpj/${project.id}/${item.href}`}

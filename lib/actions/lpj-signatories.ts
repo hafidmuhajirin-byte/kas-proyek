@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireLpjAccess } from "@/lib/auth";
+import { requireLpjEditor } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 function str(raw: FormDataEntryValue | null) {
@@ -13,7 +13,7 @@ function str(raw: FormDataEntryValue | null) {
 export async function updateLpjSignatoriesAction(formData: FormData) {
   const projectId = String(formData.get("projectId") || "");
   if (!projectId) redirect("/admin/lpj");
-  await requireLpjAccess(projectId);
+  await requireLpjEditor(projectId);
 
   await prisma.project.update({
     where: { id: projectId },

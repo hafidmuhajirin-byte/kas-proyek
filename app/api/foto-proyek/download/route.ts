@@ -3,7 +3,14 @@ import { readFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
 import { endOfDay, parseISO, startOfDay } from "date-fns";
-import { getSession, isAdmin, isOwner } from "@/lib/auth";
+import {
+  assertProjectAccess,
+  getSession,
+  isAdmin,
+  isAdminProyek,
+  isLpjViewer,
+  isOwner,
+} from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -18,7 +25,13 @@ function safeZipPart(raw: string): string {
 
 export async function GET(request: Request) {
   const session = await getSession();
-  if (!session || (!isOwner(session) && !isAdmin(session))) {
+  if (
+    !session ||
+    (!isOwner(session) &&
+      !isAdmin(session) &&
+      !isAdminProyek(session) &&
+      !isLpjViewer(session))
+  ) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -29,6 +42,9 @@ export async function GET(request: Request) {
 
   if (!projectId || !fromRaw || !toRaw) {
     return new Response("projectId, from, to wajib diisi.", { status: 400 });
+  }
+  if (!(await assertProjectAccess(session, projectId))) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const from = startOfDay(parseISO(fromRaw));

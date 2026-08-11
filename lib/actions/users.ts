@@ -12,6 +12,7 @@ function parseRole(raw: string): SessionRole | null {
     raw === "OWNER" ||
     raw === "ADMIN" ||
     raw === "ADMIN_PROYEK" ||
+    raw === "LPJ_VIEWER" ||
     raw === "MANDOR" ||
     raw === "ADM_FOTO"
   ) {
@@ -22,7 +23,10 @@ function parseRole(raw: string): SessionRole | null {
 
 function needsProjectAssignment(role: SessionRole): boolean {
   return (
-    role === "MANDOR" || role === "ADM_FOTO" || role === "ADMIN_PROYEK"
+    role === "MANDOR" ||
+    role === "ADM_FOTO" ||
+    role === "ADMIN_PROYEK" ||
+    role === "LPJ_VIEWER"
   );
 }
 
@@ -32,6 +36,9 @@ function assignmentError(role: SessionRole): string {
   }
   if (role === "ADMIN_PROYEK") {
     return "Admin Proyek wajib ditugaskan ke tepat 1 proyek mandiri.";
+  }
+  if (role === "LPJ_VIEWER") {
+    return "LPJ Proyek wajib ditugaskan ke tepat 1 proyek.";
   }
   return "Mandor wajib ditugaskan ke minimal 1 proyek agar muncul di login Mandor.";
 }
@@ -101,6 +108,8 @@ export async function createUserAction(
   if (role === "ADMIN_PROYEK") {
     const err = await validateAdminProyekProjects(projectIds);
     if (err) return { error: err };
+  } else if (role === "LPJ_VIEWER" && projectIds.length !== 1) {
+    return { error: "LPJ Proyek wajib ditugaskan ke tepat 1 proyek." };
   }
 
   const exists = await prisma.user.findUnique({ where: { username } });
@@ -205,6 +214,10 @@ export async function updateUserAction(
           error: `Proyek ini sudah punya Admin Proyek (@${taken.user.username}).`,
         };
       }
+    } else if (role === "LPJ_VIEWER" && nextAssignmentIds.length !== 1) {
+      return {
+        error: "LPJ Proyek wajib ditugaskan ke tepat 1 proyek.",
+      };
     }
   }
 

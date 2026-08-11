@@ -10,11 +10,13 @@ export function AbsenWeekToolbar({
   weeks,
   selectedWeek,
   view,
+  canEdit = true,
 }: {
   projectId: string;
   weeks: Array<{ weekIndex: number; label: string }>;
   selectedWeek: number | null;
   view: "hadir" | "rekap";
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -71,7 +73,7 @@ export function AbsenWeekToolbar({
         </label>
       ) : null}
 
-      {view === "hadir" && selectedWeek != null ? (
+      {canEdit && view === "hadir" && selectedWeek != null ? (
         <button
           type="button"
           disabled={pending}

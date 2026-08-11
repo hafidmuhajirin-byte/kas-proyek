@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireLpjAccess } from "@/lib/auth";
+import { requireLpjEditor } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { plannedTranchesFromContract } from "@/lib/buku-kas/bank";
 
@@ -23,7 +23,7 @@ function parseDate(raw: FormDataEntryValue | null): Date | null {
 export async function ensureBankTranchesAction(formData: FormData) {
   const projectId = String(formData.get("projectId") || "");
   if (!projectId) redirect("/admin/lpj");
-  await requireLpjAccess(projectId);
+  await requireLpjEditor(projectId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -66,7 +66,7 @@ export async function updateBankTrancheAction(formData: FormData) {
   if (!projectId || (phase !== "PHASE_70" && phase !== "PHASE_30")) {
     redirect("/admin/lpj");
   }
-  await requireLpjAccess(projectId);
+  await requireLpjEditor(projectId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },

@@ -81,7 +81,7 @@ export async function requireRoleAdmin(): Promise<SessionUser> {
 
 /**
  * Akses modul LPJ: Owner (pengecekan), AdminOK (semua proyek),
- * atau Admin Proyek (proyek penugasan saja).
+ * Admin Proyek, atau LPJ Proyek (penugasan proyek saja).
  * Pass projectId di halaman/aksi per-proyek.
  */
 export async function requireLpjAccess(
@@ -90,11 +90,22 @@ export async function requireLpjAccess(
   const session = await requireSession();
   if (session.role === "OWNER") return session;
   if (session.role === "ADMIN") return session;
-  if (session.role === "ADMIN_PROYEK") {
+  if (session.role === "ADMIN_PROYEK" || session.role === "LPJ_VIEWER") {
     if (projectId) await requireProjectAccess(session, projectId);
     return session;
   }
   redirect(homePathForUser(session));
+}
+
+/** Mutasi terbatas LPJ: hanya bank dan pajak. */
+export async function requireLpjEditor(
+  projectId?: string,
+): Promise<SessionUser> {
+  const session = await requireLpjAccess(projectId);
+  if (!canEditLimitedLpj(session)) {
+    redirect(homePathForUser(session));
+  }
+  return session;
 }
 
 export function isOwner(user: SessionUser): boolean {
@@ -119,6 +130,11 @@ export function isAdminProyek(user: SessionUser): boolean {
   return user.role === "ADMIN_PROYEK";
 }
 
+/** Login LPJ proyek — akses LPJ/foto proyek yang ditugaskan. */
+export function isLpjViewer(user: SessionUser): boolean {
+  return user.role === "LPJ_VIEWER";
+}
+
 /** Mandor atau ADM Foto — shell foto / penugasan proyek. */
 export function isMandorLike(user: SessionUser): boolean {
   return user.role === "MANDOR" || user.role === "ADM_FOTO";
@@ -134,6 +150,16 @@ export function canManageUsers(user: SessionUser): boolean {
 
 export function canRecordDisbursement(user: SessionUser): boolean {
   return user.role === "OWNER" || user.role === "ADMIN_PROYEK";
+}
+
+/** Hanya bagian bank/pajak LPJ yang boleh diedit oleh role viewer. */
+export function canEditLimitedLpj(user: SessionUser): boolean {
+  return (
+    user.role === "OWNER" ||
+    user.role === "ADMIN" ||
+    user.role === "ADMIN_PROYEK" ||
+    user.role === "LPJ_VIEWER"
+  );
 }
 
 /** Owner, AdminOK, dan Admin Proyek boleh memecah nota Mandor. */
@@ -158,6 +184,7 @@ export function homePathForRole(role: SessionRole): string {
   if (role === "MANDOR") return "/mandor";
   if (role === "ADMIN") return "/admin/lpj";
   if (role === "ADMIN_PROYEK") return "/admin-proyek";
+  if (role === "LPJ_VIEWER") return "/admin/lpj";
   return "/dashboard";
 }
 

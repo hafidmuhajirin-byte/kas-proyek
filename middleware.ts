@@ -9,6 +9,7 @@ function homeForSession(session: SessionUser) {
   if (session.role === "MANDOR") return "/mandor";
   if (session.role === "ADMIN") return "/admin/lpj";
   if (session.role === "ADMIN_PROYEK") return "/admin-proyek";
+  if (session.role === "LPJ_VIEWER") return "/admin/lpj";
   return "/dashboard";
 }
 
@@ -113,6 +114,21 @@ export async function middleware(request: NextRequest) {
     if (!allowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin-proyek";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (session?.role === "LPJ_VIEWER") {
+    const allowed =
+      pathname === "/admin/lpj" ||
+      pathname.startsWith("/admin/lpj/") ||
+      pathname.startsWith("/foto-proyek") ||
+      pathname.startsWith("/api/foto-proyek/download") ||
+      pathname.startsWith("/api/admin/lpj/") ||
+      pathname.startsWith("/api/uploads/");
+    if (!allowed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/lpj";
       return NextResponse.redirect(url);
     }
   }
