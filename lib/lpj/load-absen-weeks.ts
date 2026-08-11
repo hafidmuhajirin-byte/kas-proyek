@@ -65,6 +65,10 @@ export async function loadAbsenProject(projectId: string) {
       lpjKetuaNip: true,
       lpjBendaharaNama: true,
       lpjBendaharaNip: true,
+      lpjKepalaTtdUrl: true,
+      lpjKetuaTtdUrl: true,
+      lpjBendaharaTtdUrl: true,
+      lpjStempelUrl: true,
     },
   });
   if (!project) return null;

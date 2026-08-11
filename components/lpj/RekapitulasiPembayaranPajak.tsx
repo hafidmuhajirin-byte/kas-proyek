@@ -7,7 +7,7 @@ import type { LpjHeaderMeta } from "@/components/lpj/LpjBookPreviews";
 
 function formatRp(n: number) {
   if (!n) return "";
-  return n.toLocaleString("id-ID");
+  return `${n.toLocaleString("id-ID")},-`;
 }
 
 function SignCol({
@@ -16,12 +16,16 @@ function SignCol({
   org,
   name,
   nip,
+  signatureUrl,
+  stampUrl,
 }: {
   labels: string[];
   title: string;
   org?: string | null;
   name?: string | null;
   nip?: string | null;
+  signatureUrl?: string | null;
+  stampUrl?: string | null;
 }) {
   return (
     <div className="flex flex-col text-center text-[10px] leading-tight sm:text-xs">
@@ -31,7 +35,16 @@ function SignCol({
         <p className="font-medium">{title}</p>
       </div>
       {org ? <p className="mt-0.5">{tidyCase(org)}</p> : null}
-      <div className="my-2 h-6" />
+      <div className="relative my-2 h-10">
+        {signatureUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={signatureUrl} alt={`TTD ${title}`} className="absolute inset-0 h-full w-full object-contain" />
+        ) : null}
+        {stampUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={stampUrl} alt={`Stempel ${title}`} className="absolute left-1 top-0 h-10 w-10 object-contain opacity-90" />
+        ) : null}
+      </div>
       <p className="font-medium underline decoration-1">
         {name?.trim() ? tidyCase(name) : "................................"}
       </p>
@@ -258,18 +271,22 @@ export function RekapitulasiPembayaranPajak({
           title={`Kepala Sekolah ${school}`}
           name={meta.kepalaNama}
           nip={meta.kepalaNip}
+          signatureUrl={meta.kepalaTtdUrl}
+          stampUrl={meta.stempelUrl}
         />
         <SignCol
           labels={["", "Menyetujui,"]}
           title="Ketua Tim Pelaksana"
           name={meta.ketuaNama}
           nip={meta.ketuaNip}
+          signatureUrl={meta.ketuaTtdUrl}
         />
         <SignCol
           labels={[placeDate, "Dibuat Oleh;"]}
           title="Bendahara Pembangunan"
           name={meta.bendaharaNama}
           nip={meta.bendaharaNip}
+          signatureUrl={meta.bendaharaTtdUrl}
         />
       </div>
     </article>

@@ -117,6 +117,10 @@ export default async function AdminLpjExportPage({
     ketuaNip: project.lpjKetuaNip,
     bendaharaNama: project.lpjBendaharaNama,
     bendaharaNip: project.lpjBendaharaNip,
+    kepalaTtdUrl: project.lpjKepalaTtdUrl,
+    ketuaTtdUrl: project.lpjKetuaTtdUrl,
+    bendaharaTtdUrl: project.lpjBendaharaTtdUrl,
+    stempelUrl: project.lpjStempelUrl,
   };
 
   return (

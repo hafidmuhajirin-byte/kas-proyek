@@ -46,6 +46,10 @@ export default async function AdminLpjBankPage({
       lpjKabKota: true,
       lpjProvinsi: true,
       lpjNpwp: true,
+      lpjKepalaTtdUrl: true,
+      lpjKetuaTtdUrl: true,
+      lpjBendaharaTtdUrl: true,
+      lpjStempelUrl: true,
       transactions: {
         where: { type: "INCOME" },
         orderBy: [{ date: "asc" }, { createdAt: "asc" }],
@@ -355,6 +359,58 @@ export default async function AdminLpjBankPage({
               className="mt-1 w-full rounded-lg border border-[var(--line-soft)] px-3 py-2"
             />
           </label>
+          <label className="block text-sm">
+            <span className="text-[var(--ink-muted)]">PNG TTD Kepala Sekolah</span>
+            <input
+              type="file"
+              name="lpjKepalaTtd"
+              accept="image/png"
+              className="mt-1 block w-full text-sm"
+            />
+            {project.lpjKepalaTtdUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={project.lpjKepalaTtdUrl} alt="TTD Kepala" className="mt-2 h-16 object-contain" />
+            ) : null}
+          </label>
+          <label className="block text-sm">
+            <span className="text-[var(--ink-muted)]">PNG TTD Ketua P2SP</span>
+            <input
+              type="file"
+              name="lpjKetuaTtd"
+              accept="image/png"
+              className="mt-1 block w-full text-sm"
+            />
+            {project.lpjKetuaTtdUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={project.lpjKetuaTtdUrl} alt="TTD Ketua" className="mt-2 h-16 object-contain" />
+            ) : null}
+          </label>
+          <label className="block text-sm">
+            <span className="text-[var(--ink-muted)]">PNG TTD Bendahara</span>
+            <input
+              type="file"
+              name="lpjBendaharaTtd"
+              accept="image/png"
+              className="mt-1 block w-full text-sm"
+            />
+            {project.lpjBendaharaTtdUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={project.lpjBendaharaTtdUrl} alt="TTD Bendahara" className="mt-2 h-16 object-contain" />
+            ) : null}
+          </label>
+          <label className="block text-sm">
+            <span className="text-[var(--ink-muted)]">PNG Stempel Kepala Sekolah</span>
+            <input
+              type="file"
+              name="lpjStempel"
+              accept="image/png"
+              className="mt-1 block w-full text-sm"
+            />
+            {project.lpjStempelUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={project.lpjStempelUrl} alt="Stempel" className="mt-2 h-20 w-20 object-contain" />
+            ) : null}
+          </label>
           <div className="sm:col-span-2">
             <button
               type="submit"
@@ -389,6 +445,10 @@ export default async function AdminLpjBankPage({
             ketuaNip: project.lpjKetuaNip,
             bendaharaNama: project.lpjBendaharaNama,
             bendaharaNip: project.lpjBendaharaNip,
+            kepalaTtdUrl: project.lpjKepalaTtdUrl,
+            ketuaTtdUrl: project.lpjKetuaTtdUrl,
+            bendaharaTtdUrl: project.lpjBendaharaTtdUrl,
+            stempelUrl: project.lpjStempelUrl,
           }}
         />
       </div>

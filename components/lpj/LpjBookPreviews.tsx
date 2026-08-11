@@ -28,25 +28,23 @@ export type LpjHeaderMeta = {
   bendaharaNama?: string | null;
   bendaharaNip?: string | null;
   npwp?: string | null;
+  kepalaTtdUrl?: string | null;
+  ketuaTtdUrl?: string | null;
+  bendaharaTtdUrl?: string | null;
+  stempelUrl?: string | null;
 };
 
 function formatRpPlain(n: number) {
   if (!n) return "";
-  return new Intl.NumberFormat("id-ID", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
+  return `${new Intl.NumberFormat("id-ID").format(n)},-`;
 }
 
 /** Format angka BKU; negatif → (xxx). */
 function formatRpBku(n: number, emptyZero = false) {
   if (!n && emptyZero) return "";
-  if (!n) return "0,00";
+  if (!n) return "0,-";
   const abs = Math.abs(n);
-  const text = new Intl.NumberFormat("id-ID", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(abs);
+  const text = `${new Intl.NumberFormat("id-ID").format(abs)},-`;
   return n < 0 ? `(${text})` : text;
 }
 
@@ -114,6 +112,8 @@ function SignatoryBlock({
   orgName,
   name,
   nip,
+  signatureUrl,
+  stampUrl,
 }: {
   /** Baris atas (Mengetahui / Menyetujui / tanggal + Dibuat Oleh) — tinggi diseragamkan */
   labels: string[];
@@ -121,6 +121,8 @@ function SignatoryBlock({
   orgName?: string | null;
   name?: string | null;
   nip?: string | null;
+  signatureUrl?: string | null;
+  stampUrl?: string | null;
 }) {
   const nipText = nip?.trim() || "";
   const org = orgName?.trim() || "";
@@ -139,8 +141,24 @@ function SignatoryBlock({
       <p className="mt-0.5 min-h-[1rem]">
         {org ? tidyCase(org) : "\u00a0"}
       </p>
-      {/* Ruang paraf di bawah jabatan, sebelum nama */}
-      <div className="mx-auto my-2 h-6 shrink-0 sm:my-2.5 sm:h-7" aria-hidden />
+      <div className="relative mx-auto my-2 h-12 w-full shrink-0 sm:my-2.5 sm:h-14" aria-hidden>
+        {signatureUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={signatureUrl}
+            alt={`TTD ${title}`}
+            className="absolute inset-0 h-full w-full object-contain"
+          />
+        ) : null}
+        {stampUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={stampUrl}
+            alt={`Stempel ${title}`}
+            className="absolute left-1 top-0 h-12 w-12 object-contain opacity-90 sm:h-14 sm:w-14"
+          />
+        ) : null}
+      </div>
       <div>
         <p className="font-semibold underline decoration-1 underline-offset-2">
           {name?.trim() || "(nama)"}
@@ -351,6 +369,8 @@ export function BankBookPreview({
                 orgName={school}
                 name={meta.kepalaNama}
                 nip={meta.kepalaNip}
+                signatureUrl={meta.kepalaTtdUrl}
+                stampUrl={meta.stempelUrl}
               />
               <SignatoryBlock
                 labels={["", ""]}
@@ -358,6 +378,7 @@ export function BankBookPreview({
                 orgName={school}
                 name={meta.ketuaNama}
                 nip={meta.ketuaNip}
+                signatureUrl={meta.ketuaTtdUrl}
               />
               <SignatoryBlock
                 labels={[placeDate, ""]}
@@ -365,6 +386,7 @@ export function BankBookPreview({
                 orgName={school}
                 name={meta.bendaharaNama}
                 nip={meta.bendaharaNip}
+                signatureUrl={meta.bendaharaTtdUrl}
               />
             </div>
             </div>
@@ -749,6 +771,8 @@ export function BkuPreview({
                 orgName={school}
                 name={meta.kepalaNama}
                 nip={meta.kepalaNip}
+                signatureUrl={meta.kepalaTtdUrl}
+                stampUrl={meta.stempelUrl}
               />
               <SignatoryBlock
                 labels={["", "Menyetujui"]}
@@ -756,6 +780,7 @@ export function BkuPreview({
                 orgName=""
                 name={meta.ketuaNama}
                 nip={meta.ketuaNip}
+                signatureUrl={meta.ketuaTtdUrl}
               />
               <SignatoryBlock
                 labels={[placeDate, "Dibuat Oleh"]}
@@ -763,6 +788,7 @@ export function BkuPreview({
                 orgName=""
                 name={meta.bendaharaNama}
                 nip={meta.bendaharaNip}
+                signatureUrl={meta.bendaharaTtdUrl}
               />
             </div>
             </div>
@@ -1067,6 +1093,8 @@ export function BktPreview({
                 orgName={school}
                 name={meta.kepalaNama}
                 nip={meta.kepalaNip}
+                signatureUrl={meta.kepalaTtdUrl}
+                stampUrl={meta.stempelUrl}
               />
               <SignatoryBlock
                 labels={["", "Menyetujui"]}
@@ -1074,6 +1102,7 @@ export function BktPreview({
                 orgName=""
                 name={meta.ketuaNama}
                 nip={meta.ketuaNip}
+                signatureUrl={meta.ketuaTtdUrl}
               />
               <SignatoryBlock
                 labels={[placeDate, "Dibuat Oleh"]}
@@ -1081,6 +1110,7 @@ export function BktPreview({
                 orgName=""
                 name={meta.bendaharaNama}
                 nip={meta.bendaharaNip}
+                signatureUrl={meta.bendaharaTtdUrl}
               />
             </div>
             </div>

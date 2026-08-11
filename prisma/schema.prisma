@@ -90,6 +90,10 @@ model Project {
   lpjProvinsi       String?
   /// NPWP sekolah / bendahara untuk rekap pajak
   lpjNpwp           String?
+  lpjKepalaTtdUrl   String? @db.Text
+  lpjKetuaTtdUrl    String? @db.Text
+  lpjBendaharaTtdUrl String? @db.Text
+  lpjStempelUrl     String? @db.Text
   /// Folder Google Drive per proyek (dibuat sekali, di-reuse)
   driveProjectFolderId String?
   createdAt      DateTime       @default(now())

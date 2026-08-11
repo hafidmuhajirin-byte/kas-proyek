@@ -55,8 +55,8 @@ export function sumBkkCash(rows: BkkReportRow[]) {
 export function formatQty(qty: number | null) {
   if (qty == null) return "—";
   return new Intl.NumberFormat("id-ID", {
-    maximumFractionDigits: 2,
-  }).format(qty);
+    maximumFractionDigits: 0,
+  }).format(Math.round(qty));
 }
 
 export function formatUnitPrice(price: number | null) {

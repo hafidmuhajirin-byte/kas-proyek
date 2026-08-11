@@ -46,6 +46,10 @@ export default async function AdminLpjAbsenPage({
     ketuaNip: project.lpjKetuaNip,
     bendaharaNama: project.lpjBendaharaNama,
     bendaharaNip: project.lpjBendaharaNip,
+    kepalaTtdUrl: project.lpjKepalaTtdUrl,
+    ketuaTtdUrl: project.lpjKetuaTtdUrl,
+    bendaharaTtdUrl: project.lpjBendaharaTtdUrl,
+    stempelUrl: project.lpjStempelUrl,
   };
 
   const weekDetail =

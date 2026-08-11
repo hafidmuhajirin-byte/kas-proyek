@@ -111,9 +111,8 @@ export function mapExpenseCostType(
 export function formatBkuQty(qty: number | null | undefined) {
   if (qty == null || Number.isNaN(qty)) return "";
   return new Intl.NumberFormat("id-ID", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(qty);
+    maximumFractionDigits: 0,
+  }).format(Math.round(qty));
 }
 
 /** Status kolom pengeluaran BKU/BKT. */

@@ -48,6 +48,10 @@ export type LpjBooksPayload = {
     lpjBendaharaNip: string | null;
     lpjKabKota: string | null;
     lpjProvinsi: string | null;
+    lpjKepalaTtdUrl: string | null;
+    lpjKetuaTtdUrl: string | null;
+    lpjBendaharaTtdUrl: string | null;
+    lpjStempelUrl: string | null;
   };
   bankBlocks: BankMonthBlock[];
   bkuBlocks: BkuMonthBlock[];
@@ -91,6 +95,10 @@ export async function loadLpjBooks(
       lpjBendaharaNip: true,
       lpjKabKota: true,
       lpjProvinsi: true,
+      lpjKepalaTtdUrl: true,
+      lpjKetuaTtdUrl: true,
+      lpjBendaharaTtdUrl: true,
+      lpjStempelUrl: true,
       bankTranches: true,
       transactions: {
         orderBy: [{ date: "asc" }, { createdAt: "asc" }],
@@ -321,6 +329,10 @@ export async function loadLpjBooks(
       lpjBendaharaNip: project.lpjBendaharaNip,
       lpjKabKota: project.lpjKabKota,
       lpjProvinsi: project.lpjProvinsi,
+      lpjKepalaTtdUrl: project.lpjKepalaTtdUrl,
+      lpjKetuaTtdUrl: project.lpjKetuaTtdUrl,
+      lpjBendaharaTtdUrl: project.lpjBendaharaTtdUrl,
+      lpjStempelUrl: project.lpjStempelUrl,
     },
     bankBlocks,
     bkuBlocks,

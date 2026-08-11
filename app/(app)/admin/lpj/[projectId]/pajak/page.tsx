@@ -51,6 +51,10 @@ export default async function AdminLpjPajakPage({
       lpjBendaharaNama: true,
       lpjBendaharaNip: true,
       lpjNpwp: true,
+      lpjKepalaTtdUrl: true,
+      lpjKetuaTtdUrl: true,
+      lpjBendaharaTtdUrl: true,
+      lpjStempelUrl: true,
     },
   });
   if (!project || project.status !== "ACTIVE") notFound();
@@ -145,6 +149,10 @@ export default async function AdminLpjPajakPage({
     bendaharaNama: project.lpjBendaharaNama,
     bendaharaNip: project.lpjBendaharaNip,
     npwp: project.lpjNpwp,
+    kepalaTtdUrl: project.lpjKepalaTtdUrl,
+    ketuaTtdUrl: project.lpjKetuaTtdUrl,
+    bendaharaTtdUrl: project.lpjBendaharaTtdUrl,
+    stempelUrl: project.lpjStempelUrl,
   };
 
   return (
