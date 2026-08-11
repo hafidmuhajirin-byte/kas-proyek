@@ -124,6 +124,9 @@ export function terbilangRupiah(n: number): string {
   }
 
   const words = toWords(num).replace(/\s+/g, " ").trim();
-  const capped = words.charAt(0).toUpperCase() + words.slice(1);
-  return `${capped} rupiah`;
+  const titled = words
+    .split(" ")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+  return `${titled} Rupiah`;
 }

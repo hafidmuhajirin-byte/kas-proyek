@@ -19,6 +19,10 @@ import {
 import { updateLpjSignatoriesAction } from "@/lib/actions/lpj-signatories";
 import { collectOwnerPengambilan } from "@/lib/lpj/owner-pengambilan";
 import { BankBookPreview } from "@/components/lpj/LpjBookPreviews";
+import {
+  LpjSignatureProvider,
+  LpjSignatureToolbar,
+} from "@/components/lpj/LpjSignatureControls";
 
 export default async function AdminLpjBankPage({
   params,
@@ -105,6 +109,7 @@ export default async function AdminLpjBankPage({
   const phase30Active = (t30?.receivedAmount ?? 0) > 0;
 
   return (
+    <LpjSignatureProvider projectId={project.id}>
     <div>
       <PageHeader
         title="Pencairan & Buku Bank"
@@ -432,6 +437,7 @@ export default async function AdminLpjBankPage({
             Cetak Buku Bank →
           </Link>
         </div>
+        <LpjSignatureToolbar className="mb-3" />
         <BankBookPreview
           blocks={blocks}
           meta={{
@@ -453,5 +459,6 @@ export default async function AdminLpjBankPage({
         />
       </div>
     </div>
+    </LpjSignatureProvider>
   );
 }
