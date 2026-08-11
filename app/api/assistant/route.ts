@@ -9,6 +9,10 @@ import {
 } from "@/lib/assistant/engine";
 import { buildAssistantGuards, checkDraftUnitAgainstMemory } from "@/lib/assistant/guards";
 import { assertMenuHelpComplete } from "@/lib/assistant/catalog";
+import {
+  assistantEnabledForRole,
+  canSeeFinance,
+} from "@/lib/assistant/scope";
 import { prisma } from "@/lib/prisma";
 import type { SessionRole } from "@/lib/session";
 
@@ -32,6 +36,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const role = session.role as SessionRole;
+  if (!assistantEnabledForRole(role)) {
+    return NextResponse.json(
+      { error: "Asisten tidak aktif untuk login ini.", disabled: true },
+      { status: 403 },
+    );
+  }
+
   let message = "";
   let checkUnit:
     | { projectId?: string; description: string; unit: string }
@@ -49,8 +61,6 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
   }
-
-  const role = session.role as SessionRole;
 
   // Fast path: unit consistency from form
   if (checkUnit?.description && checkUnit?.unit) {
@@ -77,14 +87,32 @@ export async function POST(request: Request) {
   }
 
   const projectIds = await projectIdsForRole(role, session.id);
-  const [ctx, guards] = await Promise.all([
-    role === "OWNER" || role === "ADMIN"
-      ? buildAssistantContext()
-      : buildAssistantContext(), // same builder; guards scoped below
+  const [ctxRaw, guards] = await Promise.all([
+    buildAssistantContext(),
     buildAssistantGuards({ role, projectIds }),
   ]);
 
-  // Scope owner project snaps for non-owner if needed — keep full for now for names
+  // Keuangan (kas/fee/untung/transaksi/pengingat Owner) hanya Owner + AdminOK
+  const financeOk = canSeeFinance(role);
+  const ctx = financeOk
+    ? ctxRaw
+    : {
+        ...ctxRaw,
+        kasBesar: { total: 0, cash: 0, bank: 0 },
+        recentTransactions: [],
+        reminders: [],
+        projects: ctxRaw.projects.map((p) => ({
+          ...p,
+          balance: 0,
+          receivable: 0,
+          feeTarget: 0,
+          feeTransferred: 0,
+          feeRemaining: 0,
+          realizedProfit: 0,
+          maxProjectedProfit: 0,
+        })),
+      };
+
   const reply = localReplyEngine({
     message: message || (bootstrap ? "prioritas hari ini" : "bantuan"),
     role,
@@ -93,10 +121,13 @@ export async function POST(request: Request) {
   });
 
   const warnCount = guards.filter((g) => g.severity === "warn").length;
+  const reminderCount = financeOk
+    ? Math.max(ctx.reminders.length, warnCount)
+    : warnCount;
 
   return NextResponse.json({
     reply,
-    reminderCount: Math.max(ctx.reminders.length, warnCount),
+    reminderCount,
     openChat: Boolean(bootstrap && warnCount > 0),
     suggestions: suggestionsForRole(role),
     welcome: welcomeForRole(role),

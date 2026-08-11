@@ -17,6 +17,7 @@ import {
   calcProjectProfit,
   PROJECT_FEE_PERCENT,
 } from "@/lib/project-profit";
+import { isAssistantExcludedProject } from "@/lib/assistant/scope";
 
 export type AssistantReminder = {
   id: string;
@@ -111,6 +112,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
 
   const snaps: AssistantProjectSnap[] = [];
   for (const project of projects) {
+    if (isAssistantExcludedProject(project.name)) continue;
     const spentByKind: Partial<Record<ProjectFundKind, number>> = {};
     let clientIncome = 0;
     let operatingExpense = 0;
@@ -264,7 +266,9 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
     kasBesar,
     feePercent: PROJECT_FEE_PERCENT,
     projects: snaps,
-    recentTransactions: recent.map((tx) => ({
+    recentTransactions: recent
+      .filter((tx) => !isAssistantExcludedProject(tx.project?.name ?? ""))
+      .map((tx) => ({
       id: tx.id,
       date: tx.date.toISOString(),
       type: tx.type,

@@ -20,10 +20,64 @@ export type AssistantOpenDetail = {
   preset?: boolean;
 };
 
-function Blocks({ blocks }: { blocks: AssistantBlock[] }) {
+function Blocks({
+  blocks,
+  onNavigate,
+}: {
+  blocks: AssistantBlock[];
+  onNavigate?: () => void;
+}) {
   if (!blocks.length) return null;
   return (
     <div className="mt-2 space-y-2">
+      {blocks
+        .filter((b): b is Extract<AssistantBlock, { type: "alerts" }> => b.type === "alerts")
+        .map((b, i) => (
+          <ul key={`alerts-${i}`} className="space-y-1.5">
+            {b.items.map((it, j) => {
+              const body = (
+                <>
+                  <p className="text-[12px] font-semibold leading-snug text-[var(--ink)]">
+                    {it.title}
+                  </p>
+                  {it.detail ? (
+                    <p className="mt-0.5 text-[11px] leading-snug text-[var(--ink-muted)]">
+                      {it.detail}
+                    </p>
+                  ) : null}
+                  {it.solutions && it.solutions.length > 0 ? (
+                    <ul className="mt-1 space-y-0.5 text-[11px] text-[var(--ink-faint)]">
+                      {it.solutions.slice(0, 3).map((s, k) => (
+                        <li key={k}>→ {s}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {it.href ? (
+                    <p className="mt-1 text-[11px] font-medium text-[var(--accent)]">
+                      Buka halaman terkait →
+                    </p>
+                  ) : null}
+                </>
+              );
+              const className =
+                "block rounded-lg border border-amber-200/90 bg-amber-50/90 px-2.5 py-2 text-left transition hover:border-amber-300 hover:bg-amber-100/90";
+              if (it.href) {
+                return (
+                  <li key={`al-${j}`}>
+                    <Link href={it.href} className={className} onClick={onNavigate}>
+                      {body}
+                    </Link>
+                  </li>
+                );
+              }
+              return (
+                <li key={`al-${j}`}>
+                  <div className={className}>{body}</div>
+                </li>
+              );
+            })}
+          </ul>
+        ))}
       <div className="grid gap-1.5 sm:grid-cols-2">
         {blocks
           .filter((b): b is Extract<AssistantBlock, { type: "stat" }> => b.type === "stat")
@@ -65,6 +119,7 @@ function Blocks({ blocks }: { blocks: AssistantBlock[] }) {
             <Link
               key={`a-${i}`}
               href={b.href}
+              onClick={onNavigate}
               className="rounded-md border border-[var(--line)] bg-[#fffcf7] px-2.5 py-1 text-xs font-medium text-[var(--accent)]"
             >
               {b.label}
@@ -317,7 +372,9 @@ export function AssistantKas() {
                     }`}
                   >
                     <p className="leading-snug whitespace-pre-wrap">{item.text}</p>
-                    {item.blocks ? <Blocks blocks={item.blocks} /> : null}
+                    {item.blocks ? (
+                      <Blocks blocks={item.blocks} onNavigate={() => setOpen(false)} />
+                    ) : null}
                   </div>
                 </div>
               ))}

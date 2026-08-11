@@ -92,7 +92,7 @@ export function MandorShell({
         </div>
       </nav>
 
-      <AssistantKas />
+      {user.role === "MANDOR" ? <AssistantKas /> : null}
       <ProofReviewHost />
     </div>
   );

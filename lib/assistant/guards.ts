@@ -8,6 +8,7 @@ import {
   checkUnitConsistency,
   type UnitConsistencyCheck,
 } from "@/lib/assistant/memory";
+import { filterExcludedProjects } from "@/lib/assistant/scope";
 
 export type GuardSeverity = "warn" | "info";
 
@@ -50,7 +51,7 @@ export async function buildAssistantGuards(opts: {
       ? { id: { in: opts.projectIds }, status: "ACTIVE" as const }
       : { status: "ACTIVE" as const };
 
-  const projects = await prisma.project.findMany({
+  const projectsRaw = await prisma.project.findMany({
     where: projectWhere,
     select: {
       id: true,
@@ -85,6 +86,8 @@ export async function buildAssistantGuards(opts: {
     },
     take: 40,
   });
+
+  const projects = filterExcludedProjects(projectsRaw);
 
   let readyApproveCount = 0;
   let mismatchCount = 0;
@@ -233,11 +236,14 @@ export async function buildAssistantGuards(opts: {
         severity: "warn",
         title: "Belum ada foto bukti nota",
         detail: `${project.name}: sudah ada aktivitas Mandor/pembayaran tetapi bukti foto nota belum terlihat.`,
-        solutions: [
-          "Minta Mandor unggah ulang di menu Upload.",
-          "Cek apakah nota ditolak dan belum diganti.",
-        ],
-        href: notaHref,
+        solutions:
+          role === "MANDOR"
+            ? ["Unggah ulang bukti di menu Upload."]
+            : [
+                "Minta Mandor unggah ulang di menu Upload.",
+                "Cek apakah nota ditolak dan belum diganti.",
+              ],
+        href: role === "MANDOR" ? "/mandor/upload" : notaHref,
         projectId: project.id,
         projectName: project.name,
       });
@@ -249,10 +255,11 @@ export async function buildAssistantGuards(opts: {
         severity: "info",
         title: "Belum ada foto pekerjaan",
         detail: `${project.name}: proyek sudah berjalan tetapi belum ada foto lokasi/pekerjaan.`,
-        solutions: [
-          "Minta Mandor/ADM Foto unggah di Foto Proyek / lokasi.",
-        ],
-        href: "/foto-proyek",
+        solutions:
+          role === "MANDOR"
+            ? ["Unggah foto lokasi/pekerjaan di menu Foto."]
+            : ["Minta Mandor/ADM Foto unggah di Foto Proyek / lokasi."],
+        href: role === "MANDOR" ? "/mandor/lokasi" : "/foto-proyek",
         projectId: project.id,
         projectName: project.name,
       });
@@ -322,12 +329,33 @@ export async function buildAssistantGuards(opts: {
     }
   }
 
-  // Cap list size but keep warns first
-  guards.sort((a, b) => {
+  // Cap + filter by role (info hanya sesuai login)
+  const allowedCodes: AssistantGuard["code"][] | null =
+    role === "OWNER" || role === "ADMIN"
+      ? null
+      : role === "ADMIN_PROYEK" || role === "LPJ_VIEWER"
+        ? [
+            "SPLIT_TOTAL_MISMATCH",
+            "NOTA_READY_APPROVE",
+            "TAX_OVER_SPLIT",
+            "MANDOR_NO_PROOF",
+            "MANDOR_NO_SITE_PHOTO",
+            "UNIT_INCONSISTENT",
+          ]
+        : role === "MANDOR"
+          ? ["MANDOR_NO_PROOF", "MANDOR_NO_SITE_PHOTO"]
+          : [];
+
+  const scoped =
+    allowedCodes == null
+      ? guards
+      : guards.filter((g) => allowedCodes.includes(g.code));
+
+  scoped.sort((a, b) => {
     const w = (g: AssistantGuard) => (g.severity === "warn" ? 0 : 1);
     return w(a) - w(b);
   });
-  return guards.slice(0, 40);
+  return scoped.slice(0, 40);
 }
 
 export async function checkDraftUnitAgainstMemory(opts: {

@@ -11,11 +11,24 @@ import {
 } from "@/lib/nav/app-menus";
 import type { SessionRole } from "@/lib/session";
 import { roleLabels } from "@/lib/labels";
+import {
+  canSeeFinance,
+  canSeeLpjOps,
+  isAssistantExcludedProject,
+} from "@/lib/assistant/scope";
+
+export type AssistantAlertItem = {
+  title: string;
+  detail: string;
+  href?: string;
+  solutions?: string[];
+};
 
 export type AssistantBlock =
   | { type: "stat"; label: string; value: string; hint?: string }
   | { type: "list"; items: string[] }
-  | { type: "link"; href: string; label: string };
+  | { type: "link"; href: string; label: string }
+  | { type: "alerts"; items: AssistantAlertItem[] };
 
 export type AssistantReply = {
   text: string;
@@ -36,8 +49,10 @@ function findProject(
   message: string,
 ): AssistantProjectSnap | null {
   const lower = message.toLowerCase();
-  const active = ctx.projects.filter((p) => p.status === "ACTIVE");
-  const pool = active.length ? active : ctx.projects;
+  const active = ctx.projects.filter(
+    (p) => p.status === "ACTIVE" && !isAssistantExcludedProject(p.name),
+  );
+  const pool = active.length ? active : ctx.projects.filter((p) => !isAssistantExcludedProject(p.name));
   let best: AssistantProjectSnap | null = null;
   let bestScore = 0;
   for (const p of pool) {
@@ -68,31 +83,29 @@ function replyFromGuards(
     return {
       text:
         opts?.title ??
-        "Tidak ada peringatan mendesak dari data saat ini. Data terlihat terkendali — lanjutkan dengan cek plafon pajak berkala.",
-      blocks: [{ type: "link", href: "/admin/lpj", label: "Proyek LPJ" }],
+        "Tidak ada peringatan mendesak dari data Anda saat ini.",
+      blocks: [],
     };
   }
   const warnN = list.filter((g) => g.severity === "warn").length;
   const text =
     opts?.title ??
     (warnN > 0
-      ? `Ada ${list.length} temuan (${warnN} perlu segera ditindak). Berikut yang salah dan apa yang harus dilakukan:`
-      : `Ada ${list.length} saran agar data tetap benar dan kerja lebih cepat:`);
-  const items = list.flatMap((g) => {
-    const sols = g.solutions.map((s) => `   → ${s}`);
-    return [`• ${g.title}: ${g.detail}`, ...sols];
-  });
-  const links = list
-    .filter((g) => g.href)
-    .slice(0, 4)
-    .map((g) => ({
-      type: "link" as const,
-      href: g.href!,
-      label: g.projectName ? `${g.code} · ${g.projectName}` : g.title,
-    }));
+      ? `Ada ${list.length} temuan (${warnN} perlu segera ditindak). Ketuk item untuk membuka halaman terkait:`
+      : `Ada ${list.length} saran. Ketuk item untuk membuka halaman terkait:`);
   return {
     text,
-    blocks: [{ type: "list", items }, ...links],
+    blocks: [
+      {
+        type: "alerts",
+        items: list.map((g) => ({
+          title: g.title,
+          detail: g.detail,
+          href: g.href,
+          solutions: g.solutions,
+        })),
+      },
+    ],
     urgent: warnN > 0,
   };
 }
@@ -162,24 +175,30 @@ function replyKas(ctx: AssistantContext): AssistantReply {
 function replyReminders(ctx: AssistantContext, guards: AssistantGuard[]): AssistantReply {
   const fromGuards = replyFromGuards(guards, {
     limit: 6,
-    title: "Pengingat & temuan dari data Anda:",
+    title: "Pengingat & temuan dari data Anda (ketuk untuk membuka):",
   });
-  if (ctx.reminders.length === 0) return fromGuards;
-  const items = [
-    ...ctx.reminders.slice(0, 6).map((r) => r.text),
-    ...((fromGuards.blocks.find((b) => b.type === "list") as { items: string[] } | undefined)
-      ?.items ?? []),
-  ].slice(0, 12);
+  const remAlerts = ctx.reminders.slice(0, 6).map((r) => ({
+    title: r.severity === "warn" ? "Peringatan" : "Info",
+    detail: r.text,
+    href: r.href,
+  }));
+  if (remAlerts.length === 0) return fromGuards;
+  const guardAlerts =
+    (
+      fromGuards.blocks.find((b) => b.type === "alerts") as
+        | { items: AssistantAlertItem[] }
+        | undefined
+    )?.items ?? [];
   return {
-    text: `Ada pengingat dari kas/proyek dan pantauan LPJ.`,
+    text: "Pengingat untuk role Anda. Ketuk item untuk langsung ke halaman terkait:",
     blocks: [
-      { type: "list", items },
-      ...ctx.reminders
-        .filter((r) => r.href)
-        .slice(0, 2)
-        .map((r) => ({ type: "link" as const, href: r.href!, label: "Lihat terkait" })),
+      {
+        type: "alerts",
+        items: [...remAlerts, ...guardAlerts].slice(0, 10),
+      },
     ],
-    urgent: ctx.reminders.some((r) => r.severity === "warn") || fromGuards.urgent,
+    urgent:
+      ctx.reminders.some((r) => r.severity === "warn") || fromGuards.urgent,
   };
 }
 
@@ -234,12 +253,12 @@ function replyProfit(ctx: AssistantContext, project: AssistantProjectSnap | null
 }
 
 function replyCritical(ctx: AssistantContext, guards: AssistantGuard[]): AssistantReply {
-  const g = replyFromGuards(
-    guards.filter((x) => x.severity === "warn"),
-    { title: "Prioritas yang perlu perhatian:", limit: 8 },
-  );
-  if (g.blocks.length > 1 || (g.blocks[0] && g.blocks[0].type === "list" && (g.blocks[0] as { items: string[] }).items.length > 1)) {
-    return g;
+  const warnGuards = guards.filter((x) => x.severity === "warn");
+  if (warnGuards.length > 0) {
+    return replyFromGuards(warnGuards, {
+      title: "Prioritas yang perlu perhatian (ketuk untuk membuka):",
+      limit: 8,
+    });
   }
   const active = ctx.projects.filter((p) => p.status === "ACTIVE");
   const ranked = [...active].sort((a, b) => {
@@ -250,14 +269,15 @@ function replyCritical(ctx: AssistantContext, guards: AssistantGuard[]): Assista
     return score(b) - score(a);
   });
   return {
-    text: "Proyek yang perlu perhatian:",
+    text: "Proyek yang perlu perhatian (ketuk untuk membuka):",
     blocks: [
       {
-        type: "list",
-        items: ranked.slice(0, 5).map(
-          (p) =>
-            `${p.name} — kas ${formatRupiah(p.balance)} · checklist ${p.checklistPercent}%`,
-        ),
+        type: "alerts",
+        items: ranked.slice(0, 5).map((p) => ({
+          title: p.name,
+          detail: `Kas ${formatRupiah(p.balance)} · checklist ${p.checklistPercent}%`,
+          href: `/projects/${p.id}`,
+        })),
       },
     ],
   };
@@ -367,9 +387,6 @@ export function suggestionsForRole(role: SessionRole): string[] {
   if (role === "MANDOR") {
     return ["Cara upload nota?", "Menu saya", "Cara foto lokasi?"];
   }
-  if (role === "ADM_FOTO") {
-    return ["Cara foto lokasi?", "Menu saya"];
-  }
   if (role === "LPJ_VIEWER" || role === "ADMIN_PROYEK") {
     return [
       "Menu saya",
@@ -396,13 +413,17 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
   const q = message.trim().toLowerCase();
   if (!q) return replyHelp(role);
 
+  // Tolak pertanyaan soal proyek yang dikecualikan
+  if (/sofyan|bpk\s*sofyan/.test(q)) {
+    return {
+      text: "Proyek/pekerjaan BPK Sofyan dikecualikan dari Asisten — tidak ada informasi yang ditampilkan.",
+      blocks: [],
+    };
+  }
+
   const project = findProject(ctx, message);
-  const canOwnerData = role === "OWNER";
-  const canLpjGuards =
-    role === "ADMIN" ||
-    role === "OWNER" ||
-    role === "ADMIN_PROYEK" ||
-    role === "LPJ_VIEWER";
+  const financeOk = canSeeFinance(role);
+  const lpjOk = canSeeLpjOps(role);
 
   // Unit inconsistency from form / chat
   if (
@@ -420,15 +441,22 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
   if (
     /prioritas|hari ini|kerjaan saya|yang salah|temuan|evaluasi/.test(q)
   ) {
-    return canLpjGuards
-      ? replyFromGuards(guards, {
-          title: "Prioritas dari data Anda (salah dulu, lalu saran cepat):",
-          limit: 10,
-        })
-      : replyReminders(ctx, guards);
+    if (lpjOk || role === "MANDOR") {
+      return replyFromGuards(guards, {
+        title: "Prioritas dari data Anda. Ketuk item untuk membuka:",
+        limit: 10,
+      });
+    }
+    return replyHelp(role);
   }
 
   if (/lebih cepat|cara cepat|efisien|percepat/.test(q)) {
+    if (!financeOk && role !== "ADMIN") {
+      return {
+        text: "Saran percepatan kerja LPJ khusus AdminOK / Owner.",
+        blocks: [],
+      };
+    }
     return replyFaster(guards);
   }
 
@@ -437,12 +465,18 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
       q,
     )
   ) {
+    if (!lpjOk) {
+      return { text: "Fitur review/setujui nota hanya untuk AdminOK / LPJ.", blocks: [] };
+    }
     return replyFromGuards(guards, { code: "NOTA_READY_APPROVE" });
   }
 
   if (/split|selisih|tidak sama|≠|berlebih.*nota|total.*nota/.test(q)) {
+    if (!lpjOk) {
+      return { text: "Fitur split nota hanya untuk AdminOK / LPJ.", blocks: [] };
+    }
     const m = replyFromGuards(guards, { code: "SPLIT_TOTAL_MISMATCH" });
-    if (m.text.includes("Tidak ada")) {
+    if (m.blocks.length === 0) {
       return replyFromGuards(guards, { code: "TAX_OVER_SPLIT" });
     }
     return m;
@@ -453,33 +487,27 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
     (/pajak|plafon|ppn|pph/.test(q) &&
       /berlebih|melebih|split|plafon|peringatan/.test(q))
   ) {
+    if (!lpjOk) {
+      return { text: "Info pajak LPJ hanya untuk role LPJ / AdminOK / Owner.", blocks: [] };
+    }
     return replyFromGuards(guards, { code: "TAX_OVER_SPLIT" });
   }
 
   if (/tanpa foto|belum.*foto|foto bukti|foto (kerja|pekerjaan|lokasi)/.test(q)) {
-    const a = replyFromGuards(guards, { code: "MANDOR_NO_PROOF", limit: 5 });
-    const b = replyFromGuards(guards, { code: "MANDOR_NO_SITE_PHOTO", limit: 5 });
-    const items = [
-      ...(((a.blocks[0] as { items?: string[] })?.items) ?? []),
-      ...(((b.blocks[0] as { items?: string[] })?.items) ?? []),
+    const merged = [
+      ...guards.filter((g) => g.code === "MANDOR_NO_PROOF"),
+      ...guards.filter((g) => g.code === "MANDOR_NO_SITE_PHOTO"),
     ];
-    if (!items.length) {
-      return {
-        text: "Semua proyek aktif yang dipantau sudah punya indikasi bukti/foto, atau belum ada aktivitas Mandor.",
-        blocks: [{ type: "link", href: "/foto-proyek", label: "Foto Proyek" }],
-      };
-    }
-    return {
-      text: "Proyek yang perlu foto:",
-      blocks: [
-        { type: "list", items },
-        { type: "link", href: "/foto-proyek", label: "Foto Proyek" },
-      ],
-      urgent: true,
-    };
+    return replyFromGuards(merged, {
+      title: "Proyek yang perlu foto (ketuk untuk membuka):",
+      limit: 8,
+    });
   }
 
   if (/sisa spk|spk belum|nota admin|habiskan spk/.test(q)) {
+    if (!financeOk) {
+      return { text: "Info sisa SPK / Nota Admin khusus AdminOK dan Owner.", blocks: [] };
+    }
     return replyFromGuards(guards, { code: "SPK_REMAINING" });
   }
 
@@ -491,10 +519,16 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
   if (how) return how;
 
   if (/pengingat|ingat|reminder|peringatan/.test(q)) {
-    return replyReminders(ctx, guards);
+    if (financeOk) return replyReminders(ctx, guards);
+    if (lpjOk || role === "MANDOR") {
+      return replyFromGuards(guards, {
+        title: "Pengingat untuk role Anda (ketuk untuk membuka):",
+      });
+    }
+    return replyHelp(role);
   }
 
-  if (canOwnerData) {
+  if (financeOk) {
     if (/kas besar|saldo kas|tunai|bank\b|berapa kas/.test(q) && !/fee|transfer fee/.test(q)) {
       return replyKas(ctx);
     }
@@ -507,26 +541,37 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
     if (/transaksi|riwayat|terbaru|baru saja/.test(q)) {
       return replyRecent(ctx);
     }
-  }
-
-  if (/kritis|perhatian|masalah|risiko|prioritas/.test(q)) {
-    return replyCritical(ctx, guards);
-  }
-
-  if (project && canOwnerData && (/tampil|ringkas|proyek|detail|status|checklist/.test(q) || q.includes(project.name.toLowerCase()))) {
-    return replyProject(project);
+    if (/kritis|perhatian|masalah|risiko|prioritas/.test(q)) {
+      return replyCritical(ctx, guards);
+    }
+    if (
+      project &&
+      (/tampil|ringkas|proyek|detail|status|checklist/.test(q) ||
+        q.includes(project.name.toLowerCase()))
+    ) {
+      return replyProject(project);
+    }
+  } else if (
+    /kas besar|fee|keuntungan|laba|transaksi|piutang|kuota fee/.test(q)
+  ) {
+    return {
+      text: "Info keuangan (kas, fee, keuntungan, transaksi) hanya untuk Owner dan AdminOK.",
+      blocks: [],
+    };
   }
 
   if (/bantu|help|perintah|bisa apa/.test(q)) {
     return replyHelp(role);
   }
 
-  // Default: surface live guards for AdminOK, else help
-  if (canLpjGuards && guards.some((g) => g.severity === "warn")) {
-    return replyFromGuards(guards.filter((g) => g.severity === "warn"), {
-      title: "Saya temukan isu dari data Anda. Perbaiki ini dulu:",
-      limit: 6,
-    });
+  if ((lpjOk || role === "MANDOR") && guards.some((g) => g.severity === "warn")) {
+    return replyFromGuards(
+      guards.filter((g) => g.severity === "warn"),
+      {
+        title: "Temuan untuk role Anda. Ketuk item untuk membuka:",
+        limit: 6,
+      },
+    );
   }
 
   return replyHelp(role);
