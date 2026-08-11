@@ -2,7 +2,13 @@ import { SignJWT, jwtVerify } from "jose";
 
 export const COOKIE_NAME = "kas_session";
 
-export type SessionRole = "OWNER" | "ADMIN" | "MANDOR";
+export type SessionRole =
+  | "OWNER"
+  | "ADMIN"
+  | "ADMIN_PROYEK"
+  | "LPJ_VIEWER"
+  | "MANDOR"
+  | "ADM_FOTO";
 
 export type SessionUser = {
   id: string;
@@ -20,7 +26,14 @@ function getSecret() {
 }
 
 function isSessionRole(role: unknown): role is SessionRole {
-  return role === "OWNER" || role === "ADMIN" || role === "MANDOR";
+  return (
+    role === "OWNER" ||
+    role === "ADMIN" ||
+    role === "ADMIN_PROYEK" ||
+    role === "LPJ_VIEWER" ||
+    role === "MANDOR" ||
+    role === "ADM_FOTO"
+  );
 }
 
 export async function createSessionToken(user: SessionUser): Promise<string> {
