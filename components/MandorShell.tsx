@@ -23,7 +23,9 @@ export function MandorShell({
 }) {
   const pathname = usePathname();
   const admFoto = user.role === "ADM_FOTO";
-  const pelaksana = user.role === "PELAKSANA";
+  const pelaksana =
+    user.role === "PELAKSANA" ||
+    /\bpelaksana\b/i.test(`${user.username} ${user.name}`);
   const shellTitle = admFoto ? "ADM Foto" : pelaksana ? "Pelaksana" : "Kas Mandor";
 
   const nav = primaryMenusForRole(user.role).map((m) => ({

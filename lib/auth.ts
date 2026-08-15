@@ -122,12 +122,15 @@ export function isMandor(user: SessionUser): boolean {
 
 /** Login Pelaksana — rule sama Mandor, UI tanpa estimasi/dana Owner. */
 export function isPelaksana(user: SessionUser): boolean {
-  return user.role === "PELAKSANA";
+  if (user.role === "PELAKSANA") return true;
+  // Cadangan: akun lama yang baru diganti namanya sebelum role di-set
+  const label = `${user.username} ${user.name}`.toLowerCase();
+  return /\bpelaksana\b/.test(label);
 }
 
 /** Mandor atau Pelaksana — upload bukti / beranda lapangan. */
 export function isMandorWorker(user: SessionUser): boolean {
-  return user.role === "MANDOR" || user.role === "PELAKSANA";
+  return user.role === "MANDOR" || user.role === "PELAKSANA" || isPelaksana(user);
 }
 
 /** Login khusus foto proyek (tanpa status dana/bukti). */
