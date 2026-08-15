@@ -41,6 +41,9 @@ export function defaultLaborMaterialPercent(
   isBeliBaru = false,
 ): { laborPercent: number; materialPercent: number } {
   switch (category) {
+    case "PERENCANAAN":
+    case "PENGAWASAN":
+      return { laborPercent: 100, materialPercent: 0 };
     case "REHAB_FISIK":
     case "PEMBANGUNAN_BARU":
       return { laborPercent: 40, materialPercent: 60 };
