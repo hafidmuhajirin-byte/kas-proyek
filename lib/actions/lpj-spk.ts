@@ -9,6 +9,7 @@ import {
   defaultLaborMaterialPercent,
   type SpkCategoryKey,
 } from "@/lib/lpj/smart-estimator";
+import { parseRupiahInput } from "@/lib/money";
 
 function parseIntSafe(raw: FormDataEntryValue | null, fallback = 0) {
   const n = Number(raw);
@@ -28,7 +29,9 @@ export async function upsertSpkBudgetAction(formData: FormData) {
   if (!project || project.status !== "ACTIVE") redirect("/admin/lpj");
 
   for (const category of SPK_CATEGORIES) {
-    const amount = parseIntSafe(formData.get(`amount__${category}`));
+    const amount = parseRupiahInput(
+      String(formData.get(`amount__${category}`) ?? "0"),
+    );
     const defaults = defaultLaborMaterialPercent(category);
     let laborPercent = parseIntSafe(
       formData.get(`labor__${category}`),

@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { requireLpjAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatRupiah } from "@/lib/money";
-import { Card, PageHeader } from "@/components/ui";
+import { Card, PageHeader, inputClass } from "@/components/ui";
+import { RupiahInput } from "@/components/RupiahInput";
 import {
   buildSpkRingkasanTable,
   computeSpkTargets,
@@ -131,13 +132,14 @@ export default async function AdminLpjSpkPage({
                 <div className="mt-3 grid gap-3 sm:grid-cols-4">
                   <label className="block text-sm">
                     <span className="text-[var(--ink-muted)]">Pagu (Rp)</span>
-                    <input
-                      type="number"
-                      name={`amount__${line.category}`}
-                      defaultValue={saved?.amount ?? line.amount}
-                      min={0}
-                      className="mt-1 w-full rounded-lg border border-[var(--line-soft)] px-3 py-2"
-                    />
+                    <div className="mt-1">
+                      <RupiahInput
+                        name={`amount__${line.category}`}
+                        defaultValue={saved?.amount ?? line.amount}
+                        placeholder="Contoh 14.002.416"
+                        className={inputClass}
+                      />
+                    </div>
                   </label>
                   <label className="block text-sm">
                     <span className="text-[var(--ink-muted)]">% Upah</span>
