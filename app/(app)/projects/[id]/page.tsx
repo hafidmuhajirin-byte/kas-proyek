@@ -204,14 +204,14 @@ export default async function ProjectDetailPage({
     prisma.projectAssignment.findMany({
       where: {
         projectId: id,
-        user: { role: { in: ["MANDOR", "ADM_FOTO"] } },
+        user: { role: { in: ["MANDOR", "PELAKSANA", "ADM_FOTO"] } },
       },
       include: {
         user: { select: { id: true, name: true, username: true, role: true } },
       },
     }),
     prisma.user.findMany({
-      where: { role: { in: ["MANDOR", "ADM_FOTO"] } },
+      where: { role: { in: ["MANDOR", "PELAKSANA", "ADM_FOTO"] } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, username: true, role: true },
     }),
@@ -418,7 +418,7 @@ export default async function ProjectDetailPage({
   const showTermin = project.billingMode === "TERMIN_PLAN";
 
   const cashAssignedMandors = assignedMandors.filter(
-    (a) => a.user.role === "MANDOR",
+    (a) => a.user.role === "MANDOR" || a.user.role === "PELAKSANA",
   );
   const fundMap = await getMandorFundSummariesFor(
     cashAssignedMandors.map((a) => ({ projectId: id, mandorId: a.userId })),

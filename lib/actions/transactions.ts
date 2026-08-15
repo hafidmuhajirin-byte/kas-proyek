@@ -284,9 +284,13 @@ export async function createTransactionAction(
   if (session.role === "ADMIN") {
     return { error: "AdminOK hanya dapat membaca buku kas / LPJ." };
   }
-  if (session.role === "MANDOR" || session.role === "ADM_FOTO") {
+  if (
+    session.role === "MANDOR" ||
+    session.role === "PELAKSANA" ||
+    session.role === "ADM_FOTO"
+  ) {
     return {
-      error: "Mandor mencatat belanja lewat menu Upload bukti.",
+      error: "Mandor / Pelaksana mencatat belanja lewat menu Upload bukti.",
     };
   }
 

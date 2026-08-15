@@ -384,7 +384,7 @@ export function suggestionsForRole(role: SessionRole): string[] {
       "Menu saya",
     ];
   }
-  if (role === "MANDOR") {
+  if (role === "MANDOR" || role === "PELAKSANA") {
     return ["Cara upload nota?", "Menu saya", "Cara foto lokasi?"];
   }
   if (role === "LPJ_VIEWER" || role === "ADMIN_PROYEK") {
@@ -441,7 +441,7 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
   if (
     /prioritas|hari ini|kerjaan saya|yang salah|temuan|evaluasi/.test(q)
   ) {
-    if (lpjOk || role === "MANDOR") {
+    if (lpjOk || role === "MANDOR" || role === "PELAKSANA") {
       return replyFromGuards(guards, {
         title: "Prioritas dari data Anda. Ketuk item untuk membuka:",
         limit: 10,
@@ -520,7 +520,7 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
 
   if (/pengingat|ingat|reminder|peringatan/.test(q)) {
     if (financeOk) return replyReminders(ctx, guards);
-    if (lpjOk || role === "MANDOR") {
+    if (lpjOk || role === "MANDOR" || role === "PELAKSANA") {
       return replyFromGuards(guards, {
         title: "Pengingat untuk role Anda (ketuk untuk membuka):",
       });
@@ -564,7 +564,10 @@ export function localReplyEngine(input: EngineInput): AssistantReply {
     return replyHelp(role);
   }
 
-  if ((lpjOk || role === "MANDOR") && guards.some((g) => g.severity === "warn")) {
+  if (
+    (lpjOk || role === "MANDOR" || role === "PELAKSANA") &&
+    guards.some((g) => g.severity === "warn")
+  ) {
     return replyFromGuards(
       guards.filter((g) => g.severity === "warn"),
       {

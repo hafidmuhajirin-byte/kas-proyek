@@ -48,7 +48,7 @@ function AssignForm({
     <form action={action} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="projectId" value={projectId} />
       <div className="min-w-[12rem] flex-1">
-        <Field label="Pilih Mandor / ADM Foto">
+        <Field label="Pilih Mandor / Pelaksana / ADM Foto">
           <select name="userId" className={inputClass} required defaultValue="">
             <option value="" disabled>
               — pilih —
@@ -56,7 +56,11 @@ function AssignForm({
             {available.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
-                {m.role === "ADM_FOTO" ? " · ADM Foto" : ""}
+                {m.role === "ADM_FOTO"
+                  ? " · ADM Foto"
+                  : m.role === "PELAKSANA"
+                    ? " · Pelaksana"
+                    : ""}
                 {m.username ? ` (@${m.username})` : ""}
               </option>
             ))}
@@ -137,7 +141,7 @@ export function MandorAssignPanel({
     <div className="space-y-3">
       <div>
         <h3 className="font-medium text-[var(--ink)]">
-          Mandor / ADM Foto ditugaskan
+          Mandor / Pelaksana / ADM Foto ditugaskan
         </h3>
         <p className="text-xs text-[var(--ink-faint)]">
           Yang ditugaskan di sini melihat proyek ini saat login.
@@ -146,8 +150,8 @@ export function MandorAssignPanel({
 
       {assigned.length === 0 ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          Belum ada yang ditugaskan — proyek tidak muncul di login Mandor/ADM
-          Foto.
+          Belum ada yang ditugaskan — proyek tidak muncul di login Mandor /
+          Pelaksana / ADM Foto.
         </p>
       ) : (
         <ul className="divide-y divide-[var(--line-soft)] rounded-lg border border-[var(--line)]">
@@ -160,6 +164,8 @@ export function MandorAssignPanel({
                 {m.name}
                 {m.role === "ADM_FOTO" ? (
                   <span className="font-normal text-teal-800"> · ADM Foto</span>
+                ) : m.role === "PELAKSANA" ? (
+                  <span className="font-normal text-teal-800"> · Pelaksana</span>
                 ) : null}
                 {m.username ? (
                   <span className="font-normal text-[var(--ink-faint)]">

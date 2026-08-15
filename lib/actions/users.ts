@@ -14,6 +14,7 @@ function parseRole(raw: string): SessionRole | null {
     raw === "ADMIN_PROYEK" ||
     raw === "LPJ_VIEWER" ||
     raw === "MANDOR" ||
+    raw === "PELAKSANA" ||
     raw === "ADM_FOTO"
   ) {
     return raw;
@@ -24,6 +25,7 @@ function parseRole(raw: string): SessionRole | null {
 function needsProjectAssignment(role: SessionRole): boolean {
   return (
     role === "MANDOR" ||
+    role === "PELAKSANA" ||
     role === "ADM_FOTO" ||
     role === "ADMIN_PROYEK" ||
     role === "LPJ_VIEWER"
@@ -39,6 +41,9 @@ function assignmentError(role: SessionRole): string {
   }
   if (role === "LPJ_VIEWER") {
     return "LPJ Proyek wajib ditugaskan ke tepat 1 proyek.";
+  }
+  if (role === "PELAKSANA") {
+    return "Pelaksana wajib ditugaskan ke minimal 1 proyek agar muncul di login Pelaksana.";
   }
   return "Mandor wajib ditugaskan ke minimal 1 proyek agar muncul di login Mandor.";
 }

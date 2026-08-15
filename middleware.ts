@@ -6,7 +6,7 @@ const publicPaths = ["/login"];
 
 function homeForSession(session: SessionUser) {
   if (session.role === "ADM_FOTO") return "/mandor/lokasi";
-  if (session.role === "MANDOR") return "/mandor";
+  if (session.role === "MANDOR" || session.role === "PELAKSANA") return "/mandor";
   if (session.role === "ADMIN") return "/admin/lpj";
   if (session.role === "ADMIN_PROYEK") return "/admin-proyek";
   if (session.role === "LPJ_VIEWER") return "/admin/lpj";
@@ -80,7 +80,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (session?.role === "MANDOR") {
+  if (session?.role === "MANDOR" || session?.role === "PELAKSANA") {
     if (!pathname.startsWith("/mandor")) {
       const url = request.nextUrl.clone();
       url.pathname = homeForSession(session);

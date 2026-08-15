@@ -104,9 +104,9 @@ export async function createMandorDisbursementAction(
   }
 
   const mandor = await prisma.user.findFirst({
-    where: { id: mandorId, role: "MANDOR" },
+    where: { id: mandorId, role: { in: ["MANDOR", "PELAKSANA"] } },
   });
-  if (!mandor) return { error: "User bukan Mandor." };
+  if (!mandor) return { error: "User bukan Mandor / Pelaksana." };
 
   const source = await prisma.cashSource.findUnique({
     where: { id: cashSourceId },

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import {
   getAccessibleProjectIds,
   isAdmFoto,
-  isMandor,
+  isMandorWorker,
   requireSession,
 } from "@/lib/auth";
 import { getPencairanOptionsForProject } from "@/lib/mandor-pencairan";
@@ -21,7 +21,7 @@ export default async function MandorUploadPage({
 }) {
   const user = await requireSession();
   if (isAdmFoto(user)) redirect("/mandor/lokasi");
-  if (!isMandor(user)) redirect("/dashboard");
+  if (!isMandorWorker(user)) redirect("/dashboard");
 
   const params = await searchParams;
   const ids = await getAccessibleProjectIds(user);

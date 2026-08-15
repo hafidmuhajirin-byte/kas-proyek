@@ -7,7 +7,7 @@ Asisten lokal (tanpa LLM). **AdminOK** paling aktif: pantau nota/split/pajak/fot
 | Role | Asisten |
 |------|---------|
 | Owner, AdminOK | Aktif — termasuk info keuangan (kas, fee, untung, transaksi) |
-| Admin Proyek, LPJ Viewer, Mandor | Aktif — hanya info sesuai role (bukan keuangan login lain) |
+| Admin Proyek, LPJ Viewer, Mandor, Pelaksana | Aktif — hanya info sesuai role (bukan keuangan login lain) |
 | **ADM Foto** | **Tidak diaktifkan** |
 
 ## Batasan data

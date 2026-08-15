@@ -6,7 +6,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import {
   isAdmFoto,
-  isMandor,
+  isMandorWorker,
   requireProjectAccess,
   requireSession,
 } from "@/lib/auth";
@@ -55,8 +55,10 @@ export async function createMandorExpenseAction(
   formData: FormData,
 ): Promise<FormState> {
   const user = await requireSession();
-  if (isAdmFoto(user) || !isMandor(user)) {
-    return { error: "Hanya Mandor yang dapat mengunggah bukti belanja di sini." };
+  if (isAdmFoto(user) || !isMandorWorker(user)) {
+    return {
+      error: "Hanya Mandor / Pelaksana yang dapat mengunggah bukti belanja di sini.",
+    };
   }
 
   const projectId = String(formData.get("projectId") ?? "");

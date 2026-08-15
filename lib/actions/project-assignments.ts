@@ -40,8 +40,13 @@ export async function assignMandorToProjectAction(
   ]);
 
   if (!project) return { error: "Proyek tidak ditemukan." };
-  if (!user || (user.role !== "MANDOR" && user.role !== "ADM_FOTO")) {
-    return { error: "Akun yang dipilih bukan Mandor / ADM Foto." };
+  if (
+    !user ||
+    (user.role !== "MANDOR" &&
+      user.role !== "PELAKSANA" &&
+      user.role !== "ADM_FOTO")
+  ) {
+    return { error: "Akun yang dipilih bukan Mandor / Pelaksana / ADM Foto." };
   }
 
   await prisma.projectAssignment.upsert({

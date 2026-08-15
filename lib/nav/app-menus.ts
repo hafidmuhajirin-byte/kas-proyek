@@ -194,13 +194,13 @@ export const APP_MENUS: AppMenuItem[] = [
     group: "primary",
   },
 
-  // ——— MANDOR ———
+  // ——— MANDOR / PELAKSANA ———
   {
     id: "mandor-home",
     href: "/mandor",
     label: "Beranda",
     short: "Home",
-    roles: ["MANDOR"],
+    roles: ["MANDOR", "PELAKSANA"],
     keywords: ["beranda", "dana", "borongan"],
     group: "mandor",
   },
@@ -209,7 +209,7 @@ export const APP_MENUS: AppMenuItem[] = [
     href: "/mandor/upload",
     label: "Upload",
     short: "Upload",
-    roles: ["MANDOR"],
+    roles: ["MANDOR", "PELAKSANA"],
     keywords: ["upload", "bukti", "nota"],
     group: "mandor",
   },
@@ -218,7 +218,7 @@ export const APP_MENUS: AppMenuItem[] = [
     href: "/mandor/lokasi",
     label: "Foto Proyek",
     short: "Foto",
-    roles: ["MANDOR"],
+    roles: ["MANDOR", "PELAKSANA"],
     keywords: ["foto", "lokasi"],
     group: "mandor",
   },
