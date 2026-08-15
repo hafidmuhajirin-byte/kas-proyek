@@ -62,6 +62,7 @@ export default async function UsersPage() {
                   <p className="text-sm text-[var(--ink-faint)]">
                     @{u.username} · {roleLabels[u.role] ?? u.role}
                     {((u.role === "MANDOR" ||
+                      u.role === "PELAKSANA" ||
                       u.role === "ADM_FOTO" ||
                       u.role === "ADMIN_PROYEK" ||
                       u.role === "LPJ_VIEWER") &&

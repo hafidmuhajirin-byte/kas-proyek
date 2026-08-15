@@ -34,7 +34,7 @@ function navForRole(role: SessionUser["role"]): {
     short: m.short,
   });
 
-  if (role === "MANDOR" || role === "ADM_FOTO") {
+  if (role === "MANDOR" || role === "PELAKSANA" || role === "ADM_FOTO") {
     return { primary: [], secondary: [], mobile: [], showAssistant: false };
   }
 

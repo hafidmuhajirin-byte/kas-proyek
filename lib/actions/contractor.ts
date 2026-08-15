@@ -114,7 +114,7 @@ export async function upsertContractorAction(
   // Jika nama pemborong cocok akun Mandor → otomatis tugaskan ke proyek
   // agar proyek muncul di login Mandor (bukan hanya data pemborong).
   const mandors = await prisma.user.findMany({
-    where: { role: "MANDOR" },
+    where: { role: { in: ["MANDOR", "PELAKSANA"] } },
     select: { id: true, name: true, username: true },
   });
   const matched = findMandorByName(mandors, name);

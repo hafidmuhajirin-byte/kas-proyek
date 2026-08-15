@@ -120,6 +120,16 @@ export function isMandor(user: SessionUser): boolean {
   return user.role === "MANDOR";
 }
 
+/** Login Pelaksana — rule sama Mandor, UI tanpa estimasi/dana Owner. */
+export function isPelaksana(user: SessionUser): boolean {
+  return user.role === "PELAKSANA";
+}
+
+/** Mandor atau Pelaksana — upload bukti / beranda lapangan. */
+export function isMandorWorker(user: SessionUser): boolean {
+  return user.role === "MANDOR" || user.role === "PELAKSANA";
+}
+
 /** Login khusus foto proyek (tanpa status dana/bukti). */
 export function isAdmFoto(user: SessionUser): boolean {
   return user.role === "ADM_FOTO";
@@ -135,10 +145,18 @@ export function isLpjViewer(user: SessionUser): boolean {
   return user.role === "LPJ_VIEWER";
 }
 
-/** Mandor atau ADM Foto — shell foto / penugasan proyek. */
+/** Mandor, Pelaksana, atau ADM Foto — shell lapangan / penugasan proyek. */
 export function isMandorLike(user: SessionUser): boolean {
-  return user.role === "MANDOR" || user.role === "ADM_FOTO";
+  return (
+    user.role === "MANDOR" ||
+    user.role === "PELAKSANA" ||
+    user.role === "ADM_FOTO"
+  );
 }
+
+/** Role yang menerima pencairan & upload bukti belanja. */
+export const MANDOR_WORKER_ROLES = ["MANDOR", "PELAKSANA"] as const;
+export const MANDOR_LIKE_ROLES = ["MANDOR", "PELAKSANA", "ADM_FOTO"] as const;
 
 export function canMutateCash(user: SessionUser): boolean {
   return user.role === "OWNER";
@@ -181,7 +199,7 @@ export async function requireBreakdownAccess(): Promise<SessionUser> {
 
 export function homePathForRole(role: SessionRole): string {
   if (role === "ADM_FOTO") return "/mandor/lokasi";
-  if (role === "MANDOR") return "/mandor";
+  if (role === "MANDOR" || role === "PELAKSANA") return "/mandor";
   if (role === "ADMIN") return "/admin/lpj";
   if (role === "ADMIN_PROYEK") return "/admin-proyek";
   if (role === "LPJ_VIEWER") return "/admin/lpj";

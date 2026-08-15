@@ -84,7 +84,7 @@ export async function getMandorFundSummariesFor(
 
 export async function getOverspendAlarms() {
   const assignments = await prisma.projectAssignment.findMany({
-    where: { user: { role: "MANDOR" } },
+    where: { user: { role: { in: ["MANDOR", "PELAKSANA"] } } },
     select: { projectId: true, userId: true },
   });
 

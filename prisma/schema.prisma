@@ -13,6 +13,7 @@ enum Role {
   ADMIN_PROYEK
   LPJ_VIEWER
   MANDOR
+  PELAKSANA
   ADM_FOTO
 }
 

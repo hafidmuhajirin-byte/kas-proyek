@@ -23,6 +23,8 @@ export function MandorShell({
 }) {
   const pathname = usePathname();
   const admFoto = user.role === "ADM_FOTO";
+  const pelaksana = user.role === "PELAKSANA";
+  const shellTitle = admFoto ? "ADM Foto" : pelaksana ? "Pelaksana" : "Kas Mandor";
 
   const nav = primaryMenusForRole(user.role).map((m) => ({
     href: m.href,
@@ -43,7 +45,7 @@ export function MandorShell({
         <div className="safe-top-bar flex items-center justify-between px-4 pb-3">
           <div className="min-w-0">
             <p className="font-serif text-xl text-[var(--ink)]">
-              {admFoto ? "ADM Foto" : "Kas Mandor"}
+              {shellTitle}
             </p>
             <p className="truncate text-xs text-[var(--ink-faint)]">
               {user.name}
@@ -92,7 +94,9 @@ export function MandorShell({
         </div>
       </nav>
 
-      {user.role === "MANDOR" ? <AssistantKas /> : null}
+      {user.role === "MANDOR" || user.role === "PELAKSANA" ? (
+        <AssistantKas />
+      ) : null}
       <ProofReviewHost />
     </div>
   );

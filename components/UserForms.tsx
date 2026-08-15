@@ -28,6 +28,7 @@ type UserRow = {
 function needsProjects(role: string) {
   return (
     role === "MANDOR" ||
+    role === "PELAKSANA" ||
     role === "ADM_FOTO" ||
     role === "ADMIN_PROYEK" ||
     role === "LPJ_VIEWER"
@@ -136,6 +137,7 @@ export function UserCreateForm({ projects }: { projects: ProjectOption[] }) {
             <option value="ADMIN_PROYEK">Admin Proyek</option>
             <option value="LPJ_VIEWER">LPJ Proyek</option>
             <option value="MANDOR">Mandor</option>
+            <option value="PELAKSANA">Pelaksana</option>
             <option value="ADM_FOTO">ADM Foto</option>
           </select>
         </Field>
@@ -196,6 +198,7 @@ export function UserEditForm({
             <option value="ADMIN_PROYEK">Admin Proyek</option>
             <option value="LPJ_VIEWER">LPJ Proyek</option>
             <option value="MANDOR">Mandor</option>
+            <option value="PELAKSANA">Pelaksana</option>
             <option value="ADM_FOTO">ADM Foto</option>
           </select>
         </Field>

@@ -237,13 +237,16 @@ export async function buildAssistantGuards(opts: {
         title: "Belum ada foto bukti nota",
         detail: `${project.name}: sudah ada aktivitas Mandor/pembayaran tetapi bukti foto nota belum terlihat.`,
         solutions:
-          role === "MANDOR"
+          role === "MANDOR" || role === "PELAKSANA"
             ? ["Unggah ulang bukti di menu Upload."]
             : [
                 "Minta Mandor unggah ulang di menu Upload.",
                 "Cek apakah nota ditolak dan belum diganti.",
               ],
-        href: role === "MANDOR" ? "/mandor/upload" : notaHref,
+        href:
+          role === "MANDOR" || role === "PELAKSANA"
+            ? "/mandor/upload"
+            : notaHref,
         projectId: project.id,
         projectName: project.name,
       });
@@ -256,10 +259,13 @@ export async function buildAssistantGuards(opts: {
         title: "Belum ada foto pekerjaan",
         detail: `${project.name}: proyek sudah berjalan tetapi belum ada foto lokasi/pekerjaan.`,
         solutions:
-          role === "MANDOR"
+          role === "MANDOR" || role === "PELAKSANA"
             ? ["Unggah foto lokasi/pekerjaan di menu Foto."]
             : ["Minta Mandor/ADM Foto unggah di Foto Proyek / lokasi."],
-        href: role === "MANDOR" ? "/mandor/lokasi" : "/foto-proyek",
+        href:
+          role === "MANDOR" || role === "PELAKSANA"
+            ? "/mandor/lokasi"
+            : "/foto-proyek",
         projectId: project.id,
         projectName: project.name,
       });
@@ -342,7 +348,7 @@ export async function buildAssistantGuards(opts: {
             "MANDOR_NO_SITE_PHOTO",
             "UNIT_INCONSISTENT",
           ]
-        : role === "MANDOR"
+        : role === "MANDOR" || role === "PELAKSANA"
           ? ["MANDOR_NO_PROOF", "MANDOR_NO_SITE_PHOTO"]
           : [];
 
