@@ -137,6 +137,16 @@ function assert(cond: boolean, msg: string) {
 {
   const d = defaultLaborMaterialPercent("REHAB_FISIK");
   assert(d.laborPercent === 40 && d.materialPercent === 60, "Rehab Fisik 40/60");
+  const jasa = defaultLaborMaterialPercent("PERENCANAAN");
+  assert(
+    jasa.laborPercent === 100 && jasa.materialPercent === 0,
+    "Perencanaan default 100% upah",
+  );
+  const awas = defaultLaborMaterialPercent("PENGAWASAN");
+  assert(
+    awas.laborPercent === 100 && awas.materialPercent === 0,
+    "Pengawasan default 100% upah",
+  );
   const t = computeSpkTargets([
     { category: "REHAB_FISIK", amount: 100_000_000 },
   ]);
