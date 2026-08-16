@@ -24,20 +24,38 @@ async function saveProof(file: File | null): Promise<string | null> {
   if (file.size > 5 * 1024 * 1024) {
     throw new Error("Ukuran bukti maksimal 5 MB.");
   }
-  const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-  if (!allowed.includes(file.type)) {
+  const type = (file.type || "").toLowerCase();
+  const name = file.name || "";
+  const looksJpeg =
+    type === "image/jpeg" ||
+    type === "image/jpg" ||
+    /\.jpe?g$/i.test(name) ||
+    // iOS kadang kirim MIME kosong setelah kompres client
+    ((type === "" || type === "application/octet-stream") &&
+      /\.jpe?g$/i.test(name));
+  const looksPng = type === "image/png" || /\.png$/i.test(name);
+  const looksWebp = type === "image/webp" || /\.webp$/i.test(name);
+  const looksPdf = type === "application/pdf" || /\.pdf$/i.test(name);
+
+  if (type === "image/heic" || type === "image/heif" || /\.heic$/i.test(name) || /\.heif$/i.test(name)) {
+    throw new Error(
+      "Format HEIC iPhone belum bisa disimpan. Ambil foto ulang (kamera akan jadi JPG) atau ubah Settings → Camera → Formats → Most Compatible.",
+    );
+  }
+
+  if (!looksJpeg && !looksPng && !looksWebp && !looksPdf) {
     throw new Error("Bukti harus berupa JPG, PNG, WEBP, atau PDF.");
   }
+
   const uploadsDir = path.join(process.cwd(), "public", "uploads");
   await mkdir(uploadsDir, { recursive: true });
-  const ext =
-    file.type === "application/pdf"
-      ? ".pdf"
-      : file.type === "image/png"
-        ? ".png"
-        : file.type === "image/webp"
-          ? ".webp"
-          : ".jpg";
+  const ext = looksPdf
+    ? ".pdf"
+    : looksPng
+      ? ".png"
+      : looksWebp
+        ? ".webp"
+        : ".jpg";
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
   await writeFile(
     path.join(uploadsDir, filename),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { createAdminLpjNotaAction } from "@/lib/actions/admin-lpj-nota";
 import { ProofCapture } from "@/components/ProofCapture";
 import { RupiahInput } from "@/components/RupiahInput";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import type { ReceiptOcrSuggestion } from "@/lib/receipt-ocr";
 import { formatNumberId } from "@/lib/money";
+import type { FormState } from "@/lib/actions/projects";
 
 export type AdminLpjCategoryOption = { id: string; name: string };
 
@@ -24,7 +25,18 @@ export function AdminAddLpjNotaForm({
   categories: AdminLpjCategoryOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState(createAdminLpjNotaAction, {});
+  /** iOS Safari: inject bukti ke FormData (input tersembunyi sering kosong). */
+  const proofFileRef = useRef<File | null>(null);
+  const [state, action, pending] = useActionState(
+    async (prev: FormState, formData: FormData): Promise<FormState> => {
+      const proof = proofFileRef.current;
+      if (proof && proof.size > 0) {
+        formData.set("proof", proof, proof.name || "bukti.jpg");
+      }
+      return createAdminLpjNotaAction(prev, formData);
+    },
+    {},
+  );
   const [amountKey, setAmountKey] = useState(0);
   const [amountDefault, setAmountDefault] = useState(0);
 
@@ -151,7 +163,12 @@ export function AdminAddLpjNotaForm({
       </label>
 
       <Field label="Bukti (wajib)">
-        <ProofCapture onApplySuggestion={applyOcr} />
+        <ProofCapture
+          onApplySuggestion={applyOcr}
+          onFileChange={(f) => {
+            proofFileRef.current = f;
+          }}
+        />
       </Field>
 
       <Field label="Atau URL bukti" htmlFor="admin-lpj-proof-url">

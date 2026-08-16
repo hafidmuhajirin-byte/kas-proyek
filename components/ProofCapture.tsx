@@ -22,12 +22,15 @@ import { btnSecondaryClass, inputClass } from "@/components/ui";
 type ProofCaptureProps = {
   existingProofUrl?: string | null;
   onApplySuggestion?: (suggestion: ReceiptOcrSuggestion) => void;
+  /** Dipanggil tiap file bukti siap (atau null saat dihapus) — untuk inject ke FormData di iOS. */
+  onFileChange?: (file: File | null) => void;
   /** Hanya gambar (tanpa PDF / OCR) — untuk foto lokasi proyek. */
   imagesOnly?: boolean;
 };
 
-const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
-const ALL_ACCEPT = `${IMAGE_ACCEPT},application/pdf`;
+/** Galeri: longgar agar iPhone HEIC/galeri tidak terfilter. */
+const GALLERY_ACCEPT = "image/*,image/heic,image/heif,.heic,.heif,application/pdf";
+const GALLERY_IMAGES_ONLY = "image/*,image/heic,image/heif,.heic,.heif";
 
 /** Input file menempel di atas tombol — lebih andal di Android daripada input.hidden + click(). */
 function FilePickButton({
@@ -75,13 +78,15 @@ function FilePickButton({
 export function ProofCapture({
   existingProofUrl,
   onApplySuggestion,
+  onFileChange,
   imagesOnly = false,
 }: ProofCaptureProps) {
-  const acceptGallery = imagesOnly ? IMAGE_ACCEPT : ALL_ACCEPT;
+  const acceptGallery = imagesOnly ? GALLERY_IMAGES_ONLY : GALLERY_ACCEPT;
   const enableOcr = Boolean(onApplySuggestion) && !imagesOnly;
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const hiddenFileRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<File | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -102,12 +107,17 @@ export function ProofCapture({
     };
   }, [previewUrl]);
 
+  /** Fallback non-iOS: isi input name=proof. iOS Safari sering gagal — pakai onFileChange. */
   function syncHiddenInput(next: File | null) {
     const input = hiddenFileRef.current;
     if (!input) return;
-    const dt = new DataTransfer();
-    if (next) dt.items.add(next);
-    input.files = dt.files;
+    try {
+      const dt = new DataTransfer();
+      if (next) dt.items.add(next);
+      input.files = dt.files;
+    } catch {
+      // iOS / browser ketat: biarkan onFileChange yang mengirim file
+    }
   }
 
   function assignFile(
@@ -120,12 +130,15 @@ export function ProofCapture({
     setOcrError(null);
     setOcrProgress(0);
 
+    fileRef.current = next;
+    onFileChange?.(next);
+    syncHiddenInput(next);
+
     if (!next) {
       setFile(null);
       setPreviewUrl(null);
       setIsPdf(false);
       setOriginalSize(null);
-      syncHiddenInput(null);
       return;
     }
 
@@ -134,16 +147,26 @@ export function ProofCapture({
     setIsPdf(pdf);
     setOriginalSize(meta?.originalSize ?? null);
     setPreviewUrl(pdf ? null : URL.createObjectURL(next));
-    syncHiddenInput(next);
   }
 
   function looksLikeImage(file: File) {
-    if (file.type.startsWith("image/")) return true;
+    const t = (file.type || "").toLowerCase();
+    if (t.startsWith("image/")) return true;
     // Beberapa kamera HP mengirim MIME kosong — cek ekstensi
-    if (file.type === "" || file.type === "application/octet-stream") {
+    if (t === "" || t === "application/octet-stream") {
       return /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(file.name);
     }
     return false;
+  }
+
+  function isHeicLike(file: File) {
+    const t = (file.type || "").toLowerCase();
+    return (
+      t === "image/heic" ||
+      t === "image/heif" ||
+      /\.heic$/i.test(file.name) ||
+      /\.heif$/i.test(file.name)
+    );
   }
 
   async function onPick(e: ChangeEvent<HTMLInputElement>) {
@@ -165,11 +188,7 @@ export function ProofCapture({
     }
 
     if (!looksLikeImage(picked)) {
-      if (imagesOnly) {
-        setOcrError("Hanya foto (JPG/PNG/WEBP) yang diterima.");
-        return;
-      }
-      assignFile(picked);
+      setOcrError("File bukan gambar/PDF yang didukung.");
       return;
     }
 
@@ -177,10 +196,18 @@ export function ProofCapture({
     setOcrError(null);
     try {
       const compressed = await compressImageFile(picked);
+      // Pastikan hasil JPEG (server menolak HEIC mentah)
+      if (isHeicLike(compressed)) {
+        throw new Error("HEIC");
+      }
       assignFile(compressed, { originalSize: picked.size });
     } catch {
-      // Fallback: tetap pakai file asli jika kompresi gagal
-      assignFile(picked, { originalSize: picked.size });
+      setOcrError(
+        isHeicLike(picked)
+          ? "Foto HEIC iPhone gagal diproses. Coba Ambil foto lagi, atau di Kamera iPhone: Settings → Camera → Formats → Most Compatible."
+          : "Gagal memproses foto. Coba Ambil foto ulang atau pilih Dari galeri.",
+      );
+      assignFile(null);
     } finally {
       setCompressing(false);
     }
@@ -240,7 +267,7 @@ export function ProofCapture({
 
   return (
     <div className="space-y-3">
-      {/* File yang ikut tersubmit bersama form server action */}
+      {/* Fallback submit (Chrome/Android). iOS: MandorUploadForm inject via onFileChange. */}
       <input
         ref={hiddenFileRef}
         id="proof"

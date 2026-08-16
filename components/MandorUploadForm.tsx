@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { createMandorExpenseAction } from "@/lib/actions/mandor-expense";
 import { MANDOR_EXPENSE_DESCRIPTIONS } from "@/lib/mandor-expense-labels";
 import { ProofCapture } from "@/components/ProofCapture";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import type { ReceiptOcrSuggestion } from "@/lib/receipt-ocr";
 import { formatNumberId } from "@/lib/money";
+import type { FormState } from "@/lib/actions/projects";
 
 /** Form upload bukti — proyek sudah terkunci. */
 export function MandorUploadForm({
@@ -24,9 +25,24 @@ export function MandorUploadForm({
   projectName: string;
   hasPencairan?: boolean;
 }) {
-  const [state, action, pending] = useActionState(createMandorExpenseAction, {});
+  /** iOS Safari sering gagal mengirim file lewat input tersembunyi + DataTransfer. */
+  const proofFileRef = useRef<File | null>(null);
+  const [proofReady, setProofReady] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
   const [amountKey, setAmountKey] = useState(0);
   const [amountDefault, setAmountDefault] = useState(0);
+
+  const [state, action, pending] = useActionState(
+    async (prev: FormState, formData: FormData): Promise<FormState> => {
+      const proof = proofFileRef.current;
+      if (!proof || proof.size <= 0) {
+        return { error: "Bukti foto/nota wajib diunggah." };
+      }
+      formData.set("proof", proof, proof.name || "bukti.jpg");
+      return createMandorExpenseAction(prev, formData);
+    },
+    {},
+  );
 
   function applyOcr(s: ReceiptOcrSuggestion) {
     if (s.amount != null && s.amount > 0) {
@@ -36,10 +52,21 @@ export function MandorUploadForm({
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  const error = clientError || state.error;
 
   return (
-    <form action={action} className="space-y-4">
-      {state.error ? <Alert>{state.error}</Alert> : null}
+    <form
+      action={action}
+      className="space-y-4"
+      onSubmit={(e) => {
+        setClientError(null);
+        if (!proofFileRef.current || proofFileRef.current.size <= 0) {
+          e.preventDefault();
+          setClientError("Ambil foto atau pilih dari galeri dulu sebelum simpan.");
+        }
+      }}
+    >
+      {error ? <Alert>{error}</Alert> : null}
 
       <input type="hidden" name="projectId" value={projectId} />
       <p className="rounded-lg border border-teal-200/80 bg-teal-50/70 px-3 py-2 text-sm text-teal-950">
@@ -88,7 +115,14 @@ export function MandorUploadForm({
       </Field>
 
       <Field label="Bukti (wajib)">
-        <ProofCapture onApplySuggestion={applyOcr} />
+        <ProofCapture
+          onApplySuggestion={applyOcr}
+          onFileChange={(f) => {
+            proofFileRef.current = f;
+            setProofReady(Boolean(f && f.size > 0));
+            setClientError(null);
+          }}
+        />
       </Field>
 
       {!hasPencairan ? (
@@ -100,7 +134,7 @@ export function MandorUploadForm({
       <button
         type="submit"
         className={`${btnPrimaryClass} w-full min-h-14 text-base`}
-        disabled={pending || !hasPencairan}
+        disabled={pending || !hasPencairan || !proofReady}
       >
         {pending ? "Mengirim..." : "Simpan bukti belanja"}
       </button>

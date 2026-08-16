@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import type { FormState } from "@/lib/actions/projects";
 import { RupiahInput } from "@/components/RupiahInput";
@@ -98,7 +98,18 @@ export function TransactionForm({
       setDescriptionKey((k) => k + 1);
     }
   }
-  const [state, formAction, pending] = useActionState(action, {});
+  /** iOS Safari: file bukti sering tidak ikut submit lewat input tersembunyi. */
+  const proofFileRef = useRef<File | null>(null);
+  const [state, formAction, pending] = useActionState(
+    async (prev: FormState, formData: FormData): Promise<FormState> => {
+      const proof = proofFileRef.current;
+      if (proof && proof.size > 0) {
+        formData.set("proof", proof, proof.name || "bukti.jpg");
+      }
+      return action(prev, formData);
+    },
+    {},
+  );
 
   const filteredCategories = useMemo(
     () => categories.filter((c) => c.type === type),
@@ -545,6 +556,9 @@ export function TransactionForm({
         <ProofCapture
           existingProofUrl={defaults?.proofUrl}
           onApplySuggestion={applyOcrSuggestion}
+          onFileChange={(f) => {
+            proofFileRef.current = f;
+          }}
         />
       </Field>
 
