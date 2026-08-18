@@ -13,7 +13,10 @@ import {
   MandorProjectPicker,
 } from "@/components/MandorProjectPicker";
 import { MandorSitePhotoForm } from "@/components/MandorSitePhotoForm";
+import { MandorSiteVideoForm } from "@/components/MandorSiteVideoForm";
+import { AdmFotoVideoReminder } from "@/components/AdmFotoVideoReminder";
 import { Card } from "@/components/ui";
+import { jakartaDayOfMonth, jakartaMonthRange } from "@/lib/jakarta-time";
 
 export default async function MandorLokasiPage({
   searchParams,
@@ -44,15 +47,38 @@ export default async function MandorLokasiPage({
       ? params.projectId
       : undefined;
 
+  const admFoto = isAdmFoto(user);
+  let reminderProjects: { id: string; name: string }[] = [];
+  if (admFoto && jakartaDayOfMonth() === 20) {
+    const { start, end } = jakartaMonthRange();
+    const uploaded = await prisma.projectSiteVideo.findMany({
+      where: {
+        projectId: { in: ids },
+        takenAt: { gte: start, lt: end },
+      },
+      select: { projectId: true },
+    });
+    const done = new Set(uploaded.map((v) => v.projectId));
+    reminderProjects = projects.filter((p) => !done.has(p.id));
+  }
+
+  const reminderBanner =
+    admFoto && reminderProjects.length > 0 ? (
+      <AdmFotoVideoReminder projects={reminderProjects} />
+    ) : null;
+
   // Langkah 1: pilih proyek dulu
   if (!projectId) {
     return (
-      <MandorProjectPicker
-        title="Foto proyek"
-        hint="Pilih proyek dulu, baru ambil/unggah foto."
-        projects={projects}
-        hrefFor={(id) => `/mandor/lokasi?projectId=${encodeURIComponent(id)}`}
-      />
+      <div className="space-y-4">
+        {reminderBanner}
+        <MandorProjectPicker
+          title="Foto proyek"
+          hint="Pilih proyek dulu, baru ambil/unggah foto."
+          projects={projects}
+          hrefFor={(id) => `/mandor/lokasi?projectId=${encodeURIComponent(id)}`}
+        />
+      </div>
     );
   }
 
@@ -72,10 +98,34 @@ export default async function MandorLokasiPage({
     },
   });
 
-  const homeHref = isAdmFoto(user) ? "/mandor/lokasi" : "/mandor";
+  const recentVideos = admFoto
+    ? await prisma.projectSiteVideo.findMany({
+        where: { projectId },
+        orderBy: { takenAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          videoUrl: true,
+          caption: true,
+          takenAt: true,
+          durationSec: true,
+          createdBy: { select: { name: true } },
+        },
+      })
+    : [];
+
+  const usedVideo = admFoto
+    ? await prisma.projectSiteVideo.aggregate({
+        where: { projectId },
+        _sum: { durationSec: true },
+      })
+    : { _sum: { durationSec: 0 } };
+
+  const homeHref = admFoto ? "/mandor/lokasi" : "/mandor";
 
   return (
     <div className="space-y-5">
+      {reminderBanner}
       <MandorLockedProjectHeader
         projectName={project.name}
         homeHref={homeHref}
@@ -96,6 +146,47 @@ export default async function MandorLokasiPage({
           projectName={project.name}
         />
       </Card>
+
+      {admFoto ? (
+        <Card>
+          <h2 className="mb-3 font-serif text-xl text-[var(--ink)]">Video</h2>
+          <MandorSiteVideoForm
+            projectId={project.id}
+            projectName={project.name}
+            usedDurationSec={usedVideo._sum.durationSec ?? 0}
+          />
+        </Card>
+      ) : null}
+
+      {admFoto && recentVideos.length > 0 ? (
+        <section className="space-y-2">
+          <h2 className="font-serif text-xl text-[var(--ink)]">
+            Video proyek · {project.name}
+          </h2>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {recentVideos.map((video) => (
+              <li
+                key={video.id}
+                className="overflow-hidden rounded border border-[var(--line-soft)] bg-[#fffcf7]"
+              >
+                <video
+                  src={video.videoUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="aspect-video w-full bg-black"
+                />
+                <p className="truncate px-2 py-1 text-[11px] text-[var(--ink-faint)]">
+                  {format(video.takenAt, "d/M", { locale: localeId })}
+                  {` · ${video.durationSec} dtk`}
+                  {video.createdBy?.name ? ` · ${video.createdBy.name}` : ""}
+                  {video.caption ? ` · ${video.caption}` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="space-y-2">
         <h2 className="font-serif text-xl text-[var(--ink)]">

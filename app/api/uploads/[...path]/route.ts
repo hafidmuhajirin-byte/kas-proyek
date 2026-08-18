@@ -9,6 +9,11 @@ const MIME: Record<string, string> = {
   ".webp": "image/webp",
   ".gif": "image/gif",
   ".pdf": "application/pdf",
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".m4v": "video/mp4",
+  ".webm": "video/webm",
+  ".3gp": "video/3gpp",
 };
 
 /**

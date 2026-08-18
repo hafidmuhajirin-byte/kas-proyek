@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
       // Bukti / batch foto lokasi (~5 × ~180 KB) + overhead form
       bodySizeLimit: "8mb",
     },
+    // Cadangan jika unggah video masih lewat proxy
+    proxyClientMaxBodySize: "45mb",
   },
   async headers() {
     return [

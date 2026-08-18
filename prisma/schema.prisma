@@ -59,6 +59,7 @@ model User {
   mandorDisbursements MandorDisbursement[] @relation("MandorDisbursements")
   mandorExpenseLines MandorExpenseLine[]
   sitePhotos ProjectSitePhoto[]
+  siteVideos ProjectSiteVideo[]
   taxObligationsPaid TaxWithholdingLine[] @relation("TaxObligationPaidBy")
 }
 
@@ -114,6 +115,7 @@ model Project {
   taxMonthNotes       TaxMonthNote[]
   lpjSnapshots        LpjSnapshot[]
   sitePhotos          ProjectSitePhoto[]
+  siteVideos          ProjectSiteVideo[]
 }
 
 model ProjectAssignment {
@@ -144,6 +146,27 @@ model ProjectSitePhoto {
   latitude         Float?
   longitude        Float?
   createdAt        DateTime @default(now())
+
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, sourceName])
+  @@index([projectId, takenAt])
+  @@index([createdById])
+}
+
+/// Video lokasi proyek (ADM Foto) — arsip VPS, hasil kompres MP4
+model ProjectSiteVideo {
+  id          String   @id @default(cuid())
+  takenAt     DateTime @default(now())
+  caption     String?  @db.Text
+  videoUrl    String   @db.Text
+  sourceName  String   @db.VarChar(255)
+  durationSec Int
+  fileSize    Int
+  createdAt   DateTime @default(now())
 
   projectId   String
   project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)

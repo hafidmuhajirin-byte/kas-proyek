@@ -141,6 +141,6 @@ export const config = {
     // Paksa /uploads/* selalu lewat proxy, termasuk file .png tanda tangan/stempel.
     "/uploads/:path*",
     // Untuk path lain, kecualikan aset build + ikon PWA.
-    "/((?!_next/static|_next/image|favicon.ico|icons/|.*\\.(?:svg|css|js|map|txt|png|ico|webp|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icons/|api/site-videos|.*\\.(?:svg|css|js|map|txt|png|ico|webp|woff2?)$).*)",
   ],
 };
