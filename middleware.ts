@@ -138,7 +138,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Sertakan /uploads/* agar rewrite ke API jalan; kecualikan aset build + ikon PWA
+    // Paksa /uploads/* selalu lewat proxy, termasuk file .png tanda tangan/stempel.
+    "/uploads/:path*",
+    // Untuk path lain, kecualikan aset build + ikon PWA.
     "/((?!_next/static|_next/image|favicon.ico|icons/|.*\\.(?:svg|css|js|map|txt|png|ico|webp|woff2?)$).*)",
   ],
 };
