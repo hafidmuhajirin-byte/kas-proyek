@@ -1,0 +1,8 @@
+Baca dulu file HANDOFF-KAS-PROYEK.md di repo.
+
+Ringkasan:
+- App live: https://hafitproyek.online (VPS 38.103.170.55, PM2 `kas-proyek`, MySQL `kas_proyek`)
+- Go-live handoff **SELESAI** (DNS, nginx, SSL, cookie secure, deploy sync, rotasi password)
+- CV/kasir tetap di Niagahoster shared — jangan jalankan Node Kas di shared
+
+Jangan mengulang setup dari nol. Lanjut fitur/bug baru sesuai permintaan user.

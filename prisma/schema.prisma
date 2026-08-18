@@ -10,7 +10,11 @@ datasource db {
 enum Role {
   OWNER
   ADMIN
+  ADMIN_PROYEK
+  LPJ_VIEWER
   MANDOR
+  PELAKSANA
+  ADM_FOTO
 }
 
 enum ProjectStatus {
@@ -53,6 +57,10 @@ model User {
   cashTransfers CashTransfer[]
   projectAssignments ProjectAssignment[]
   mandorDisbursements MandorDisbursement[] @relation("MandorDisbursements")
+  mandorExpenseLines MandorExpenseLine[]
+  sitePhotos ProjectSitePhoto[]
+  siteVideos ProjectSiteVideo[]
+  taxObligationsPaid TaxWithholdingLine[] @relation("TaxObligationPaidBy")
 }
 
 model Project {
@@ -63,6 +71,8 @@ model Project {
   billingMode    BillingMode    @default(ON_REQUEST)
   openingBalance Int            @default(0)
   contractValue  Int            @default(0)
+  /// Kas terpisah permanen dari kas besar Owner. Hanya untuk proyek baru.
+  standaloneBookkeeping Boolean @default(false)
   notes          String?        @db.Text
   checkPlanning    Boolean      @default(false)
   checkSupervision Boolean      @default(false)
@@ -71,6 +81,23 @@ model Project {
   checkReporting   Boolean      @default(false)
   checkContractor  Boolean      @default(false)
   checkNoRetention Boolean      @default(false)
+  /// Pejabat tanda tangan LPJ / Buku Bank
+  lpjKepalaNama     String?
+  lpjKepalaNip      String?
+  lpjKetuaNama      String?
+  lpjKetuaNip       String?
+  lpjBendaharaNama  String?
+  lpjBendaharaNip   String?
+  lpjKabKota        String?
+  lpjProvinsi       String?
+  /// NPWP sekolah / bendahara untuk rekap pajak
+  lpjNpwp           String?
+  lpjKepalaTtdUrl   String? @db.Text
+  lpjKetuaTtdUrl    String? @db.Text
+  lpjBendaharaTtdUrl String? @db.Text
+  lpjStempelUrl     String? @db.Text
+  /// Folder Google Drive per proyek (dibuat sekali, di-reuse)
+  driveProjectFolderId String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   transactions   Transaction[]
@@ -80,6 +107,15 @@ model Project {
   funds          ProjectFund[]
   assignments    ProjectAssignment[]
   mandorDisbursements MandorDisbursement[]
+  spkBudgetLines      SpkBudgetLine[]
+  bankTranches        BankTranche[]
+  workers             Worker[]
+  payrollHokLines     PayrollHokLine[]
+  taxWithholdingLines TaxWithholdingLine[]
+  taxMonthNotes       TaxMonthNote[]
+  lpjSnapshots        LpjSnapshot[]
+  sitePhotos          ProjectSitePhoto[]
+  siteVideos          ProjectSiteVideo[]
 }
 
 model ProjectAssignment {
@@ -96,6 +132,52 @@ model ProjectAssignment {
   @@index([projectId])
 }
 
+/// Foto lokasi proyek (Mandor / ADM Foto) — arsip VPS
+model ProjectSitePhoto {
+  id               String   @id @default(cuid())
+  takenAt          DateTime @default(now())
+  caption          String?  @db.Text
+  photoUrl         String   @db.Text
+  /// Nama file asli (unik per proyek) — cegah unggah dobel
+  sourceName       String   @db.VarChar(255)
+  driveFileId      String?
+  driveWebViewLink String?  @db.Text
+  driveSyncError   String?  @db.Text
+  latitude         Float?
+  longitude        Float?
+  createdAt        DateTime @default(now())
+
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, sourceName])
+  @@index([projectId, takenAt])
+  @@index([createdById])
+}
+
+/// Video lokasi proyek (ADM Foto) — arsip VPS, hasil kompres MP4
+model ProjectSiteVideo {
+  id          String   @id @default(cuid())
+  takenAt     DateTime @default(now())
+  caption     String?  @db.Text
+  videoUrl    String   @db.Text
+  sourceName  String   @db.VarChar(255)
+  durationSec Int
+  fileSize    Int
+  createdAt   DateTime @default(now())
+
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, sourceName])
+  @@index([projectId, takenAt])
+  @@index([createdById])
+}
+
 /// Dana Owner → Mandor (bukan termin klien)
 model MandorDisbursement {
   id          String   @id @default(cuid())
@@ -103,7 +185,7 @@ model MandorDisbursement {
   label       String
   sequence    Int      @default(1)
   amount      Int
-  description String   @default("") @db.Text
+  description String   @default("")
   proofUrl    String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -116,6 +198,7 @@ model MandorDisbursement {
   cashSource   CashSource @relation(fields: [cashSourceId], references: [id], onDelete: Restrict)
   transactionId String?   @unique
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  linkedProofs Transaction[] @relation("ProofLinkedToDisbursement")
 
   @@index([projectId])
   @@index([mandorId])
@@ -183,9 +266,52 @@ model ContractorAdvance {
   contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   cashSourceId String
   cashSource   CashSource @relation(fields: [cashSourceId], references: [id], onDelete: Restrict)
+  linkedProofs Transaction[] @relation("ProofLinkedToAdvance")
 
   @@index([contractorId])
   @@index([date])
+}
+
+enum MandorExpenseLineKind {
+  MATERIAL
+  LABOR
+}
+
+enum MandorBreakdownStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Pecahan Admin atas nota Mandor (bahan / upah pekerja)
+model MandorExpenseLine {
+  id          String               @id @default(cuid())
+  kind        MandorExpenseLineKind
+  description String               @db.Text
+  /// Khusus LABOR: "Tukang" | "Pembantu tukang"
+  laborRole   String?
+  quantity    Float?
+  unit        String?
+  unitPrice   Int?
+  workDays    Float?
+  dailyRate   Int?
+  amount      Int
+  isMaterialAlam Boolean           @default(false)
+  taxPpn      Int                  @default(0)
+  taxPph      Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  createdById   String
+  createdBy     User        @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  materialMasterId String?
+  materialMaster   MaterialMaster? @relation(fields: [materialMasterId], references: [id], onDelete: SetNull)
+
+  @@index([transactionId])
+  @@index([createdById])
+  @@index([materialMasterId])
 }
 
 model ContractorExpense {
@@ -299,6 +425,29 @@ model Transaction {
   isFeeTransfer   Boolean     @default(false)
   isMandorDisbursement Boolean @default(false)
   isMandorExpense      Boolean @default(false)
+  /// Pengeluaran pembayaran pajak (dari kewajiban terhutang → lunas).
+  isTaxPayment         Boolean @default(false)
+  /// Nota dibuat Admin untuk LPJ (nilai penuh di BKU/BKT); di Owner tampil Rp 0.
+  isAdminLpjNota       Boolean @default(false)
+  isMaterialAlam       Boolean @default(false)
+  taxExemptReason      String?
+  spkCategory          SpkCategory?
+  breakdownVendor      String?
+  breakdownStatus      MandorBreakdownStatus @default(PENDING)
+  breakdownNote        String? @db.Text
+  /// Periode gaji pecah LABOR (tanggal awal–akhir).
+  laborPeriodStart     DateTime?
+  laborPeriodEnd       DateTime?
+  /// Nomor minggu pembayaran pekerja di proyek (1, 2, …).
+  laborWeekIndex       Int?
+  /// Upload Mandor yang sudah di-split menjadi beberapa BKK (shell LPJ).
+  isSplitParent        Boolean @default(false)
+  /// BKK hasil split — menunjuk ke upload Mandor (parent).
+  splitParentId        String?
+  splitParent          Transaction?  @relation("MandorNotaSplit", fields: [splitParentId], references: [id], onDelete: Cascade)
+  splitChildren        Transaction[] @relation("MandorNotaSplit")
+  /// Urutan BKK dalam satu upload (1..3).
+  splitIndex           Int?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -314,6 +463,17 @@ model Transaction {
   fundingStage   FundingStage? @relation(fields: [fundingStageId], references: [id], onDelete: SetNull)
   mandorDisbursement MandorDisbursement?
 
+  /// Bukti Mandor ditautkan ke pencairan (salah satu wajib untuk upload baru)
+  linkedMandorDisbursementId String?
+  linkedMandorDisbursement   MandorDisbursement? @relation("ProofLinkedToDisbursement", fields: [linkedMandorDisbursementId], references: [id], onDelete: SetNull)
+  linkedContractorAdvanceId String?
+  linkedContractorAdvance   ContractorAdvance? @relation("ProofLinkedToAdvance", fields: [linkedContractorAdvanceId], references: [id], onDelete: SetNull)
+  expenseLines MandorExpenseLine[]
+  materialMasterId String?
+  materialMaster   MaterialMaster? @relation(fields: [materialMasterId], references: [id], onDelete: SetNull)
+  taxWithholdingLines TaxWithholdingLine[]
+  taxPaymentFor       TaxWithholdingLine? @relation("TaxPaymentTransaction")
+
   @@index([date])
   @@index([projectId])
   @@index([cashSourceId])
@@ -324,4 +484,227 @@ model Transaction {
   @@index([isFeeTransfer])
   @@index([isMandorDisbursement])
   @@index([isMandorExpense])
+  @@index([isTaxPayment])
+  @@index([isAdminLpjNota])
+  @@index([isMaterialAlam])
+  @@index([linkedMandorDisbursementId])
+  @@index([linkedContractorAdvanceId])
+  @@index([materialMasterId])
+  @@index([splitParentId])
+  @@index([isSplitParent])
+}
+
+/// Kategori pagu SPK (Admin LPJ Swakelola)
+enum SpkCategory {
+  PERENCANAAN
+  PENGAWASAN
+  PENGELOLAAN
+  REHAB_FISIK
+  REHAB_MEBELAIR
+  PEMBANGUNAN_BARU
+  MEBELAIR_BARU
+  PEMBANGUNAN_APE_LUAR
+  PENGELOLAAN_LINGKUNGAN
+  SANITASI
+}
+
+enum BankTranchePhase {
+  PHASE_70
+  PHASE_30
+}
+
+enum AttendanceSource {
+  MANDOR
+  ADMIN
+}
+
+enum TaxKind {
+  PPN_11
+  PPH_15
+  PPH_FINAL_35
+}
+
+enum TaxObligationStatus {
+  UNPAID
+  PAID
+}
+
+/// Pecahan pagu SPK per kategori (Admin)
+model SpkBudgetLine {
+  id              String      @id @default(cuid())
+  category        SpkCategory
+  amount          Int         @default(0)
+  laborPercent    Int         @default(40)
+  materialPercent Int         @default(60)
+  isBeliBaru      Boolean     @default(false)
+  notes           String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, category])
+  @@index([projectId])
+}
+
+/// Pencairan bank pusat → rekening User (70% / 30%)
+model BankTranche {
+  id             String           @id @default(cuid())
+  phase          BankTranchePhase
+  percent        Int
+  plannedAmount  Int              @default(0)
+  receivedAmount Int              @default(0)
+  receivedAt     DateTime?
+  notes          String?          @db.Text
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, phase])
+  @@index([projectId])
+}
+
+/// Master material (flag material alam untuk pajak)
+model MaterialMaster {
+  id             String   @id @default(cuid())
+  name           String
+  unit           String?
+  isMaterialAlam Boolean  @default(false)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions Transaction[]
+  expenseLines MandorExpenseLine[]
+
+  @@index([isMaterialAlam])
+  @@index([name])
+}
+
+/// Daftar pekerja proyek
+model Worker {
+  id        String   @id @default(cuid())
+  name      String
+  role      String   @default("Pekerja")
+  dailyWage Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attendances WorkerAttendance[]
+  payrollLines PayrollHokLine[]
+
+  @@index([projectId])
+  @@index([active])
+}
+
+/// Absensi pekerja (foto & data Mandor; koreksi Admin dengan catatan)
+model WorkerAttendance {
+  id        String           @id @default(cuid())
+  date      DateTime
+  present   Boolean          @default(true)
+  photoUrl  String?          @db.Text
+  source    AttendanceSource @default(MANDOR)
+  auditNote String?          @db.Text
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([workerId, date])
+  @@index([workerId])
+  @@index([date])
+}
+
+/// Rekap gaji HOK (hadir × upah harian)
+model PayrollHokLine {
+  id         String   @id @default(cuid())
+  periodMonth String
+  days       Float    @default(0)
+  dailyWage  Int      @default(0)
+  amount     Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, workerId, periodMonth])
+  @@index([projectId])
+  @@index([workerId])
+  @@index([periodMonth])
+}
+
+/// Keterangan per bulan pada Rekapitulasi Pembayaran Pajak
+model TaxMonthNote {
+  id         String   @id @default(cuid())
+  year       Int
+  month      Int
+  keterangan String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, year, month])
+  @@index([projectId])
+}
+
+/// Kewajiban pajak dari nota (terhutang → lunas setelah bayar + bukti + ID billing)
+model TaxWithholdingLine {
+  id         String              @id @default(cuid())
+  kind       TaxKind
+  baseAmount Int
+  taxAmount  Int
+  label      String
+  monthKey   String
+  status     TaxObligationStatus @default(UNPAID)
+  /// ID billing / NTPN / kode bayar pajak
+  billingId  String?
+  proofUrl   String?             @db.Text
+  paidAt     DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  projectId     String
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Nota sumber yang memunculkan pajak
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  /// Transaksi kas pengeluaran saat pajak dibayar
+  paymentTransactionId String?      @unique
+  paymentTransaction   Transaction? @relation("TaxPaymentTransaction", fields: [paymentTransactionId], references: [id], onDelete: SetNull)
+  paidById String?
+  paidBy   User?   @relation("TaxObligationPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+
+  @@unique([transactionId, kind])
+  @@index([projectId])
+  @@index([projectId, status])
+  @@index([monthKey])
+  @@index([kind])
+  @@index([transactionId])
+  @@index([status])
+}
+
+/// Snapshot hasil generate LPJ (cache)
+model LpjSnapshot {
+  id          String   @id @default(cuid())
+  periodMonth String
+  generatedAt DateTime @default(now())
+  jsonPayload String   @db.LongText
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([periodMonth])
 }

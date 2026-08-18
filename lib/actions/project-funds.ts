@@ -103,6 +103,12 @@ export async function releaseSaveFundToGlobalAction(
     },
   });
   if (!project) return { error: "Proyek tidak ditemukan." };
+  if (project.standaloneBookkeeping) {
+    return {
+      error:
+        "Proyek mandiri tidak bisa memindah sisa dana ke kas besar Owner.",
+    };
+  }
   if (!project.checkNoRetention) {
     return {
       error:

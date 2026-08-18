@@ -4,7 +4,11 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireOwner, requireSession } from "@/lib/auth";
+import {
+  assertProjectAccess,
+  requireOwner,
+  requireSession,
+} from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseRupiahInput, formatRupiah } from "@/lib/money";
 import {
@@ -177,12 +181,20 @@ async function validateTransactionInput(
   }
 
   if (fields.type === "EXPENSE") {
+    let standalone = false;
     if (fields.projectId) {
       const project = await prisma.project.findUnique({
         where: { id: fields.projectId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, standaloneBookkeeping: true },
       });
       if (!project) return "Proyek tidak ditemukan.";
+      standalone = project.standaloneBookkeeping;
+      if (standalone && fields.isFromGlobalCash) {
+        return "Proyek mandiri tidak bisa memakai kas besar Owner.";
+      }
+      if (standalone && fields.isOwnerPersonal) {
+        return "Proyek mandiri tidak memakai ambil/setor pribadi Owner.";
+      }
     } else if (!fields.isOwnerPersonal) {
       return "Proyek wajib dipilih.";
     }
@@ -194,6 +206,16 @@ async function validateTransactionInput(
     if (!source) return "Sumber kas tidak ditemukan.";
 
     const opts = { excludeTransactionId: options?.excludeTransactionId };
+
+    // Proyek mandiri: cek kas proyek saja (terpisah dari kas besar)
+    if (standalone && fields.projectId) {
+      const projectCash = await getProjectCashBalance(fields.projectId, opts);
+      if (fields.amount > Math.max(0, projectCash)) {
+        return `Kas proyek mandiri tidak cukup (tersedia ${formatRupiah(Math.max(0, projectCash))}).`;
+      }
+      return null;
+    }
+
     const [globalCash, channelCash, breakdown] = await Promise.all([
       getGlobalCashBalance(opts),
       getChannelCashBalance(fields.cashSourceId, opts),
@@ -260,15 +282,38 @@ export async function createTransactionAction(
 ): Promise<FormState> {
   const session = await requireSession();
   if (session.role === "ADMIN") {
-    return { error: "Admin hanya dapat membaca buku kas." };
+    return { error: "AdminOK hanya dapat membaca buku kas / LPJ." };
   }
-  if (session.role === "MANDOR") {
+  if (
+    session.role === "MANDOR" ||
+    session.role === "PELAKSANA" ||
+    session.role === "ADM_FOTO"
+  ) {
     return {
-      error: "Mandor mencatat belanja lewat menu Upload bukti.",
+      error: "Mandor / Pelaksana mencatat belanja lewat menu Upload bukti.",
     };
   }
 
   const fields = parseTransactionFields(formData);
+
+  if (session.role === "ADMIN_PROYEK") {
+    if (!fields.projectId) {
+      return { error: "Admin Proyek hanya mencatat transaksi proyek sendiri." };
+    }
+    const ok = await assertProjectAccess(session, fields.projectId);
+    if (!ok) return { error: "Proyek di luar penugasan Anda." };
+    const project = await prisma.project.findUnique({
+      where: { id: fields.projectId },
+      select: { standaloneBookkeeping: true },
+    });
+    if (!project?.standaloneBookkeeping) {
+      return { error: "Admin Proyek hanya untuk proyek mandiri." };
+    }
+    if (fields.isOwnerPersonal || fields.isFromGlobalCash) {
+      return { error: "Proyek mandiri tidak memakai kas besar Owner." };
+    }
+  }
+
   const error = await validateTransactionInput(fields);
   if (error) return { error };
 
@@ -303,6 +348,9 @@ export async function createTransactionAction(
   });
 
   revalidateTransactionPaths(fields.projectId);
+  if (session.role === "ADMIN_PROYEK") {
+    redirect("/transactions/project");
+  }
   redirect("/transactions");
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import type { FormState } from "@/lib/actions/projects";
 import { RupiahInput } from "@/components/RupiahInput";
@@ -22,6 +22,7 @@ type ProjectOption = {
   contractValue?: number;
   paidIncome?: number;
   workCompletedValue?: number;
+  standaloneBookkeeping?: boolean;
 };
 type StageOption = {
   id: string;
@@ -97,7 +98,18 @@ export function TransactionForm({
       setDescriptionKey((k) => k + 1);
     }
   }
-  const [state, formAction, pending] = useActionState(action, {});
+  /** iOS Safari: file bukti sering tidak ikut submit lewat input tersembunyi. */
+  const proofFileRef = useRef<File | null>(null);
+  const [state, formAction, pending] = useActionState(
+    async (prev: FormState, formData: FormData): Promise<FormState> => {
+      const proof = proofFileRef.current;
+      if (proof && proof.size > 0) {
+        formData.set("proof", proof, proof.name || "bukti.jpg");
+      }
+      return action(prev, formData);
+    },
+    {},
+  );
 
   const filteredCategories = useMemo(
     () => categories.filter((c) => c.type === type),
@@ -113,6 +125,7 @@ export function TransactionForm({
     () => projects.find((p) => p.id === projectId),
     [projects, projectId],
   );
+  const isStandaloneProject = Boolean(selectedProject?.standaloneBookkeeping);
   const isPayAtEnd = selectedProject?.billingMode === "PAY_AT_END";
   const contractValue = selectedProject?.contractValue ?? 0;
   const paidIncome = selectedProject?.paidIncome ?? 0;
@@ -366,6 +379,13 @@ export function TransactionForm({
                 dana operasional. Dana ke pemborong dicatat di detail proyek.
               </div>
 
+              {isStandaloneProject ? (
+                <div className="rounded-xl border border-teal-900/10 bg-teal-50/50 px-3 py-2 text-xs text-teal-950/75">
+                  Proyek mandiri — pengeluaran hanya dari kas proyek (tidak
+                  menyentuh kas besar Owner).
+                  <input type="hidden" name="isFromGlobalCash" value="" />
+                </div>
+              ) : (
               <div
                 className={`rounded-2xl border p-4 ${
                   isFromGlobalCash
@@ -391,9 +411,11 @@ export function TransactionForm({
                   </span>
                 </label>
               </div>
+              )}
             </>
           )}
 
+          {!isStandaloneProject ? (
           <div className="rounded-2xl border border-rose-200/70 bg-rose-50/60 p-4">
             <label className="flex cursor-pointer items-start gap-3 text-sm">
               <input
@@ -421,6 +443,7 @@ export function TransactionForm({
               </span>
             </label>
           </div>
+          ) : null}
         </div>
       ) : (
         <input type="hidden" name="isFromGlobalCash" value="" />
@@ -529,10 +552,13 @@ export function TransactionForm({
         />
       </Field>
 
-      <Field label="Bukti / nota (opsional)" htmlFor="proof">
+      <Field label="Bukti / nota (opsional)">
         <ProofCapture
           existingProofUrl={defaults?.proofUrl}
           onApplySuggestion={applyOcrSuggestion}
+          onFileChange={(f) => {
+            proofFileRef.current = f;
+          }}
         />
       </Field>
 

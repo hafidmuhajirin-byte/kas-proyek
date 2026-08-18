@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 import {
   parseReceiptText,
   type ReceiptOcrSuggestion,
@@ -15,20 +22,71 @@ import { btnSecondaryClass, inputClass } from "@/components/ui";
 type ProofCaptureProps = {
   existingProofUrl?: string | null;
   onApplySuggestion?: (suggestion: ReceiptOcrSuggestion) => void;
+  /** Dipanggil tiap file bukti siap (atau null saat dihapus) — untuk inject ke FormData di iOS. */
+  onFileChange?: (file: File | null) => void;
+  /** Hanya gambar (tanpa PDF / OCR) — untuk foto lokasi proyek. */
+  imagesOnly?: boolean;
 };
 
-const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
-const ALL_ACCEPT = `${IMAGE_ACCEPT},application/pdf`;
+/** Galeri: longgar agar iPhone HEIC/galeri tidak terfilter. */
+const GALLERY_ACCEPT = "image/*,image/heic,image/heif,.heic,.heif,application/pdf";
+const GALLERY_IMAGES_ONLY = "image/*,image/heic,image/heif,.heic,.heif";
+
+/** Input file menempel di atas tombol — lebih andal di Android daripada input.hidden + click(). */
+function FilePickButton({
+  label,
+  disabled,
+  accept,
+  capture,
+  inputRef,
+  onChange,
+}: {
+  label: ReactNode;
+  disabled?: boolean;
+  accept: string;
+  capture?: boolean | "user" | "environment";
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const autoId = useId().replace(/:/g, "");
+  const id = `proof-pick-${autoId}`;
+
+  return (
+    <label
+      htmlFor={id}
+      className={`${btnSecondaryClass} relative min-h-12 flex-1 cursor-pointer overflow-hidden sm:flex-none ${
+        disabled ? "pointer-events-none opacity-60" : ""
+      }`}
+    >
+      <span className="pointer-events-none">{label}</span>
+      <input
+        ref={inputRef}
+        id={id}
+        type="file"
+        accept={accept}
+        {...(capture ? { capture } : {})}
+        disabled={disabled}
+        onChange={onChange}
+        // Jangan display:none — beberapa HP mengabaikan klik ke input tersembunyi.
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        style={{ fontSize: "16px" }}
+      />
+    </label>
+  );
+}
 
 export function ProofCapture({
   existingProofUrl,
   onApplySuggestion,
+  onFileChange,
+  imagesOnly = false,
 }: ProofCaptureProps) {
-  const cameraId = useId();
-  const galleryId = useId();
+  const acceptGallery = imagesOnly ? GALLERY_IMAGES_ONLY : GALLERY_ACCEPT;
+  const enableOcr = Boolean(onApplySuggestion) && !imagesOnly;
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const hiddenFileRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<File | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -49,12 +107,17 @@ export function ProofCapture({
     };
   }, [previewUrl]);
 
+  /** Fallback non-iOS: isi input name=proof. iOS Safari sering gagal — pakai onFileChange. */
   function syncHiddenInput(next: File | null) {
     const input = hiddenFileRef.current;
     if (!input) return;
-    const dt = new DataTransfer();
-    if (next) dt.items.add(next);
-    input.files = dt.files;
+    try {
+      const dt = new DataTransfer();
+      if (next) dt.items.add(next);
+      input.files = dt.files;
+    } catch {
+      // iOS / browser ketat: biarkan onFileChange yang mengirim file
+    }
   }
 
   function assignFile(
@@ -67,12 +130,15 @@ export function ProofCapture({
     setOcrError(null);
     setOcrProgress(0);
 
+    fileRef.current = next;
+    onFileChange?.(next);
+    syncHiddenInput(next);
+
     if (!next) {
       setFile(null);
       setPreviewUrl(null);
       setIsPdf(false);
       setOriginalSize(null);
-      syncHiddenInput(null);
       return;
     }
 
@@ -81,25 +147,48 @@ export function ProofCapture({
     setIsPdf(pdf);
     setOriginalSize(meta?.originalSize ?? null);
     setPreviewUrl(pdf ? null : URL.createObjectURL(next));
-    syncHiddenInput(next);
+  }
+
+  function looksLikeImage(file: File) {
+    const t = (file.type || "").toLowerCase();
+    if (t.startsWith("image/")) return true;
+    // Beberapa kamera HP mengirim MIME kosong — cek ekstensi
+    if (t === "" || t === "application/octet-stream") {
+      return /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(file.name);
+    }
+    return false;
+  }
+
+  function isHeicLike(file: File) {
+    const t = (file.type || "").toLowerCase();
+    return (
+      t === "image/heic" ||
+      t === "image/heif" ||
+      /\.heic$/i.test(file.name) ||
+      /\.heif$/i.test(file.name)
+    );
   }
 
   async function onPick(e: ChangeEvent<HTMLInputElement>) {
     const picked = e.target.files?.[0] ?? null;
+    // Reset value agar foto yang sama bisa dipilih lagi
     e.target.value = "";
 
     if (!picked) {
-      assignFile(null);
       return;
     }
 
     if (picked.type === "application/pdf") {
+      if (imagesOnly) {
+        setOcrError("Hanya foto (JPG/PNG/WEBP) yang diterima.");
+        return;
+      }
       assignFile(picked);
       return;
     }
 
-    if (!picked.type.startsWith("image/")) {
-      assignFile(picked);
+    if (!looksLikeImage(picked)) {
+      setOcrError("File bukan gambar/PDF yang didukung.");
       return;
     }
 
@@ -107,10 +196,18 @@ export function ProofCapture({
     setOcrError(null);
     try {
       const compressed = await compressImageFile(picked);
+      // Pastikan hasil JPEG (server menolak HEIC mentah)
+      if (isHeicLike(compressed)) {
+        throw new Error("HEIC");
+      }
       assignFile(compressed, { originalSize: picked.size });
     } catch {
-      // Fallback: tetap pakai file asli jika kompresi gagal
-      assignFile(picked, { originalSize: picked.size });
+      setOcrError(
+        isHeicLike(picked)
+          ? "Foto HEIC iPhone gagal diproses. Coba Ambil foto lagi, atau di Kamera iPhone: Settings → Camera → Formats → Most Compatible."
+          : "Gagal memproses foto. Coba Ambil foto ulang atau pilih Dari galeri.",
+      );
+      assignFile(null);
     } finally {
       setCompressing(false);
     }
@@ -170,56 +267,43 @@ export function ProofCapture({
 
   return (
     <div className="space-y-3">
+      {/* Fallback submit (Chrome/Android). iOS: MandorUploadForm inject via onFileChange. */}
       <input
         ref={hiddenFileRef}
         id="proof"
         name="proof"
         type="file"
-        accept={ALL_ACCEPT}
-        className="hidden"
+        accept={acceptGallery}
+        className="sr-only"
         tabIndex={-1}
         aria-hidden
-      />
-
-      <input
-        ref={cameraRef}
-        id={cameraId}
-        type="file"
-        accept={IMAGE_ACCEPT}
-        capture="environment"
-        className="hidden"
-        onChange={(e) => void onPick(e)}
-      />
-      <input
-        ref={galleryRef}
-        id={galleryId}
-        type="file"
-        accept={ALL_ACCEPT}
-        className="hidden"
-        onChange={(e) => void onPick(e)}
+        onChange={() => {
+          /* diisi lewat DataTransfer dari assignFile */
+        }}
       />
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={btnSecondaryClass}
+        {/* capture=environment → kamera belakang; input menempel di tombol */}
+        <FilePickButton
+          label="Ambil foto"
           disabled={compressing}
-          onClick={() => cameraRef.current?.click()}
-        >
-          Ambil foto
-        </button>
-        <button
-          type="button"
-          className={btnSecondaryClass}
+          accept="image/*"
+          capture="environment"
+          inputRef={cameraRef}
+          onChange={(e) => void onPick(e)}
+        />
+        {/* Tanpa capture → galeri / file picker */}
+        <FilePickButton
+          label="Dari galeri"
           disabled={compressing}
-          onClick={() => galleryRef.current?.click()}
-        >
-          Dari galeri
-        </button>
+          accept={acceptGallery}
+          inputRef={galleryRef}
+          onChange={(e) => void onPick(e)}
+        />
         {file ? (
           <button
             type="button"
-            className={`${btnSecondaryClass} text-[var(--rose-ink)]`}
+            className={`${btnSecondaryClass} flex-1 text-[var(--rose-ink)] sm:flex-none`}
             disabled={compressing}
             onClick={() => assignFile(null)}
           >
@@ -251,7 +335,7 @@ export function ProofCapture({
         <p className="text-xs text-[var(--ink-faint)]">{sizeHint}</p>
       ) : null}
 
-      {file && !isPdf ? (
+      {file && !isPdf && enableOcr ? (
         <div className="space-y-2">
           <button
             type="button"
@@ -274,7 +358,8 @@ export function ProofCapture({
         </p>
       ) : !compressing ? (
         <p className="text-xs text-[var(--ink-faint)]">
-          Ambil foto dari kamera HP atau pilih dari galeri / PDF. Foto
+          Ketuk <strong>Ambil foto</strong> untuk kamera HP, atau{" "}
+          <strong>Dari galeri</strong> jika kamera tidak terbuka. Foto
           dikompres otomatis sebelum disimpan.
         </p>
       ) : null}
