@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin, requireSession } from "@/lib/auth";
+import {
+  requireProjectBookkeeper,
+  requireSession,
+} from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseRupiahInput } from "@/lib/money";
 import type { FormState } from "@/lib/actions/projects";
@@ -10,8 +13,9 @@ export async function createFundingStageAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireAdmin();
   const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) return { error: "Proyek wajib." };
+  await requireProjectBookkeeper(projectId);
   const name = String(formData.get("name") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const percent = Number.parseInt(String(formData.get("percent") ?? "0"), 10);
@@ -72,7 +76,6 @@ export async function updateFundingStageAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
@@ -90,6 +93,7 @@ export async function updateFundingStageAction(
     include: { project: true },
   });
   if (!stage) return { error: "Tahapan tidak ditemukan." };
+  await requireProjectBookkeeper(stage.projectId);
 
   if (plannedAmount <= 0 && percent > 0 && stage.project.contractValue > 0) {
     plannedAmount = Math.round((stage.project.contractValue * percent) / 100);
@@ -127,12 +131,12 @@ export async function updateFundingStageAction(
 }
 
 export async function deleteFundingStageAction(formData: FormData) {
-  await requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
   const stage = await prisma.fundingStage.findUnique({ where: { id } });
   if (!stage) return;
+  await requireProjectBookkeeper(stage.projectId);
 
   await prisma.fundingStage.delete({ where: { id } });
   revalidatePath(`/projects/${stage.projectId}`);

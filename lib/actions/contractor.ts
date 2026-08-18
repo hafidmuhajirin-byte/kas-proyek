@@ -4,13 +4,8 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireSession } from "@/lib/auth";
-import {
-  getChannelCashBalance,
-  getGlobalCashBalance,
-  getGlobalCashBreakdown,
-  getProjectCashBalance,
-} from "@/lib/balance";
-import { allocateAdvanceFunding, CONTRACTOR_MAX_SAFE_PERCENT, calcContractorBudgetAmount } from "@/lib/contractor";
+import { CONTRACTOR_MAX_SAFE_PERCENT, calcContractorBudgetAmount } from "@/lib/contractor";
+import { findMandorByName } from "@/lib/mandor-assign";
 import { formatRupiah, parseRupiahInput } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import type { FormState } from "@/lib/actions/projects";
@@ -86,14 +81,16 @@ export async function upsertContractorAction(
 
   const existing = await prisma.contractor.findUnique({
     where: { projectId },
-    include: { advances: { select: { amount: true } } },
+    select: { id: true },
   });
-  const alreadyAdvanced = existing
-    ? existing.advances.reduce((sum, a) => sum + a.amount, 0)
-    : 0;
-  if (agreedAmount > 0 && agreedAmount < alreadyAdvanced) {
+  const paidAgg = await prisma.mandorDisbursement.aggregate({
+    where: { projectId, transactionId: { not: null } },
+    _sum: { amount: true },
+  });
+  const alreadyPaid = paidAgg._sum.amount ?? 0;
+  if (agreedAmount > 0 && agreedAmount < alreadyPaid) {
     return {
-      error: `Nilai borongan tidak boleh lebih kecil dari total termin yang sudah diberikan (${formatRupiah(alreadyAdvanced)}).`,
+      error: `Nilai borongan tidak boleh lebih kecil dari total Dana ke Mandor yang sudah diberikan (${formatRupiah(alreadyPaid)}).`,
     };
   }
 
@@ -114,111 +111,42 @@ export async function upsertContractorAction(
     },
   });
 
+  // Jika nama pemborong cocok akun Mandor → otomatis tugaskan ke proyek
+  // agar proyek muncul di login Mandor (bukan hanya data pemborong).
+  const mandors = await prisma.user.findMany({
+    where: { role: { in: ["MANDOR", "PELAKSANA"] } },
+    select: { id: true, name: true, username: true },
+  });
+  const matched = findMandorByName(mandors, name);
+  let assignNote = "";
+  if (matched) {
+    await prisma.projectAssignment.upsert({
+      where: {
+        userId_projectId: { userId: matched.id, projectId },
+      },
+      create: { userId: matched.id, projectId },
+      update: {},
+    });
+    assignNote = ` Mandor ${matched.name} otomatis ditugaskan ke proyek.`;
+    revalidatePath("/mandor");
+    revalidatePath("/mandor/upload");
+    revalidatePath("/users");
+  }
+
   revalidateContractor(projectId);
-  return { success: "Data pemborong disimpan." };
+  return {
+    success: `Data pemborong disimpan.${assignNote}`,
+  };
 }
 
 export async function createContractorAdvanceAction(
   _prev: FormState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<FormState> {
   await requireSession();
-  const projectId = String(formData.get("projectId") ?? "");
-  const dateRaw = String(formData.get("date") ?? "");
-  const description = String(formData.get("description") ?? "").trim();
-  const cashSourceId = String(formData.get("cashSourceId") ?? "");
-  const amount = parseRupiahInput(String(formData.get("amount") ?? "0"));
-
-  if (!projectId || !dateRaw || !description || !cashSourceId) {
-    return { error: "Semua field wajib diisi kecuali bukti." };
-  }
-  if (amount <= 0) {
-    return { error: "Nominal termin harus lebih dari 0." };
-  }
-
-  const contractor = await prisma.contractor.findUnique({
-    where: { projectId },
-    include: { advances: { select: { amount: true } } },
-  });
-  if (!contractor) {
-    return { error: "Isi data pemborong & nilai borongan dulu." };
-  }
-
-  const alreadyAdvanced = contractor.advances.reduce(
-    (sum, a) => sum + a.amount,
-    0,
-  );
-  if (alreadyAdvanced + amount > contractor.agreedAmount) {
-    const remaining = Math.max(0, contractor.agreedAmount - alreadyAdvanced);
-    return {
-      error: `Termin melebihi nilai borongan ${formatRupiah(contractor.agreedAmount)}. Sisa plafon ${formatRupiah(remaining)}.`,
-    };
-  }
-
-  const source = await prisma.cashSource.findUnique({
-    where: { id: cashSourceId },
-  });
-  if (!source) return { error: "Sumber kas tidak ditemukan." };
-
-  const [projectAvailable, globalAvailable, channelAvailable, breakdown] =
-    await Promise.all([
-      getProjectCashBalance(projectId),
-      getGlobalCashBalance(),
-      getChannelCashBalance(cashSourceId),
-      getGlobalCashBreakdown(),
-    ]);
-
-  const allocation = allocateAdvanceFunding(
-    amount,
-    projectAvailable,
-    globalAvailable,
-  );
-  if (allocation.error) {
-    return {
-      error: `${allocation.error} (Tunai ${formatRupiah(breakdown.cash)} · Bank ${formatRupiah(breakdown.bank)})`,
-    };
-  }
-
-  if (amount > channelAvailable) {
-    const channelLabel =
-      source.type === "BANK" || source.type === "CLIENT_TRANSFER"
-        ? "Bank"
-        : "Tunai";
-    return {
-      error: `${channelLabel} tidak cukup untuk termin (tersedia ${formatRupiah(channelAvailable)} via ${source.name}). Pilih sumber lain atau setor ke ${channelLabel.toLowerCase()} dulu.`,
-    };
-  }
-
-  let proofUrl: string | null = null;
-  try {
-    proofUrl = await saveProof(formData.get("proof") as File | null);
-  } catch (err) {
-    return {
-      error: err instanceof Error ? err.message : "Gagal upload bukti.",
-    };
-  }
-
-  await prisma.contractorAdvance.create({
-    data: {
-      contractorId: contractor.id,
-      date: new Date(dateRaw),
-      amount,
-      fromProjectAmount: allocation.fromProjectAmount,
-      fromGlobalAmount: allocation.fromGlobalAmount,
-      description,
-      cashSourceId,
-      proofUrl,
-    },
-  });
-
-  revalidateContractor(projectId);
-
-  const backupNote =
-    allocation.fromGlobalAmount > 0
-      ? ` Cadangan kas besar ${formatRupiah(allocation.fromGlobalAmount)} (kas proyek kurang).`
-      : "";
   return {
-    success: `Termin ${formatRupiah(amount)} tercatat. Dari kas proyek ${formatRupiah(allocation.fromProjectAmount)}.${backupNote}`,
+    error:
+      "Termin digabung ke Dana ke Mandor. Catat pencairan di panel Dana ke Mandor.",
   };
 }
 
@@ -261,7 +189,6 @@ export async function createContractorExpenseAction(
   const contractor = await prisma.contractor.findUnique({
     where: { projectId },
     include: {
-      advances: { select: { amount: true } },
       expenses: { select: { amount: true } },
     },
   });
@@ -276,6 +203,12 @@ export async function createContractorExpenseAction(
       error: `Total bukti tidak boleh melebihi nilai borongan ${formatRupiah(contractor.agreedAmount)}.`,
     };
   }
+
+  const mandorPaid = await prisma.mandorDisbursement.aggregate({
+    where: { projectId, transactionId: { not: null } },
+    _sum: { amount: true },
+  });
+  const totalPaid = mandorPaid._sum.amount ?? 0;
 
   let proofUrl: string | null = null;
   try {
@@ -299,14 +232,10 @@ export async function createContractorExpenseAction(
 
   revalidateContractor(projectId);
 
-  const totalAdvances = contractor.advances.reduce(
-    (sum, a) => sum + a.amount,
-    0,
-  );
-  const shortfall = Math.max(0, totalExpenses - totalAdvances);
+  const shortfall = Math.max(0, totalExpenses - totalPaid);
   if (shortfall > 0) {
     return {
-      success: `Bukti tersimpan. Total bukti melebihi termin — perlu termin berikutnya ${formatRupiah(shortfall)}.`,
+      success: `Bukti tersimpan. Total bukti melebihi dana cair — perlu pencairan Mandor ${formatRupiah(shortfall)}.`,
     };
   }
   return { success: "Bukti pengeluaran pemborong tersimpan." };

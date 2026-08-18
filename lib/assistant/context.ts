@@ -17,6 +17,7 @@ import {
   calcProjectProfit,
   PROJECT_FEE_PERCENT,
 } from "@/lib/project-profit";
+import { isAssistantExcludedProject } from "@/lib/assistant/scope";
 
 export type AssistantReminder = {
   id: string;
@@ -93,6 +94,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
             amount: true,
             isOwnerPersonal: true,
             isFeeTransfer: true,
+            isMandorExpense: true,
             category: { select: { name: true } },
           },
         },
@@ -110,6 +112,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
 
   const snaps: AssistantProjectSnap[] = [];
   for (const project of projects) {
+    if (isAssistantExcludedProject(project.name)) continue;
     const spentByKind: Partial<Record<ProjectFundKind, number>> = {};
     let clientIncome = 0;
     let operatingExpense = 0;
@@ -130,6 +133,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
         tx.type === "EXPENSE" &&
         !tx.isOwnerPersonal &&
         !tx.isFeeTransfer &&
+        !tx.isMandorExpense &&
         tx.category.name !== SCHOOL_RESIDUAL_CATEGORY
       ) {
         operatingExpense += tx.amount;
@@ -138,13 +142,20 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
       }
     }
 
-    const contractorAdvances = project.contractor
-      ? project.contractor.advances.reduce((s, a) => s + a.amount, 0)
-      : 0;
+    const contractorAdvances = 0; // Termin digabung ke Dana ke Mandor
     const remainingPlannedFunds = projectFundKinds.reduce((sum, kind) => {
       const planned =
         project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0;
       return sum + Math.max(0, planned - (spentByKind[kind] ?? 0));
+    }, 0);
+    const operationalFunds = projectFundKinds.reduce((sum, kind) => {
+      return (
+        sum +
+        Math.max(
+          0,
+          project.funds.find((f) => f.kind === kind)?.plannedAmount ?? 0,
+        )
+      );
     }, 0);
     const workCompletedValue = project.workItems.reduce(
       (s, i) => s + i.amount,
@@ -157,6 +168,7 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
       clientIncome,
       operatingExpense,
       contractorAdvances,
+      operationalFunds,
       remainingPlannedFunds,
       contingencyPercent: 0,
     });
@@ -254,7 +266,9 @@ export async function buildAssistantContext(): Promise<AssistantContext> {
     kasBesar,
     feePercent: PROJECT_FEE_PERCENT,
     projects: snaps,
-    recentTransactions: recent.map((tx) => ({
+    recentTransactions: recent
+      .filter((tx) => !isAssistantExcludedProject(tx.project?.name ?? ""))
+      .map((tx) => ({
       id: tx.id,
       date: tx.date.toISOString(),
       type: tx.type,
