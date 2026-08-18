@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeleteSitePhotoButton } from "@/components/DeleteSitePhotoButton";
+import { DeleteSiteVideoButton } from "@/components/DeleteSiteVideoButton";
 import { FotoProyekDownload } from "@/components/FotoProyekDownload";
 import { FotoProyekVideoDownload } from "@/components/FotoProyekVideoDownload";
 import { FotoProyekProjectFilter } from "@/components/FotoProyekProjectFilter";
@@ -135,6 +136,12 @@ export default async function FotoProyekPage({
                     >
                       Download
                     </a>
+                  ) : null}
+                  {owner ? (
+                    <DeleteSiteVideoButton
+                      videoId={video.id}
+                      returnTo={returnTo}
+                    />
                   ) : null}
                 </div>
               </li>

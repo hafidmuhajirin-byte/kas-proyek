@@ -256,23 +256,53 @@ export async function deleteSitePhotoAction(
   if (!photo) redirect("/foto-proyek");
 
   await prisma.projectSitePhoto.delete({ where: { id: photo.id } });
-
-  if (photo.photoUrl.startsWith("/uploads/")) {
-    const rel = photo.photoUrl.replace(/^\//, "");
-    const abs = path.join(process.cwd(), "public", rel);
-    const uploadsRoot = path.join(process.cwd(), "public", "uploads");
-    if (abs.startsWith(uploadsRoot + path.sep)) {
-      try {
-        await unlink(abs);
-      } catch {
-        // file mungkin sudah tidak ada
-      }
-    }
-  }
+  await unlinkUpload(photo.photoUrl);
 
   revalidatePath("/foto-proyek");
   revalidatePath("/mandor/lokasi");
   revalidatePath(`/projects/${photo.projectId}`);
+
+  const back = String(formData.get("returnTo") ?? "/foto-proyek");
+  redirect(back.startsWith("/") ? back : "/foto-proyek");
+}
+
+async function unlinkUpload(url: string) {
+  if (!url.startsWith("/uploads/")) return;
+  const rel = url.replace(/^\//, "");
+  const abs = path.join(process.cwd(), "public", rel);
+  const uploadsRoot = path.join(process.cwd(), "public", "uploads");
+  if (!abs.startsWith(uploadsRoot + path.sep)) return;
+  try {
+    await unlink(abs);
+  } catch {
+    // file mungkin sudah tidak ada
+  }
+}
+
+/** Hapus video lokasi — hanya Owner. */
+export async function deleteSiteVideoAction(
+  formData: FormData,
+): Promise<void> {
+  const user = await requireSession();
+  if (!isOwner(user)) {
+    redirect("/foto-proyek");
+  }
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) redirect("/foto-proyek");
+
+  const video = await prisma.projectSiteVideo.findUnique({
+    where: { id },
+    select: { id: true, videoUrl: true, projectId: true },
+  });
+  if (!video) redirect("/foto-proyek");
+
+  await prisma.projectSiteVideo.delete({ where: { id: video.id } });
+  await unlinkUpload(video.videoUrl);
+
+  revalidatePath("/foto-proyek");
+  revalidatePath("/mandor/lokasi");
+  revalidatePath(`/projects/${video.projectId}`);
 
   const back = String(formData.get("returnTo") ?? "/foto-proyek");
   redirect(back.startsWith("/") ? back : "/foto-proyek");
